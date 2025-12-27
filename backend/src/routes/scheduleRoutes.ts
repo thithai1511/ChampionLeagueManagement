@@ -3,7 +3,7 @@ import { requireAuth, requirePermission } from "../middleware/authMiddleware";
 import * as scheduleService from "../services/scheduleService";
 
 const router = Router();
-
+ 
 /**
  * POST /api/schedule/generate
  * Generate round-robin schedule for a season
