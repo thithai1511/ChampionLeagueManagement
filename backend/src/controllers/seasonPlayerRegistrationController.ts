@@ -1,11 +1,13 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import {
-    registerPlayerForSeason,
     getPendingRegistrations,
     approveRegistration,
     rejectRegistration,
     approveAllPendingRegistrations,
-    importSeasonPlayersFromCSV
+    importSeasonPlayersFromCSV,
+    submitExistingPlayerRegistration,
+    removeRegistration,
+    updateApprovedRegistration
 } from "../services/seasonPlayerRegistrationService";
 import { query } from "../db/sqlServer";
 import { getUserTeamIds } from "../services/userTeamService";
@@ -71,13 +73,7 @@ export async function register(
         );
     }
 
-    let numericShirtNumber: number | undefined = undefined;
-    if (shirt_number !== undefined && shirt_number !== null && shirt_number !== "") {
-        numericShirtNumber = Number(shirt_number);
-        if (isNaN(numericShirtNumber)) {
-            throw BadRequestError("shirt_number must be a number");
-        }
-    }
+
 
     // =========================
     // 4. Validate player_type
@@ -92,6 +88,14 @@ export async function register(
     }
 
     // =========================
+    let numericShirtNumber: number | null = null;
+    if (shirt_number !== undefined && shirt_number !== null && String(shirt_number).trim() !== "") {
+        const parsed = Number(shirt_number);
+        if (Number.isNaN(parsed)) throw BadRequestError("shirt_number must be a number");
+        numericShirtNumber = parsed;
+    }
+
+    // =========================
     // 5. Get user from auth
     // =========================
     const userId = req.user?.sub;
@@ -100,16 +104,20 @@ export async function register(
     // =========================
     // 6. Call service
     // =========================
-    await registerPlayerForSeason({
+    await submitExistingPlayerRegistration({
         season_id: numericSeasonId,
-        player_id: numericPlayerId,
         season_team_id: numericSeasonTeamId,
+        player_id: numericPlayerId,
         position_code,
         shirt_number: numericShirtNumber,
         player_type: normalizedPlayerType,
         file_path: file.path,
-        user_id: userId,
-        username
+        currentUser: {
+            sub: userId!,
+            username: username,
+            roles: req.user?.roles,
+            teamIds: req.user?.teamIds
+        }
     });
 
     // =========================
@@ -219,39 +227,80 @@ export async function importCSV(
     const userId = req.user?.sub;
     const username = req.user?.username;
 
-    const isGlobalUser =
-        (Array.isArray(req.user?.roles) && req.user?.roles.includes("super_admin")) ||
-        (Array.isArray(req.user?.permissions) && req.user?.permissions.includes("manage_teams"));
-
-    if (!isGlobalUser) {
-        const scopedTeamIds = Array.isArray(req.user?.teamIds) ? req.user?.teamIds : await getUserTeamIds(userId ?? 0);
-        if (!Array.isArray(scopedTeamIds) || scopedTeamIds.length === 0) {
-            throw ForbiddenError("You are not allowed to import players for this team");
-        }
-
-        const teamResult = await query<{ team_id: number }>(
-            `SELECT team_id FROM season_team_participants WHERE season_team_id = @seasonTeamId`,
-            { seasonTeamId: numericSeasonTeamId }
-        );
-
-        const teamId = Number(teamResult.recordset[0]?.team_id);
-        if (!teamId) {
-            throw BadRequestError("SEASON_TEAM_NOT_FOUND");
-        }
-
-        if (!scopedTeamIds.includes(teamId)) {
-            throw ForbiddenError("You are not allowed to import players for this team");
-        }
-    }
-
+    // Note: Permission check moved to service
     const result = await importSeasonPlayersFromCSV({
         season_id: numericSeasonId,
         season_team_id: numericSeasonTeamId,
         file_buffer: file.buffer,
         file_path: file.path,
         user_id: userId,
-        username
+        username,
+        currentUser: {
+            sub: req.user!.sub,
+            username: req.user?.username,
+            roles: req.user?.roles,
+            teamIds: req.user?.teamIds
+        }
     });
 
     res.json(result);
+}
+
+/**
+ * Remove (Soft-Remove) a player from season
+ */
+export async function remove(
+    req: AuthenticatedRequest,
+    res: Response
+): Promise<void> {
+    const numericId = Number(req.params.id);
+
+    if (isNaN(numericId)) {
+        throw BadRequestError("Invalid registration id");
+    }
+
+    const userId = req.user?.sub;
+
+    await removeRegistration(numericId, userId);
+
+    res.json({ message: "Player removed from season successfully" });
+}
+
+export async function update(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        const id = Number(req.params.id);
+        const { shirt_number, position_code } = req.body;
+
+        if (!Number.isInteger(id)) {
+            return res.status(400).json({ error: "Invalid id" });
+        }
+
+        if (
+            !Number.isInteger(parseInt(shirt_number)) ||
+            parseInt(shirt_number) < 1 ||
+            parseInt(shirt_number) > 99
+        ) {
+            return res.status(400).json({ error: "Invalid shirt number" });
+        }
+
+        if (!position_code) {
+            return res.status(400).json({ error: "position_code is required" });
+        }
+
+        await updateApprovedRegistration(id, {
+            shirt_number: parseInt(shirt_number),
+            position_code
+        });
+
+        res.json({ message: "Player updated in season successfully" });
+    } catch (err: any) {
+        if (err.message === "NOT_FOUND_OR_NOT_APPROVED") {
+            return res.status(404).json({ error: "Registration not found or not approved" });
+        }
+        next(err);
+    }
 }

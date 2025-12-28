@@ -33,7 +33,15 @@ const MENU_SECTIONS = [
     disallowedRoles: ['super_admin'],
     items: [
       { name: 'Đội của tôi', path: '/admin/my-team', icon: Users, permission: 'view_own_team' },
-      { name: 'Đăng ký cầu thủ', path: '/admin/player-registrations', icon: UserCheck, permission: 'manage_own_player_registrations' }
+      {
+        name: 'Đăng ký cầu thủ',
+        path: '/admin/players',
+        icon: UserCheck,
+        // Allow if user has either team management or specifically own player registration
+        anyPermissions: ['manage_teams', 'manage_own_player_registrations'],
+        disallowedRoles: ['super_admin']
+      },
+      { name: 'Đăng ký mùa giải', path: '/admin/player-registrations', icon: FileText, permission: 'manage_own_player_registrations' }
     ]
   },
   {
@@ -49,15 +57,13 @@ const MENU_SECTIONS = [
       { name: 'Mùa giải', path: '/admin/seasons', icon: Swords, permission: 'manage_teams' },
       { name: 'Đội bóng', path: '/admin/teams', icon: Users, permission: 'manage_teams' },
       { name: 'Trận đấu', path: '/admin/matches', icon: Calendar, permission: 'manage_matches' },
-      // 2. Thêm link mới vào đây
       { name: 'Trận trong ngày', path: '/admin/matches-today', icon: PlayCircle, permission: 'manage_matches' },
-      { name: 'Cầu thủ', path: '/admin/players', icon: UserCheck, permission: 'manage_teams' },
       { name: 'Tra cứu cầu thủ', path: '/admin/season-players', icon: Users, permission: 'manage_teams' },
       {
         name: 'Duyệt đăng ký cầu thủ',
         path: '/admin/season-player-approvals',
         icon: ScrollText,
-        anyPermissions: ['approve_player_registrations', 'manage_own_player_registrations']
+        permission: 'approve_player_registrations'
       },
       { name: 'Thống kê cầu thủ', path: '/admin/player-stats', icon: Target, permission: 'manage_matches' },
       { name: 'Bảng xếp hạng', path: '/admin/standings', icon: Trophy, permission: 'manage_matches' },

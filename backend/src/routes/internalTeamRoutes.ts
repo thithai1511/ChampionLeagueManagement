@@ -313,22 +313,24 @@ router.get("/:id/players", async (req: AuthenticatedRequest, res, next) => {
     }>(
       `
         SELECT 
-          player_id,
-          full_name,
-          display_name,
-          CONVERT(VARCHAR(10), date_of_birth, 23) as date_of_birth,
-          place_of_birth,
-          nationality,
-          preferred_position,
-          secondary_position,
-          height_cm,
-          weight_kg,
-          dominant_foot,
-          current_team_id
-        FROM players
-        WHERE current_team_id = @teamId
-        ORDER BY full_name;
-      `,
+          fp.id as player_id,
+      fp.name as full_name,
+      fp.name as display_name,
+      CONVERT(VARCHAR(10), fp.date_of_birth, 23) as date_of_birth,
+      NULL as place_of_birth,
+      fp.nationality,
+      fp.position as preferred_position,
+      NULL as secondary_position,
+      NULL as height_cm,
+      NULL as weight_kg,
+      NULL as dominant_foot,
+      fp.internal_team_id as current_team_id
+        FROM FootballPlayers fp
+        JOIN teams t ON t.team_id = @teamId
+        WHERE fp.internal_team_id = @teamId
+           OR fp.team_name = t.name
+        ORDER BY fp.name;
+    `,
       { teamId },
     );
 
@@ -371,7 +373,7 @@ router.put("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReques
         SELECT team_id, name, short_name, code, city, country, founded_year, status
         FROM teams
         WHERE team_id = @teamId;
-      `,
+    `,
       { teamId },
     );
 
@@ -392,18 +394,18 @@ router.put("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReques
       await query(
         `
           UPDATE teams
-          SET
-            name = CASE WHEN @has_name = 1 THEN @name ELSE name END,
-            short_name = CASE WHEN @has_short_name = 1 THEN @short_name ELSE short_name END,
-            code = CASE WHEN @has_code = 1 THEN @code ELSE code END,
-            city = CASE WHEN @has_city = 1 THEN @city ELSE city END,
+    SET
+    name = CASE WHEN @has_name = 1 THEN @name ELSE name END,
+      short_name = CASE WHEN @has_short_name = 1 THEN @short_name ELSE short_name END,
+        code = CASE WHEN @has_code = 1 THEN @code ELSE code END,
+          city = CASE WHEN @has_city = 1 THEN @city ELSE city END,
             country = CASE WHEN @has_country = 1 THEN @country ELSE country END,
-            founded_year = CASE WHEN @has_founded_year = 1 THEN @founded_year ELSE founded_year END,
-            status = CASE WHEN @has_status = 1 THEN COALESCE(@status, status) ELSE status END,
-            updated_at = SYSUTCDATETIME(),
-            updated_by = @updated_by
+              founded_year = CASE WHEN @has_founded_year = 1 THEN @founded_year ELSE founded_year END,
+                status = CASE WHEN @has_status = 1 THEN COALESCE(@status, status) ELSE status END,
+                  updated_at = SYSUTCDATETIME(),
+                  updated_by = @updated_by
           WHERE team_id = @teamId;
-        `,
+    `,
         {
           teamId,
           updated_by: req.user?.sub ?? null,
@@ -445,7 +447,7 @@ router.put("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReques
         SELECT team_id, name, short_name, code, city, country, founded_year, status
         FROM teams
         WHERE team_id = @teamId;
-      `,
+    `,
       { teamId },
     );
 
@@ -495,7 +497,7 @@ router.delete("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReq
         SELECT team_id, name, short_name, code, city, country, founded_year, status
         FROM teams
         WHERE team_id = @teamId;
-      `,
+    `,
       { teamId },
     );
 
@@ -509,7 +511,7 @@ router.delete("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReq
         `
           DELETE FROM teams
           WHERE team_id = @teamId;
-        `,
+    `,
         { teamId },
       );
     } catch (error: any) {

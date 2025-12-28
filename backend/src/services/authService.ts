@@ -158,13 +158,15 @@ async function clearLockout(userId: number) {
 
 /**
  * Get managed team ID for a user (if they are a club manager)
+ * Returns the first team assigned to the user via user_team_assignments
  */
 async function getManagedTeamId(userId: number): Promise<number | null> {
-  const result = await query<{ team_id: number | null }>(
+  const result = await query<{ team_id: number }>(
     `
-    SELECT TOP 1 ua.team_id
-    FROM user_accounts ua
-    WHERE ua.user_id = @userId
+    SELECT TOP 1 uta.team_id
+    FROM user_team_assignments uta
+    WHERE uta.user_id = @userId
+    ORDER BY uta.assigned_at ASC
     `,
     { userId }
   );

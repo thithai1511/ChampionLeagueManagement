@@ -36,8 +36,15 @@ class TeamsService {
       const response = await ApiService.get(APP_CONFIG.API.ENDPOINTS.TEAMS.LIST, params)
 
       // Map backend data structure to frontend structure
-      const teams = (response.data || []).map(team => ({
-        id: team.team_id,
+      const rawTeams =
+        Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.teams)
+            ? response.data.teams
+            : []
+
+      const teams = rawTeams.map(team => ({
+        id: team.team_id ?? team.id,
         name: team.name,
         short_name: team.short_name,
         code: team.code,
@@ -52,8 +59,8 @@ class TeamsService {
 
       return {
         teams,
-        pagination: response.pagination || {},
-        total: response.total || 0
+        pagination: response?.data?.pagination ?? {},
+        total: response?.data?.total ?? teams.length
       }
     } catch (error) {
       logger.error('Failed to fetch teams:', error)
@@ -142,6 +149,57 @@ class TeamsService {
       season: filters.season || ''
     })
     return response.data
+  }
+
+  // --- New Methods for Season Player Queries ---
+
+  // Super Admin: Get all approved players for a season
+  async getApprovedSeasonPlayers(seasonId, filters = {}) {
+    if (!seasonId) return [];
+
+    const params = {
+      season_id: seasonId
+    };
+    if (filters.team_id) params.team_id = filters.team_id;
+    if (filters.position_code) params.position_code = filters.position_code;
+    if (filters.player_type) params.nationality_type = filters.player_type;
+
+    const response = await ApiService.get('/season-players/approved', params);
+
+    // Exact contract mapping:
+    // Backend returns: { season_id, total, players: [...] }
+
+    // Case 1: ApiService returns Axios response object -> data is in response.data.players
+    if (response?.data?.players && Array.isArray(response.data.players)) {
+      return response.data.players;
+    }
+
+    // Case 2: ApiService returns data object directly (interceptor might unwrap it) -> data is in response.players
+    if (response?.players && Array.isArray(response.players)) {
+      return response.players;
+    }
+
+    // Default fallback
+    return [];
+  }
+
+  // Admin Team: Get approved players for my team(s)
+  async getMyTeamApprovedSeasonPlayers(seasonId, teamId) {
+    if (!seasonId) return [];
+
+    const params = {
+      season_id: seasonId
+    };
+    if (teamId) {
+      params.team_id = teamId;
+    }
+
+    const response = await ApiService.get('/season-players/my-team/approved', params);
+    // ApiService wraps response in { data: ... } if parsed is object.
+    // Backend returns { players: [...] } -> Wrapped as { data: { players: [...] } }
+    console.log('[TeamsService] getMyTeamApprovedSeasonPlayers raw:', response);
+    const payload = response?.data || response || {};
+    return payload.players || [];
   }
 }
 

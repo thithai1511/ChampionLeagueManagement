@@ -120,9 +120,9 @@ const mapSeasonRow = (row: SeasonRow): SeasonSummary => ({
   startDate: row.start_date,
   endDate: row.end_date,
   tournamentId: row.tournament_id,
-  tournamentName: row.tournament_name,
+  tournamentName: row.tournament_name || 'Unknown Tournament',
   rulesetId: row.ruleset_id,
-  rulesetName: row.ruleset_name,
+  rulesetName: row.ruleset_name || 'Unknown Ruleset',
   description: row.description,
   participationFee: row.participation_fee !== null ? Number(row.participation_fee) : 0,
   maxTeams: row.max_teams,
@@ -744,4 +744,40 @@ export async function getInternalStandings(filters: { seasonId?: number; season?
     }
     throw error;
   }
+}
+
+export async function listSeasonTeamsByIdentifier(identifier: string | number) {
+  // 1. Resolve season_id
+  const seasonRes = await query(
+    `
+    SELECT TOP 1 season_id
+    FROM seasons
+    WHERE season_id = TRY_CAST(@id AS INT)
+       OR code = @id
+       OR name = @id
+    `,
+    { id: String(identifier) }
+  );
+
+  const seasonId = seasonRes.recordset[0]?.season_id;
+  if (!seasonId) return [];
+
+  // 2. Get teams in season
+  const teamsRes = await query(
+    `
+    SELECT
+      stp.season_team_id,
+      stp.season_id,
+      t.team_id,
+      t.name AS team_name
+    FROM season_team_participants stp
+    JOIN teams t ON t.team_id = stp.team_id
+    WHERE stp.season_id = @seasonId
+      AND stp.status = 'active'
+    ORDER BY t.name
+    `,
+    { seasonId }
+  );
+
+  return teamsRes.recordset;
 }

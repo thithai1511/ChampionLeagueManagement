@@ -416,6 +416,3 @@ export async function getAvailableOfficialsForRole(
   }));
 }
 
-
-
-

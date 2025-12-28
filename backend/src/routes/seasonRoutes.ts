@@ -12,9 +12,12 @@ import {
   updateSeason,
 } from "../services/seasonService";
 import { AuthenticatedRequest } from "../types";
+import { query } from "../db/sqlServer";
 
 const router = Router();
 const requireSeasonManagement = requireAnyPermission("manage_rulesets", "manage_teams");
+
+/* ===================== SCHEMAS ===================== */
 
 const seasonStatusSchema = z.union([
   z.literal("draft"),
@@ -42,16 +45,60 @@ const seasonBaseSchema = z.object({
   expectedRounds: z.number().int().min(1).max(60).optional(),
 });
 
+/* ===================== ROUTES ===================== */
+
+/**
+ * GET /api/seasons/:id/teams
+ * 👉 FE dropdown chọn đội
+ */
+router.get(
+  "/:id/teams",
+  requireAuth,
+  async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store')
+
+    const seasonId = Number(req.params.id)
+
+    const result = await query(`
+      SELECT
+        stp.season_team_id,
+        stp.season_id,
+        t.team_id,
+        t.name AS team_name
+      FROM season_team_participants stp
+      JOIN teams t ON stp.team_id = t.team_id
+      WHERE stp.season_id = @seasonId
+      ORDER BY t.name
+    `, { seasonId })
+
+    res.json(
+      result.recordset.map(r => ({
+        id: r.season_team_id,
+        name: r.team_name,
+        team_id: r.team_id
+      }))
+    )
+  }
+)
+
+
+/**
+ * GET /api/seasons
+ */
 router.get(
   "/",
   requireAuth,
-  requireSeasonManagement,
+  requireAuth,
+  // Allow all authenticated users to list seasons (needed for Team Admin My Team page)
   async (_req, res) => {
     const seasons = await listSeasons();
     res.json(seasons);
   }
 );
 
+/**
+ * GET /api/seasons/metadata
+ */
 router.get(
   "/metadata",
   requireAuth,
@@ -62,6 +109,9 @@ router.get(
   }
 );
 
+/**
+ * GET /api/seasons/:id
+ */
 router.get(
   "/:id",
   requireAuth,
@@ -75,6 +125,9 @@ router.get(
   }
 );
 
+/**
+ * POST /api/seasons
+ */
 router.post(
   "/",
   requireAuth,
@@ -94,6 +147,9 @@ router.post(
   }
 );
 
+/**
+ * PUT /api/seasons/:id
+ */
 router.put(
   "/:id",
   requireAuth,
@@ -114,6 +170,9 @@ router.put(
   }
 );
 
+/**
+ * DELETE /api/seasons/:id
+ */
 router.delete(
   "/:id",
   requireAuth,
@@ -326,3 +385,4 @@ router.delete(
 );
 
 export default router;
+

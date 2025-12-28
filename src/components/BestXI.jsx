@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Trophy, Star, Zap, Award, TrendingUp, ChevronDown } from 'lucide-react';
 import PlayersService from '../layers/application/services/PlayersService';
 import { getAvatarWithFallback } from '../shared/utils/playerAvatar';
@@ -39,14 +39,27 @@ const PlayerCard = ({ player, position, delay = 0 }) => {
               {player.avatar ? (
                 <img 
                   src={player.avatar} 
-                  alt={player.name}
+                  alt={player.name || player.fullName || 'Player'}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  onError={(e) => {
+                    console.warn('BestXI: Image failed to load for player:', player.name, 'URL:', player.avatar);
+                    // Show fallback on error
+                    e.target.style.display = 'none';
+                    const fallback = e.target.nextElementSibling;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
+                  onLoad={() => {
+                    console.log('BestXI: Image loaded successfully for player:', player.name, 'URL:', player.avatar?.substring(0, 50));
+                  }}
                 />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Star size={32} className="text-cyan-400/50" />
-                </div>
-              )}
+              ) : null}
+              {/* Fallback - shown if no avatar or image fails to load */}
+              <div 
+                className={`w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800 ${player.avatar ? 'hidden' : ''}`}
+                style={{ display: player.avatar ? 'none' : 'flex' }}
+              >
+                <Star size={32} className="text-cyan-400/50" />
+              </div>
             </div>
           </div>
 
@@ -192,20 +205,6 @@ const BestXI = () => {
         });
         const players = response?.players || [];
         setAllPlayers(players);
-        
-        // Fetch avatars for all players
-        if (players.length > 0) {
-          const playerIds = players.map(p => p.id || p.player_id).filter(Boolean);
-          if (playerIds.length > 0) {
-            try {
-              const { batchGetPlayerAvatars } = await import('../shared/utils/playerAvatar');
-              const avatars = await batchGetPlayerAvatars(playerIds);
-              setPlayerAvatars(avatars);
-            } catch (error) {
-              console.warn('Failed to fetch player avatars:', error);
-            }
-          }
-        }
       } catch (error) {
         console.error('Failed to fetch players:', error);
         setAllPlayers([]);
@@ -254,12 +253,11 @@ const BestXI = () => {
       const role = getPlayerRole(player.position);
       const rating = calculateRating(player);
       const playerId = player.id || player.player_id;
-      const avatarUrl = playerAvatars[playerId] || player.photoUrl || null;
+      const playerName = player.name || player.fullName || player.full_name || '';
       playersByRole[role].push({
         ...player,
         role,
         rating,
-        avatar: getAvatarWithFallback(avatarUrl, player.name || player.fullName),
         teamLogo: player.teamLogoUrl || null,
         flag: player.nationalityFlag || null,
         team: player.teamName || 'N/A',
@@ -353,38 +351,83 @@ const BestXI = () => {
   const currentFormation = FORMATIONS[selectedFormation];
   const currentPlayers = bestPlayers[selectedFormation] || [];
 
+  // Fetch avatars when currentPlayers change - FORCE TRIGGER
+  const playerIdsString = currentPlayers.map(p => p.id || p.player_id).filter(Boolean).sort().join(',');
+  
+  useEffect(() => {
+    if (!playerIdsString || currentPlayers.length === 0) return;
+    
+    const playerIds = playerIdsString.split(',').map(Number).filter(Boolean);
+    const missingIds = playerIds.filter(id => !playerAvatars[id] && !playerAvatars[String(id)]);
+    
+    if (missingIds.length === 0) return;
+    
+    console.log('BestXI: Fetching', missingIds.length, 'avatars:', missingIds);
+    
+    (async () => {
+      try {
+        const { batchGetPlayerAvatars } = await import('../shared/utils/playerAvatar');
+        const avatars = await batchGetPlayerAvatars(missingIds);
+        console.log('BestXI: Received', Object.keys(avatars).length, 'avatars');
+        if (Object.keys(avatars).length > 0) {
+          setPlayerAvatars(prev => ({ ...prev, ...avatars }));
+        }
+      } catch (error) {
+        console.error('BestXI: Error:', error.message);
+      }
+    })();
+  }, [playerIdsString]);
+
+  // Add avatars to current players
+  const currentPlayersWithAvatars = useMemo(() => {
+    return currentPlayers.map(player => {
+      const playerId = player.id || player.player_id;
+      const avatarUrl = playerAvatars[playerId] || playerAvatars[String(playerId)] || player.photoUrl || null;
+      const playerName = player.name || player.fullName || player.full_name || '';
+      return {
+        ...player,
+        avatar: getAvatarWithFallback(avatarUrl, playerName)
+      };
+    });
+  }, [currentPlayers, playerAvatars]);
+  
+  // Debug: Log when playerAvatars changes
+  useEffect(() => {
+    console.log('BestXI: playerAvatars state changed:', Object.keys(playerAvatars).length, 'avatars');
+  }, [playerAvatars]);
+
   // Calculate total stats
   const totalStats = useMemo(() => {
-    if (!currentPlayers || currentPlayers.length === 0) {
+    if (!currentPlayersWithAvatars || currentPlayersWithAvatars.length === 0) {
       return { goals: 0, assists: 0, avgRating: 0 };
     }
-    return currentPlayers.reduce((acc, player) => ({
+    return currentPlayersWithAvatars.reduce((acc, player) => ({
       goals: acc.goals + (player.goals || 0),
       assists: acc.assists + (player.assists || 0),
       avgRating: acc.avgRating + (player.rating || 0)
     }), { goals: 0, assists: 0, avgRating: 0 });
-  }, [currentPlayers]);
+  }, [currentPlayersWithAvatars]);
 
   // Get MVP (highest rated player)
   const mvp = useMemo(() => {
-    if (!currentPlayers || currentPlayers.length === 0) return null;
-    return currentPlayers.reduce((max, player) => 
+    if (!currentPlayersWithAvatars || currentPlayersWithAvatars.length === 0) return null;
+    return currentPlayersWithAvatars.reduce((max, player) => 
       (player.rating || 0) > (max.rating || 0) ? player : max
-    , currentPlayers[0]);
-  }, [currentPlayers]);
+    , currentPlayersWithAvatars[0]);
+  }, [currentPlayersWithAvatars]);
 
   // Position players on field
   const positionedPlayers = useMemo(() => {
-    if (!currentPlayers || currentPlayers.length === 0) return [];
+    if (!currentPlayersWithAvatars || currentPlayersWithAvatars.length === 0) return [];
     
     const result = [];
     let playerIndex = 0;
 
     ['GK', 'DEF', 'MID', 'FWD'].forEach(line => {
       currentFormation.positions[line]?.forEach((pos, idx) => {
-        if (currentPlayers[playerIndex]) {
+        if (currentPlayersWithAvatars[playerIndex]) {
           result.push({
-            ...currentPlayers[playerIndex],
+            ...currentPlayersWithAvatars[playerIndex],
             style: pos,
             delay: playerIndex * 0.08
           });
@@ -394,7 +437,7 @@ const BestXI = () => {
     });
 
     return result;
-  }, [currentFormation, currentPlayers]);
+  }, [currentFormation, currentPlayersWithAvatars]);
 
   return (
     <section className="relative rounded-[32px] overflow-hidden backdrop-blur-xl bg-gradient-to-br from-slate-900/95 via-slate-800/90 to-slate-900/95 border border-cyan-400/20 shadow-[0_0_80px_rgba(0,217,255,0.15)]">
@@ -532,7 +575,7 @@ const BestXI = () => {
                   <p className="text-white/60 text-sm">Đang tải đội hình xuất sắc nhất...</p>
                 </div>
               </div>
-            ) : currentPlayers.length === 0 ? (
+            ) : currentPlayersWithAvatars.length === 0 ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <Trophy size={48} className="text-white/20 mx-auto mb-4" />
@@ -655,7 +698,7 @@ const BestXI = () => {
                       <span className="text-sm text-white/80">Điểm TB</span>
                     </div>
                     <span className="text-2xl font-black text-cyan-400">
-                      {currentPlayers.length > 0 ? (totalStats.avgRating / currentPlayers.length).toFixed(1) : '0.0'}
+                      {currentPlayersWithAvatars.length > 0 ? (totalStats.avgRating / currentPlayersWithAvatars.length).toFixed(1) : '0.0'}
                     </span>
                   </div>
                 </div>
@@ -686,7 +729,7 @@ const BestXI = () => {
       </div>
 
       {/* CSS Animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes fadeInUp {
           from {
             opacity: 0;

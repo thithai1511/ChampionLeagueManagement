@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/authMiddleware';
+import { requireAuth } from '../middleware/authMiddleware';
 import { getTopScorers, getTopMVPs, getSeasonAwardsSummary } from '../services/awardService';
 
 const router = Router();
@@ -13,7 +13,7 @@ const router = Router();
  * GET /api/seasons/:seasonId/awards/top-scorers
  * Get top scorers for a season
  */
-router.get('/:seasonId/awards/top-scorers', authenticate, async (req: Request, res: Response) => {
+router.get('/:seasonId/awards/top-scorers', requireAuth, async (req: Request, res: Response) => {
   try {
     const seasonId = parseInt(req.params.seasonId);
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
@@ -46,7 +46,7 @@ router.get('/:seasonId/awards/top-scorers', authenticate, async (req: Request, r
  * GET /api/seasons/:seasonId/awards/top-mvps
  * Get top MVPs (Player of the Match) for a season
  */
-router.get('/:seasonId/awards/top-mvps', authenticate, async (req: Request, res: Response) => {
+router.get('/:seasonId/awards/top-mvps', requireAuth, async (req: Request, res: Response) => {
   try {
     const seasonId = parseInt(req.params.seasonId);
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
@@ -79,7 +79,7 @@ router.get('/:seasonId/awards/top-mvps', authenticate, async (req: Request, res:
  * GET /api/seasons/:seasonId/awards/summary
  * Get awards summary for a season (champion scorer, MVP)
  */
-router.get('/:seasonId/awards/summary', authenticate, async (req: Request, res: Response) => {
+router.get('/:seasonId/awards/summary', requireAuth, async (req: Request, res: Response) => {
   try {
     const seasonId = parseInt(req.params.seasonId);
 

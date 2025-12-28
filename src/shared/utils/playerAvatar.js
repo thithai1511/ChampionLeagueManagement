@@ -39,12 +39,24 @@ export async function batchGetPlayerAvatars(playerIds) {
   }
 
   try {
+    console.log('batchGetPlayerAvatars: Calling API with', validIds.length, 'player IDs:', validIds);
+    // Use longer timeout for batch requests (11 players * 3s delay = 33s + processing time)
     const response = await apiService.post('/players/avatars/batch', {
       playerIds: validIds
+    }, {
+      timeout: 120000 // 2 minutes timeout for batch requests
     });
-    return response?.avatars || {};
+    console.log('batchGetPlayerAvatars: API response:', response);
+    // ApiService wraps response in { data: {...} }, so we need response.data.avatars
+    const avatars = response?.data?.avatars || response?.avatars || {};
+    console.log('batchGetPlayerAvatars: Avatars extracted:', Object.keys(avatars).length, 'avatars');
+    return avatars;
   } catch (error) {
-    console.warn('Failed to batch fetch avatars:', error);
+    console.error('batchGetPlayerAvatars: Error details:', {
+      message: error?.message,
+      status: error?.status,
+      response: error?.response?.data
+    });
     return {};
   }
 }

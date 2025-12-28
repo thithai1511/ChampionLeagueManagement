@@ -29,7 +29,8 @@ class ApiService {
 
         // Add timeout wrapper
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+        const timeout = options.timeout || this.timeout
+        const timeoutId = setTimeout(() => controller.abort(), timeout)
 
         const response = await fetch(url, {
           ...options,
@@ -74,8 +75,8 @@ class ApiService {
 
           // Dispatch global error event for monitoring
           if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('api:error', { 
-              detail: { error, endpoint, attempt } 
+            window.dispatchEvent(new CustomEvent('api:error', {
+              detail: { error, endpoint, attempt }
             }))
           }
 
@@ -91,8 +92,18 @@ class ApiService {
         if (!responseText) return null
 
         try {
-          return JSON.parse(responseText)
-        } catch {
+          const parsed = JSON.parse(responseText)
+          if (Array.isArray(parsed)) {
+            return { data: parsed }
+          }
+          if (typeof parsed === 'object' && parsed !== null) {
+            return parsed.data !== undefined ? parsed : { data: parsed }
+          }
+          return { data: parsed }
+
+
+        }
+        catch {
           return responseText
         }
 
@@ -131,11 +142,17 @@ class ApiService {
     return this.request(url, { method: 'GET' })
   }
 
-  async post(endpoint, data = {}) {
-    return this.request(endpoint, {
+  async post(endpoint, data = {}, options = {}) {
+    const requestOptions = {
       method: 'POST',
-      body: JSON.stringify(data)
-    })
+      body: JSON.stringify(data),
+      ...options
+    };
+    // If custom timeout is provided, use it
+    if (options.timeout) {
+      requestOptions.timeout = options.timeout;
+    }
+    return this.request(endpoint, requestOptions)
   }
 
   async put(endpoint, data = {}) {

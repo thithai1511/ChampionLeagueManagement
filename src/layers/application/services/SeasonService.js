@@ -49,15 +49,15 @@ const normalizeMetadata = (payload = {}) => ({
   statuses: Array.isArray(payload.statuses) ? payload.statuses : [],
   tournaments: Array.isArray(payload.tournaments)
     ? payload.tournaments.map((item) => ({
-        id: Number(item.id ?? item.tournament_id ?? item.value ?? null),
-        name: item.name ?? item.label ?? ''
-      })).filter((item) => Number.isFinite(item.id) && item.name)
+      id: Number(item.id ?? item.tournament_id ?? item.value ?? null),
+      name: item.name ?? item.label ?? ''
+    })).filter((item) => Number.isFinite(item.id) && item.name)
     : [],
   rulesets: Array.isArray(payload.rulesets)
     ? payload.rulesets.map((item) => ({
-        id: Number(item.id ?? item.ruleset_id ?? item.value ?? null),
-        name: item.name ?? item.label ?? ''
-      })).filter((item) => Number.isFinite(item.id) && item.name)
+      id: Number(item.id ?? item.ruleset_id ?? item.value ?? null),
+      name: item.name ?? item.label ?? ''
+    })).filter((item) => Number.isFinite(item.id) && item.name)
     : []
 })
 
@@ -112,6 +112,29 @@ class SeasonService {
       throw new Error('Invalid season id')
     }
     await ApiService.delete(replacePathParams(ENDPOINTS.DELETE, { id }))
+  }
+
+  /**
+   * Remove a player from season registration (Super Admin only)
+   * DELETE /api/season-players/:id
+   */
+  async removeSeasonPlayerRegistration(seasonPlayerId) {
+    if (!Number.isFinite(Number(seasonPlayerId))) {
+      throw new Error('Invalid season player id')
+    }
+    // Note: Endpoint is /api/season-players/:id
+    await ApiService.delete(`/season-players/${seasonPlayerId}`)
+  }
+
+  /**
+   * Update registration details (Super Admin only)
+   * PUT /api/season-players/:id
+   */
+  async updateSeasonPlayerRegistration(seasonPlayerId, payload) {
+    if (!Number.isFinite(Number(seasonPlayerId))) {
+      throw new Error('Invalid season player id')
+    }
+    await ApiService.put(`/season-players/${seasonPlayerId}`, payload)
   }
 }
 

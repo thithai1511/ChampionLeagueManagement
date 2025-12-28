@@ -1,13 +1,19 @@
-import { Response } from "express";
+
 import { AuthenticatedRequest } from "../types";
 import { BadRequestError, ForbiddenError } from "../utils/httpError";
 import { getUserTeamIds } from "../services/userTeamService";
 import {
-  createPlayerRegistration,
   listPlayerRegistrations,
-  updatePlayerRegistration,
 } from "../services/playerRegistrationService";
-import { approveRegistration, rejectRegistration } from "../services/seasonPlayerRegistrationService";
+import {
+  approveRegistration,
+  rejectRegistration,
+  updateRegistration
+} from "../services/seasonPlayerRegistrationService";
+import { query } from "../db/sqlServer";
+import * as playerRegistrationService from "../services/playerRegistrationService";
+import * as seasonPlayerRegistrationService from "../services/seasonPlayerRegistrationService";
+import { NextFunction, Response } from "express";
 
 function hasPermission(req: AuthenticatedRequest, permission: string) {
   const permissions = Array.isArray(req.user?.permissions) ? req.user?.permissions : [];
@@ -73,55 +79,7 @@ export async function list(req: AuthenticatedRequest, res: Response): Promise<vo
 }
 
 export async function create(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const file = req.file;
-  if (!file) {
-    throw BadRequestError("File is required (PDF format)");
-  }
-
-  const seasonId = Number(req.body.season_id ?? req.body.seasonId);
-  const seasonTeamId = Number(req.body.season_team_id ?? req.body.seasonTeamId);
-
-  if (Number.isNaN(seasonId) || seasonId <= 0) {
-    throw BadRequestError("Invalid season_id");
-  }
-
-  if (Number.isNaN(seasonTeamId) || seasonTeamId <= 0) {
-    throw BadRequestError("Invalid season_team_id");
-  }
-
-  const fullName = String(req.body.full_name ?? req.body.fullName ?? "").trim();
-  const dateOfBirth = String(req.body.date_of_birth ?? req.body.dateOfBirth ?? "").trim();
-  const nationality = req.body.nationality ?? null;
-  const positionCode = String(req.body.position_code ?? req.body.positionCode ?? "").trim();
-  const playerType = String(req.body.player_type ?? req.body.playerType ?? "").trim();
-
-  const shirtNumberRaw = req.body.shirt_number ?? req.body.shirtNumber;
-  const shirtNumber =
-    shirtNumberRaw === "" || shirtNumberRaw === undefined || shirtNumberRaw === null
-      ? null
-      : Number(shirtNumberRaw);
-
-  if (shirtNumber !== null && Number.isNaN(shirtNumber)) {
-    throw BadRequestError("shirt_number must be a number");
-  }
-
-  const scopedTeamIds = await resolveScopedTeamIds(req);
-  await createPlayerRegistration({
-    seasonId,
-    seasonTeamId,
-    fullName,
-    dateOfBirth,
-    nationality,
-    positionCode,
-    shirtNumber,
-    playerType,
-    filePath: file.path,
-    actorId: req.user?.sub,
-    actorUsername: req.user?.username,
-    scopedTeamIds,
-  });
-
-  res.status(201).json({ message: "Registration created successfully" });
+  throw BadRequestError("NEW_PLAYER_REGISTRATION_DISABLED_MAINTENANCE");
 }
 
 export async function update(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -131,9 +89,6 @@ export async function update(req: AuthenticatedRequest, res: Response): Promise<
   }
 
   const file = req.file;
-  const fullName = req.body.full_name ?? req.body.fullName;
-  const dateOfBirth = req.body.date_of_birth ?? req.body.dateOfBirth;
-  const nationality = req.body.nationality;
   const positionCode = req.body.position_code ?? req.body.positionCode;
   const playerType = req.body.player_type ?? req.body.playerType;
 
@@ -142,24 +97,24 @@ export async function update(req: AuthenticatedRequest, res: Response): Promise<
     shirtNumberRaw === undefined
       ? undefined
       : shirtNumberRaw === ""
-      ? null
-      : Number(shirtNumberRaw);
+        ? null
+        : Number(shirtNumberRaw);
 
   if (shirtNumber !== undefined && shirtNumber !== null && Number.isNaN(shirtNumber)) {
     throw BadRequestError("shirt_number must be a number");
   }
 
-  const scopedTeamIds = await resolveScopedTeamIds(req);
-  await updatePlayerRegistration(id, {
-    fullName: fullName !== undefined ? String(fullName) : undefined,
-    dateOfBirth: dateOfBirth !== undefined ? String(dateOfBirth) : undefined,
-    nationality: nationality !== undefined ? nationality : undefined,
-    positionCode: positionCode !== undefined ? String(positionCode) : undefined,
-    shirtNumber,
-    playerType: playerType !== undefined ? String(playerType) : undefined,
-    filePath: file ? file.path : undefined,
-    actorId: req.user?.sub,
-    scopedTeamIds,
+  await updateRegistration(id, {
+    position_code: positionCode !== undefined ? String(positionCode) : undefined,
+    shirt_number: shirtNumber,
+    player_type: playerType !== undefined ? String(playerType) : undefined,
+    file_path: file ? file.path : undefined,
+    currentUser: {
+      sub: req.user!.sub,
+      username: req.user?.username,
+      roles: req.user?.roles,
+      teamIds: req.user?.teamIds
+    }
   });
 
   res.json({ message: "Registration updated successfully" });
@@ -189,3 +144,79 @@ export async function reject(req: AuthenticatedRequest, res: Response): Promise<
   await rejectRegistration(id, reason, req.user?.sub);
   res.json({ message: "Rejected successfully" });
 }
+
+export async function listSeasonTeams(req: AuthenticatedRequest, res: Response) {
+  const seasonId = Number(req.query.seasonId ?? req.query.season_id);
+
+  if (Number.isNaN(seasonId)) {
+    throw BadRequestError("Invalid season_id");
+  }
+
+  const scopedTeamIds = await resolveScopedTeamIds(req);
+
+  let where = `WHERE stp.season_id = @seasonId`;
+  const params: any = { seasonId };
+
+  if (Array.isArray(scopedTeamIds)) {
+    if (scopedTeamIds.length === 0) {
+      return res.json([]);
+    }
+
+    where += ` AND stp.team_id IN (${scopedTeamIds.map((_, i) => `@t${i}`).join(",")})`;
+    scopedTeamIds.forEach((id, i) => {
+      params[`t${i}`] = id;
+    });
+  }
+
+  const result = await query(
+    `
+      SELECT
+        stp.season_team_id,
+        stp.season_id,
+        t.team_id,
+        t.name AS team_name
+      FROM season_team_participants stp
+      JOIN teams t ON stp.team_id = t.team_id
+      ${where}
+      ORDER BY t.name
+    `,
+    params
+  );
+
+  res.json(result.recordset);
+}
+
+export const registerExistingPlayer = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const {
+      season_id,
+      season_team_id,
+      player_id,
+      shirt_number,
+      player_type,
+      position_code // Added to support position code
+    } = req.body;
+
+    // Call consolidated service
+    const created = await seasonPlayerRegistrationService.submitExistingPlayerRegistration({
+      season_id: Number(season_id),
+      season_team_id: Number(season_team_id),
+      player_id: Number(player_id),
+      position_code: String(position_code ?? "FW"), // Default if missing
+      shirt_number: shirt_number === "" || shirt_number == null ? null : Number(shirt_number),
+      player_type: String(player_type ?? "domestic"),
+      currentUser: req.user!
+    });
+
+    res.status(201).json({
+      message: "Player registered successfully",
+      registration_id: created.registration_id,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

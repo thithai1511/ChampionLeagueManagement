@@ -3,8 +3,15 @@ import { requireAnyPermission, requireAuth, requirePermission } from "../middlew
 import { upload } from "../middleware/uploadMiddleware";
 import * as playerRegistrationController from "../controllers/playerRegistrationController";
 
+
 const router = Router();
 
+router.get(
+  "/season-teams",
+  requireAuth,
+  requireAnyPermission("manage_teams", "manage_own_player_registrations"),
+  playerRegistrationController.listSeasonTeams
+);
 router.get(
   "/",
   requireAuth,
@@ -19,6 +26,9 @@ router.post(
   upload.single("file"),
   playerRegistrationController.create
 );
+
+
+
 
 router.put(
   "/:id",

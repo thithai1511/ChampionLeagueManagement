@@ -307,6 +307,3 @@ const MatchOfficialAssignmentModal = ({ isOpen, onClose, match, onSuccess }) => 
 
 export default MatchOfficialAssignmentModal;
 
-
-
-

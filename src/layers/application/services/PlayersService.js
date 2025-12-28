@@ -44,6 +44,12 @@ class PlayersService {
     }
   }
 
+  async createPlayer(payload) {
+    // Correct API: POST /api/players
+    // Assuming ApiService handles /api prefix or relative to base
+    return ApiService.post('/players', payload)
+  }
+
   async syncPlayers(season) {
     return ApiService.post('/players/sync', { season })
   }

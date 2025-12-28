@@ -113,7 +113,7 @@ router.get("/overview", ...requireStatsRead, async (req, res, next) => {
 
     const [teamsResult, playersResult] = await Promise.all([
       query<{ total: number }>(`SELECT COUNT(1) AS total FROM teams;`),
-      query<{ total: number }>(`SELECT COUNT(1) AS total FROM players;`),
+      query<{ total: number }>(`SELECT COUNT(1) AS total FROM FootballPlayers;`),
     ]);
 
     const matchesResult = await query<{ totalMatches: number; totalGoals: number }>(

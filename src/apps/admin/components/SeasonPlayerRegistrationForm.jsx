@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Save, AlertCircle, CheckCircle, Info, Loader2 } from 'lucide-react';
+import { Upload, Save, AlertCircle, CheckCircle, Info, Loader2, Search } from 'lucide-react';
 import ApiService from '../../../layers/application/services/ApiService';
+import TeamsService from '../../../layers/application/services/TeamsService';
+import { mapPositionToGroup } from '../../../shared/constants/footballPositions';
 
 const ERROR_MAPPINGS = {
     'PLAYER_ALREADY_REGISTERED': '⚠️ Cầu thủ này đã được đăng ký trong mùa giải đã chọn.',
@@ -19,70 +21,109 @@ const mapBackendErrorToUserMessage = (errorCode) => {
 const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
     const [formData, setFormData] = useState({
         season_id: '',
-        season_team_id: '',
-        full_name: '',
-        date_of_birth: '',
-        nationality: '',
-        position_code: '',
-        shirt_number: '',
-        age_on_season_start: '',
-        player_type: 'domestic'
+        season_team_id: ''
     });
 
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
 
-    // Dropdown Data
+    // Data
     const [seasonTeams, setSeasonTeams] = useState([]);
-    const [loadingTeams, setLoadingTeams] = useState(false);
+    const [teamPlayers, setTeamPlayers] = useState([]);
+    const [loadingData, setLoadingData] = useState(false);
+
+    // Selection & Details (Map: playerId -> { shirt_number, player_type })
+    const [selectedPlayerIds, setSelectedPlayerIds] = useState(new Set());
+    const [playerDetails, setPlayerDetails] = useState({});
+
+    // Filter
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Fetch teams when season_id changes
     useEffect(() => {
         const fetchTeams = async () => {
             if (!formData.season_id) {
-                setSeasonTeams([]);
-                setFormData(prev => ({ ...prev, season_team_id: '' }));
-                return;
+                setSeasonTeams([])
+                setFormData(prev => ({ ...prev, season_team_id: '' }))
+                return
             }
 
-            setLoadingTeams(true);
             try {
-                const data = await ApiService.get(`/seasons/${formData.season_id}/teams`);
-                const teams = data.teams || [];
-                const scopedTeamIds = Array.isArray(currentUser?.teamIds) ? currentUser.teamIds : null;
-                const scopedTeams = scopedTeamIds ? teams.filter((team) => scopedTeamIds.includes(team.team_id)) : teams;
+                const response = await ApiService.get(`/seasons/${formData.season_id}/teams`)
+                const teams = Array.isArray(response?.data) ? response.data : []
+                setSeasonTeams(teams)
 
-                setSeasonTeams(scopedTeams);
-
-                if (scopedTeams.length === 1) {
-                    setFormData((prev) => ({ ...prev, season_team_id: scopedTeams[0].season_team_id }));
-                } else if (scopedTeams.length > 0 && formData.season_team_id) {
-                    const stillValid = scopedTeams.some((team) => String(team.season_team_id) === String(formData.season_team_id));
-                    if (!stillValid) {
-                        setFormData((prev) => ({ ...prev, season_team_id: '' }));
-                    }
+                // Auto select if 1 team
+                if (teams.length > 0 && !formData.season_team_id) {
+                    setFormData(prev => ({ ...prev, season_team_id: String(teams[0].id) }))
                 }
             } catch (err) {
-                console.error("Failed to fetch teams", err);
-                setSeasonTeams([]);
+                console.error('Failed to fetch teams', err)
+                setSeasonTeams([])
+            }
+        }
+        fetchTeams();
+    }, [formData.season_id]);
+
+    // Fetch Players when Team & Season selected
+    useEffect(() => {
+        const fetchPlayers = async () => {
+            if (!formData.season_team_id) {
+                setTeamPlayers([])
+                return
+            }
+            setLoadingData(true)
+            try {
+                // We need to support fetching players by internal_team_id (football_players)
+                // The season_team object usually has 'team_id'
+                const selectedSeasonTeam = seasonTeams.find(t => String(t.id) === String(formData.season_team_id));
+                // Fallback: if backend returns teamId or team_id in season_team object
+                const teamId = selectedSeasonTeam?.team_id || selectedSeasonTeam?.teamId;
+
+                if (teamId) {
+                    // Get Players from FootballPlayers pool belonging to this team
+                    const players = await TeamsService.getTeamPlayers(teamId);
+                    setTeamPlayers(players || []);
+                }
+            } catch (e) {
+                console.error(e)
             } finally {
-                setLoadingTeams(false);
+                setLoadingData(false)
             }
-        };
+        }
+        fetchPlayers()
+    }, [formData.season_team_id, seasonTeams])
 
-        const timerId = setTimeout(() => {
-            if (formData.season_id) {
-                fetchTeams();
+
+    const handleCheckboxChange = (playerId) => {
+        const newSet = new Set(selectedPlayerIds);
+        if (newSet.has(playerId)) {
+            newSet.delete(playerId);
+        } else {
+            newSet.add(playerId);
+            // Init details if not present
+            if (!playerDetails[playerId]) {
+                setPlayerDetails(prev => ({
+                    ...prev,
+                    [playerId]: {
+                        shirt_number: '',
+                        player_type: 'domestic'
+                    }
+                }))
             }
-        }, 500);
+        }
+        setSelectedPlayerIds(newSet);
+    };
 
-        return () => clearTimeout(timerId);
-    }, [formData.season_id, currentUser]);
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+    const handleDetailChange = (playerId, field, value) => {
+        setPlayerDetails(prev => ({
+            ...prev,
+            [playerId]: {
+                ...prev[playerId],
+                [field]: value
+            }
+        }));
     };
 
     const handleFileChange = (e) => {
@@ -97,282 +138,237 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
         setMessage(null);
 
         if (!file) {
-            setMessage({
-                type: 'error',
-                text: '⚠️ Vui lòng tải lên hồ sơ đăng ký cầu thủ (PDF).'
-            });
+            setMessage({ type: 'error', text: '⚠️ Vui lòng tải lên hồ sơ đăng ký (PDF) cho đợt này.' });
             setLoading(false);
             return;
         }
 
-        try {
-            await ApiService.upload('/players/registrations', file, {
-                season_id: Number(formData.season_id),
-                season_team_id: Number(formData.season_team_id),
-                full_name: formData.full_name,
-                date_of_birth: formData.date_of_birth,
-                nationality: formData.nationality || null,
-                position_code: formData.position_code,
-                shirt_number: formData.shirt_number === '' ? null : Number(formData.shirt_number),
-                player_type: formData.player_type
-            });
-
-            setMessage({
-                type: 'success',
-                text: 'Đăng ký cầu thủ thành công.'
-            });
-
-            setFormData(prev => ({
-                ...prev,
-                full_name: '',
-                date_of_birth: '',
-                nationality: '',
-                position_code: '',
-                shirt_number: '',
-                age_on_season_start: '',
-                player_type: 'domestic'
-                // Keep season_id and season_team_id for convenience
-            }));
-            setFile(null);
-            onSuccess?.();
+        if (selectedPlayerIds.size === 0) {
+            setMessage({ type: 'error', text: '⚠️ Vui lòng chọn ít nhất 1 cầu thủ.' });
+            setLoading(false);
             return;
+        }
 
-            // STEP 1: Create Player
-            const playerPayload = {
-                full_name: formData.full_name,
-                date_of_birth: formData.date_of_birth,
-                nationality: formData.nationality,
-                position_code: formData.position_code
-            };
+        let successCount = 0;
+        let failCount = 0;
+        const errors = [];
 
-            const createPlayerResponse = await ApiService.post('/players', playerPayload);
-            const createdPlayerId = createPlayerResponse.data?.player_id;
+        const playersToRegister = Array.from(selectedPlayerIds);
 
-            if (!createdPlayerId) {
-                throw new Error("Không thể tạo cầu thủ mới.");
-            }
-
-            // STEP 2: Register Player to Season
-            await ApiService.upload('/season-players/register', file, {
-                season_id: Number(formData.season_id),
-                season_team_id: Number(formData.season_team_id),
-                player_id: Number(createdPlayerId),
-                position_code: formData.position_code,
-                shirt_number: Number(formData.shirt_number),
-                age_on_season_start: Number(formData.age_on_season_start),
-                player_type: formData.player_type
-            });
-
-            setMessage({
-                type: 'success',
-                text: '✅ Đăng ký cầu thủ mới thành công.'
-            });
-
-            // Reset form
-            setFormData(prev => ({
-                ...prev,
-                full_name: '',
-                date_of_birth: '',
-                nationality: '',
-                position_code: '',
-                shirt_number: '',
-                age_on_season_start: '',
-                player_type: 'domestic'
-                // Keep season_id and season_team_id for convenience
-            }));
-            setFile(null);
-
-        } catch (err) {
-            console.error('Registration failed', err);
-            let backendMessage = '';
-
-            // Attempt to extract message from response
-            if (err.response) {
-                if (err.response.data && err.response.data.message) {
-                    backendMessage = err.response.data.message;
-                } else if (typeof err.response.json === 'function') {
-                    try {
-                        const data = await err.response.json();
-                        backendMessage = data.message || data.error || '';
-                    } catch (_) { }
+        // Ideally we should use a batch API, but iterating is safer for now if backend doesn't support batch
+        for (const playerId of playersToRegister) {
+            try {
+                const details = playerDetails[playerId];
+                if (!details?.shirt_number) {
+                    throw new Error(`Cầu thủ ID ${playerId} chưa nhập số áo.`);
                 }
-            }
 
-            // Fallback to existing payload/message properties
-            if (!backendMessage) {
-                if (err.payload && err.payload.error) {
-                    backendMessage = err.payload.error;
-                } else if (err.message) {
-                    backendMessage = err.message;
-                }
-            }
+                // Construct FormData for upload
+                // The ApiService.upload handles FormData creation if we pass object + file?
+                // Let's check ApiService usage. Usually: upload(url, file, additionalFields)
 
-            // --- CUSTOM UI LOGIC ---
-            // 1. Age Validation
-            if (backendMessage && backendMessage.toLowerCase().includes('tuổi')) {
-                setMessage({
-                    type: 'error',
-                    text: 'Cầu thủ phải từ 16 tuổi trở lên'
+                // Detailed Position (from FootballPlayers)
+                const detailedPos = teamPlayers.find(p => p.id === playerId)?.position || 'Midfielder';
+
+                // Map to Group Code (Goalkeeper, Defence, Midfield, Forward)
+                const groupCode = mapPositionToGroup(detailedPos);
+
+                await ApiService.upload('/season-players/register', file, {
+                    season_id: formData.season_id,
+                    season_team_id: formData.season_team_id,
+                    player_id: playerId,
+                    position_code: groupCode, // Store Functional Group
+                    shirt_number: details.shirt_number,
+                    player_type: details.player_type
                 });
-                return; // Stop here
-            }
 
-            // 2. Hide "Internal Server Error"
-            if (backendMessage === 'Internal Server Error') {
-                backendMessage = 'DEFAULT'; // Use Key to trigger default message
+                successCount++;
+            } catch (err) {
+                console.error(`Failed to register player ${playerId}`, err);
+                failCount++;
+                let msg = err.response?.data?.message || err.message;
+                errors.push(`ID ${playerId}: ${mapBackendErrorToUserMessage(msg)}`);
             }
+        }
 
+        if (failCount === 0) {
+            setMessage({ type: 'success', text: `✅ Đăng ký thành công ${successCount} cầu thủ.` });
+            setSelectedPlayerIds(new Set());
+            setPlayerDetails({});
+            setFile(null);
+            if (onSuccess) onSuccess();
+        } else {
             setMessage({
                 type: 'error',
-                text: mapBackendErrorToUserMessage(backendMessage)
+                text: `⚠️ Đăng ký: ${successCount} thành công, ${failCount} thất bại.`,
+                details: errors
             });
-        } finally {
-            setLoading(false);
         }
+
+        setLoading(false);
     };
+
+    const filteredPlayers = teamPlayers.filter(p =>
+        (p.name && p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        String(p.id).includes(searchTerm)
+    );
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Đăng ký cầu thủ mới và đăng ký mùa giải
+                Đăng ký Mùa giải (Batch Registration)
             </h2>
 
             {message && (
-                <div className={`p-4 mb-4 rounded-lg flex items-center ${message.type === 'success'
-                    ? 'bg-green-50 text-green-700'
-                    : 'bg-red-50 text-red-700'
-                    }`}>
-                    {message.type === 'success'
-                        ? <CheckCircle size={20} className="mr-2" />
-                        : <AlertCircle size={20} className="mr-2" />}
-                    {message.text}
+                <div className={`p-4 mb-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    <div className="flex items-center">
+                        {message.type === 'success' ? <CheckCircle size={20} className="mr-2" /> : <AlertCircle size={20} className="mr-2" />}
+                        <span className="font-medium">{message.text}</span>
+                    </div>
+                    {message.details && (
+                        <ul className="mt-2 text-sm list-disc list-inside ml-6 space-y-1">
+                            {message.details.map((err, i) => <li key={i}>{err}</li>)}
+                        </ul>
+                    )}
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <InputField label="Mùa giải" name="season_id" value={formData.season_id} onChange={handleChange} type="number" placeholder="Nhập ID mùa giải" />
-
-                    {/* Team Dropdown */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Đội bóng <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                            <select
-                                name="season_team_id"
-                                value={formData.season_team_id}
-                                onChange={handleChange}
-                                disabled={!formData.season_id || loadingTeams}
-                                required
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 disabled:bg-gray-100 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">-- Chọn đội bóng --</option>
-                                {seasonTeams.map(team => (
-                                    <option key={team.season_team_id} value={team.season_team_id}>
-                                        {team.team_name}
-                                    </option>
-                                ))}
-                            </select>
-                            {loadingTeams && (
-                                <div className="absolute right-8 top-1/2 -translate-y-1/2">
-                                    <Loader2 size={14} className="animate-spin text-gray-400" />
-                                </div>
-                            )}
-                        </div>
-                        {!formData.season_id && (
-                            <p className="text-xs text-gray-400 mt-1">Nhập Season ID để tải danh sách đội.</p>
-                        )}
-                    </div>
-
-                    <InputField label="Họ và tên" name="full_name" value={formData.full_name} onChange={handleChange} placeholder="Nguyễn Văn A" />
-                    <InputField label="Ngày sinh" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} type="date" />
-                    <InputField label="Quốc tịch" name="nationality" value={formData.nationality} onChange={handleChange} placeholder="Việt Nam" required={false} />
-
-                    <InputField label="Vị trí thi đấu" name="position_code" value={formData.position_code} onChange={handleChange} placeholder="GK, DF, MF, FW" />
-                    <InputField label="Số áo" name="shirt_number" value={formData.shirt_number} onChange={handleChange} type="number" />
-                    <InputField label="Tuổi tại thời điểm bắt đầu mùa giải" name="age_on_season_start" value={formData.age_on_season_start} onChange={handleChange} type="number" />
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Loại cầu thủ</label>
-                        <select
-                            name="player_type"
-                            value={formData.player_type}
-                            onChange={handleChange}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="domestic">Domestic</option>
-                            <option value="foreign">Foreign</option>
-                            <option value="u21">U21</option>
-                            <option value="u23">U23</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* File upload */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Hồ sơ đăng ký (PDF)
-                    </label>
-                    <div className="border border-dashed rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
-                        <Upload className="mx-auto mb-2 text-gray-400" size={32} />
-                        <input type="file" accept=".pdf" onChange={handleFileChange} className="hidden" id="registration-file" />
-                        <label htmlFor="registration-file" className="cursor-pointer text-blue-600 font-medium hover:underline">
-                            {file ? file.name : 'Nhấn để tải lên file PDF'}
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1">Chỉ chấp nhận file PDF</p>
-                    </div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mùa giải <span className="text-red-500">*</span></label>
+                    <input
+                        type="number"
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        placeholder="Season ID"
+                        value={formData.season_id}
+                        onChange={e => setFormData(p => ({ ...p, season_id: e.target.value }))}
+                    />
                 </div>
-
-                {/* Rules */}
-                <div className="text-sm text-gray-600 border-t pt-3">
-                    <div className="flex items-center mb-1 font-medium">
-                        <Info size={16} className="mr-2" /> Quy định
-                    </div>
-                    <ul className="list-disc list-inside space-y-1 ml-1">
-                        <li>Mỗi cầu thủ chỉ được đăng ký <b>một lần</b> trong cùng mùa giải.</li>
-                        <li>Mỗi đội bóng không được có <b>hai cầu thủ trùng số áo</b>.</li>
-                        <li>Hồ sơ đăng ký phải ở định dạng <b>PDF</b>.</li>
-                    </ul>
-                </div>
-
-                <div className="flex justify-end pt-4">
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg disabled:opacity-60 transition-colors shadow-sm"
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Đội bóng <span className="text-red-500">*</span></label>
+                    <select
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        value={formData.season_team_id}
+                        onChange={e => setFormData(p => ({ ...p, season_team_id: e.target.value }))}
+                        disabled={!formData.season_id}
                     >
-                        {loading ? <>
-                            <Loader2 size={18} className="animate-spin" />
-                            <span>Đang xử lý...</span>
-                        </> : <>
-                            <Save size={18} />
-                            <span>Đăng ký cầu thủ</span>
-                        </>}
-                    </button>
+                        <option value="">-- Chọn đội --</option>
+                        {seasonTeams.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                    </select>
                 </div>
-            </form>
+            </div>
+
+            {/* Player Selection Table */}
+            {formData.season_team_id && (
+                <div className="border rounded-lg overflow-hidden mb-6">
+                    <div className="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
+                        <h3 className="font-medium text-gray-700">Chọn cầu thủ từ Team Pool</h3>
+                        <div className="relative">
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Tìm tên..."
+                                className="pl-9 pr-3 py-1 text-sm border rounded-full"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="max-h-[400px] overflow-y-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-100 text-gray-600 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-4 py-2 text-left w-10">
+                                        <input type="checkbox" disabled />
+                                    </th>
+                                    <th className="px-4 py-2 text-left">Cầu thủ</th>
+                                    <th className="px-4 py-2 text-left">Vị trí</th>
+                                    <th className="px-4 py-2 text-left w-32">Số áo *</th>
+                                    <th className="px-4 py-2 text-left w-40">Loại *</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {loadingData ? (
+                                    <tr><td colSpan={5} className="p-4 text-center">Loading players...</td></tr>
+                                ) : filteredPlayers.length === 0 ? (
+                                    <tr><td colSpan={5} className="p-4 text-center text-gray-500">Không tìm thấy cầu thủ trong đội.</td></tr>
+                                ) : (
+                                    filteredPlayers.map(p => {
+                                        const isSelected = selectedPlayerIds.has(p.id);
+                                        const details = playerDetails[p.id] || { shirt_number: '', player_type: 'domestic' };
+
+                                        return (
+                                            <tr key={p.id} className={isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => handleCheckboxChange(p.id)}
+                                                        className="w-4 h-4 text-blue-600 rounded"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-medium text-gray-900">{p.name}</div>
+                                                    <div className="text-xs text-gray-500">{p.nationality}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs">{p.position}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="number"
+                                                        disabled={!isSelected}
+                                                        value={details.shirt_number}
+                                                        placeholder="#"
+                                                        onChange={e => handleDetailChange(p.id, 'shirt_number', e.target.value)}
+                                                        className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <select
+                                                        disabled={!isSelected}
+                                                        value={details.player_type}
+                                                        onChange={e => handleDetailChange(p.id, 'player_type', e.target.value)}
+                                                        className="w-full border border-gray-300 rounded px-2 py-1 text-sm disabled:bg-gray-100"
+                                                    >
+                                                        <option value="domestic">Domestic</option>
+                                                        <option value="foreign">Foreign</option>
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="bg-gray-50 px-4 py-2 border-t text-xs text-gray-500 flex justify-between">
+                        <span>Đã chọn: {selectedPlayerIds.size} cầu thủ</span>
+                        <span>* Bắt buộc nhập khi chọn</span>
+                    </div>
+                </div>
+            )}
+
+            {/* File Upload & Submit */}
+            <div className="bg-gray-50 p-4 rounded-lg flex items-center justify-between">
+                <div className="flex-1 mr-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hồ sơ (PDF) cho đợt đăng ký này</label>
+                    <input type="file" accept=".pdf" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                </div>
+                <button
+                    onClick={handleSubmit}
+                    disabled={loading || selectedPlayerIds.size === 0}
+                    className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm whitespace-nowrap"
+                >
+                    {loading ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                    <span>Đăng ký {selectedPlayerIds.size} cầu thủ</span>
+                </button>
+            </div>
         </div>
     );
 };
-
-// Helper input component
-const InputField = ({ label, name, value, onChange, type = 'text', placeholder, required = true }) => (
-    <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-            {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        <input
-            type={type}
-            name={name}
-            value={value}
-            onChange={onChange}
-            placeholder={placeholder}
-            required={required}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-    </div>
-);
 
 export default SeasonPlayerRegistrationForm;

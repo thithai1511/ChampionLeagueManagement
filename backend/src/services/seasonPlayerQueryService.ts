@@ -7,6 +7,7 @@ export interface SeasonPlayerQueryFilters {
 }
 
 export interface SeasonPlayerDto {
+    season_player_id?: number; // Added
     season_id: number;
     player_id: number;
     player_name: string;
@@ -33,6 +34,10 @@ export interface SeasonTeamDto {
 /**
  * Returns a list of players registered for a specific season.
  */
+/**
+ * Returns a list of players registered for a specific season.
+ * Core query function with flexible filters.
+ */
 export async function getSeasonPlayers(
     seasonId: number,
     filters: SeasonPlayerQueryFilters = {}
@@ -42,11 +47,13 @@ export async function getSeasonPlayers(
 
     let sqlQuery = `
         SELECT 
+            spr.season_player_id, -- Required for Remove action
             spr.season_id,
             spr.player_id,
-            p.full_name AS player_name,
+            p.name AS player_name,
             p.date_of_birth,
-            spr.position_code,
+            p.position AS detailed_position, -- Source of Truth
+            spr.position_code, -- Functional Group
             spr.shirt_number,
             spr.player_type,
             stp.team_id,
@@ -55,7 +62,7 @@ export async function getSeasonPlayers(
             spr.file_path,
             spr.registered_at
         FROM season_player_registrations spr
-        JOIN players p ON spr.player_id = p.player_id
+        JOIN FootballPlayers p ON spr.player_id = p.id
         JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
         JOIN teams t ON stp.team_id = t.team_id
         WHERE spr.season_id = @season_id
@@ -72,6 +79,7 @@ export async function getSeasonPlayers(
     }
 
     if (position_code) {
+        // Filter by FUNCTIONAL GROUP (spr.position_code)
         sqlQuery += " AND spr.position_code = @position_code";
         params.position_code = position_code;
     }
@@ -80,6 +88,75 @@ export async function getSeasonPlayers(
         sqlQuery += " AND spr.player_type = @nationality_type";
         params.nationality_type = nationality_type.toLowerCase();
     }
+
+    sqlQuery += " ORDER BY t.name ASC, spr.shirt_number ASC";
+
+    const result = await query<SeasonPlayerDto>(sqlQuery, params);
+    return result.recordset;
+}
+
+/**
+ * Service for Super Admin to see all approved players in a season
+ */
+export async function getApprovedSeasonPlayersForSuperAdmin(
+    seasonId: number
+): Promise<SeasonPlayerDto[]> {
+    return getSeasonPlayers(seasonId);
+}
+
+/**
+ * Service for Admin Team to see their own approved players in a season
+ */
+export async function getApprovedSeasonPlayersForAdminTeam(
+    seasonId: number,
+    teamIds: number[]
+): Promise<SeasonPlayerDto[]> {
+    if (teamIds.length === 0) {
+        return [];
+    }
+
+    // Since getSeasonPlayers currently only supports single team_id filter, 
+    // we can either update getSeasonPlayers to support IN, or just filter in memory or fetch per team.
+    // Given the UI usually filters by one team at a time or we show all for the permitted teams.
+    // Requirement says: "Có filter: season_id, team_id"
+    // If user provides specific team_id, we check if it's in their list.
+    // If not, we might need to fetch for all their teams.
+    // IMPORTANT: The SQL query below needs to handle multiple teams if we want to show all "my teams".
+
+    // Let's modify the query helper slightly or just loop?
+    // Actually, let's create a specific query for this to be efficient with IN clause if team_id not provided.
+    // BUT user requirement says "Có filter: team_id (nếu admin quản lý nhiều đội)".
+    // So usually they pick one. If they don't, we show all their teams.
+
+    // I will stick to reusing the SQL pattern but support list of teams.
+
+    let sqlQuery = `
+        SELECT 
+            spr.season_player_id,
+            spr.season_id,
+            spr.player_id,
+            p.name AS player_name,
+            p.date_of_birth,
+            spr.position_code,
+            spr.shirt_number,
+            spr.player_type,
+            stp.team_id,
+            t.name AS team_name,
+            t.logo_url AS team_logo_url,
+            spr.file_path,
+            spr.registered_at
+        FROM season_player_registrations spr
+        JOIN FootballPlayers p ON spr.player_id = p.id
+        JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
+        JOIN teams t ON stp.team_id = t.team_id
+        WHERE spr.season_id = @season_id
+          AND spr.registration_status = 'approved'
+          AND stp.team_id IN (${teamIds.join(',')})
+    `;
+
+    const params: Record<string, unknown> = {
+        season_id: seasonId
+    };
 
     sqlQuery += " ORDER BY t.name ASC, spr.shirt_number ASC";
 

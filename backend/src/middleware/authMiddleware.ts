@@ -95,7 +95,7 @@ export function requireTeamOwnership(req: AuthenticatedRequest, _res: Response, 
  * Expects req.params.id (match_id) to be set.
  * Global admins (manage_matches permission) bypass this check.
  */
-export function requireMatchOfficialAssignment(req: AutheonticatedRequest, _res: Response, next: NextFunction): void {
+export function requireMatchOfficialAssignment(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
   if (!req.user) {
     throw UnauthorizedError("Authentication required");
   }

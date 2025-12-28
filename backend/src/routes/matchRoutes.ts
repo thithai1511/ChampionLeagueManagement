@@ -269,11 +269,14 @@ router.post("/:id/events", ...requireMatchManagement, async (req: any, res, next
       playerId: payload.playerId ?? undefined // Pass raw player ID, service resolves name/seasonPlayerId
     });
 
-    // Update score for goal-type events (Keep this logic here or move to service? 
-    // Service returns the event, but updating Match Score is side effect. 
-    // Ideally this should be in service too, but let's keep it here for minimal disruption or move it.)
-    // Actually, createMatchEvent in service DOES NOT update match score. I should probably keep this logic here for now
-    // BUT wait, createMatchEvent in service does NOT return "isHome" info easily unless we re-derive it.
+    let playerName: string | null = payload.playerName ? payload.playerName.trim() : null;
+    if (!playerName && payload.playerId) {
+      const player = await query<{ full_name: string }>(
+        `SELECT TOP 1 name as full_name FROM FootballPlayers WHERE id = @playerId;`,
+        { playerId: payload.playerId },
+      );
+      playerName = player.recordset[0]?.full_name ?? null;
+    }
 
     // Let's rely on the service to do the INSERT.
     // And here do the update based on what we know.

@@ -73,7 +73,10 @@ const AdminApp = ({ onLogout, currentUser }) => {
         <Route
           path="players"
           element={
-            <AccessGuard permission="manage_teams" currentUser={currentUser}>
+            <AccessGuard
+              anyPermissions={['manage_teams', 'manage_own_player_registrations']}
+              currentUser={currentUser}
+            >
               <PlayersManagement currentUser={currentUser} />
             </AccessGuard>
           }

@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { query } from "../db/sqlServer";
 import { createPlayerHandler } from "../controllers/internalPlayerController";
-import { requireAuth, requirePermission, requireTeamOwnership } from "../middleware/authMiddleware";
+import { requireAnyPermission, requireAuth, requirePermission, requireTeamOwnership } from "../middleware/authMiddleware";
 import { AuthenticatedRequest } from "../types";
+import { getOrFetchPlayerAvatar, batchFetchPlayerAvatars } from "../services/playerAvatarService";
 
 const router = Router();
 const requireTeamOwnershipCheck = [requireAuth, requireTeamOwnership] as const;
@@ -43,21 +44,20 @@ async function checkPlayerTeamOwnership(req: AuthenticatedRequest, _res: any, ne
 
 /**
  * POST /internal/players - Create a new player
+ * Handled by controller, verified in service.
  */
-router.post("/", requireAuth, requirePermission("manage_teams"), createPlayerHandler);
+router.post("/", requireAuth, requireAnyPermission("manage_own_player_registrations", "manage_teams"), createPlayerHandler);
 
 
 router.get("/", async (req: AuthenticatedRequest, res, next) => {
   try {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
     const teamId = typeof req.query.teamId === "string" ? parseInt(req.query.teamId, 10) : null;
-    const position = typeof req.query.position === "string" ? req.query.position.trim() : "";
-    const nationality = typeof req.query.nationality === "string" ? req.query.nationality.trim() : "";
     const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : 1;
     const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 25;
     const offset = (page - 1) * limit;
 
-    const conditions: string[] = [];
+    const conditions: string[] = ["1=1"];
     const params: Record<string, unknown> = { offset, limit };
 
     // ClubManager: only see players of their managed team
@@ -75,67 +75,46 @@ router.get("/", async (req: AuthenticatedRequest, res, next) => {
     }
 
     if (search) {
-      conditions.push("(LOWER(full_name) LIKE LOWER(@search) OR LOWER(display_name) LIKE LOWER(@search))");
+      conditions.push("(LOWER(name) LIKE LOWER(@search))");
       params.search = `%${search}%`;
     }
 
-    if (position) {
-      conditions.push("LOWER(preferred_position) LIKE LOWER(@position)");
-      params.position = `%${position}%`;
+    if (teamId && !isNaN(teamId)) {
+      // internal_team_id
+      conditions.push("(internal_team_id = @teamId OR team_external_id = (SELECT external_id FROM teams WHERE team_id = @teamId))");
+      params.teamId = teamId;
     }
 
-    if (nationality) {
-      conditions.push("LOWER(nationality) = LOWER(@nationality)");
-      params.nationality = nationality;
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const whereClause = `WHERE ${conditions.join(" AND ")}`;
 
     const playersResult = await query<{
       player_id: number;
       full_name: string;
       display_name: string | null;
       date_of_birth: string;
-      place_of_birth: string | null;
       nationality: string;
       preferred_position: string | null;
-      secondary_position: string | null;
-      height_cm: number | null;
-      weight_kg: number | null;
-      dominant_foot: string | null;
       current_team_id: number | null;
-      team_name: string | null;
     }>(
       `
         SELECT 
-          p.player_id,
-          p.full_name,
-          p.display_name,
-          CONVERT(VARCHAR(10), p.date_of_birth, 23) as date_of_birth,
-          p.place_of_birth,
-          p.nationality,
-          p.preferred_position,
-          p.secondary_position,
-          p.height_cm,
-          p.weight_kg,
-          p.dominant_foot,
-          p.current_team_id,
-          t.name as team_name
-        FROM players p
-        LEFT JOIN teams t ON p.current_team_id = t.team_id
+          id as player_id,
+          name as full_name,
+          name as display_name,
+          CONVERT(VARCHAR(10), date_of_birth, 23) as date_of_birth,
+          nationality,
+          position as preferred_position,
+          internal_team_id as current_team_id
+        FROM FootballPlayers
         ${whereClause}
-        ORDER BY p.full_name
+        ORDER BY name
         OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
       `,
       params,
     );
 
     const countResult = await query<{ total: number }>(
-      `
-        SELECT COUNT(*) as total
-        FROM players p
-        ${whereClause};
-      `,
+      `SELECT COUNT(*) as total FROM FootballPlayers ${whereClause}`,
       params,
     );
 
@@ -157,6 +136,66 @@ router.get("/", async (req: AuthenticatedRequest, res, next) => {
 });
 
 /**
+ * POST /api/players/avatars/batch - Batch fetch avatars for multiple players
+ * Body: { playerIds: number[] }
+ * NOTE: Must be before /:id route to avoid route conflict
+ */
+router.post("/avatars/batch", async (req, res, next) => {
+  try {
+    const { playerIds } = req.body;
+
+    if (!Array.isArray(playerIds) || playerIds.length === 0) {
+      return res.status(400).json({ error: "playerIds must be a non-empty array" });
+    }
+
+    // Validate all IDs are numbers
+    const validIds = playerIds
+      .map(id => typeof id === 'number' ? id : parseInt(String(id), 10))
+      .filter(id => !isNaN(id) && id > 0);
+
+    if (validIds.length === 0) {
+      return res.status(400).json({ error: "No valid player IDs provided" });
+    }
+
+    // Limit batch size to prevent timeout
+    const maxBatchSize = 50;
+    const idsToProcess = validIds.slice(0, maxBatchSize);
+
+    console.log('[API] Batch fetch avatars request:', idsToProcess);
+    const avatars = await batchFetchPlayerAvatars(idsToProcess);
+    console.log('[API] Batch fetch avatars result:', Object.keys(avatars).length, 'avatars found');
+
+    res.json({ avatars });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/players/:id/avatar - Get player avatar URL
+ * Fetches from database or TheSportsDB if not cached
+ * NOTE: Must be before /:id route to avoid route conflict
+ */
+router.get("/:id/avatar", async (req, res, next) => {
+  try {
+    const playerId = parseInt(req.params.id, 10);
+    if (isNaN(playerId)) {
+      return res.status(400).json({ error: "Invalid player ID" });
+    }
+
+    const avatarUrl = await getOrFetchPlayerAvatar(playerId);
+
+    if (!avatarUrl) {
+      return res.status(404).json({ error: "Avatar not found" });
+    }
+
+    res.json({ avatarUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /internal/players/:id - Get player by internal ID
  * ClubManager: only see players of their managed team
  */
@@ -167,41 +206,18 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
       return res.status(400).json({ error: "Invalid player ID" });
     }
 
-    const result = await query<{
-      player_id: number;
-      full_name: string;
-      display_name: string | null;
-      date_of_birth: string;
-      place_of_birth: string | null;
-      nationality: string;
-      preferred_position: string | null;
-      secondary_position: string | null;
-      height_cm: number | null;
-      weight_kg: number | null;
-      biography: string | null;
-      dominant_foot: string | null;
-      current_team_id: number | null;
-      team_name: string | null;
-    }>(
+    const result = await query(
       `
         SELECT 
-          p.player_id,
-          p.full_name,
-          p.display_name,
-          CONVERT(VARCHAR(10), p.date_of_birth, 23) as date_of_birth,
-          p.place_of_birth,
-          p.nationality,
-          p.preferred_position,
-          p.secondary_position,
-          p.height_cm,
-          p.weight_kg,
-          p.biography,
-          p.dominant_foot,
-          p.current_team_id,
-          t.name as team_name
-        FROM players p
-        LEFT JOIN teams t ON p.current_team_id = t.team_id
-        WHERE p.player_id = @playerId;
+          id as player_id,
+          name as full_name,
+          name as display_name,
+          CONVERT(VARCHAR(10), date_of_birth, 23) as date_of_birth,
+          nationality,
+          position as preferred_position,
+          internal_team_id as current_team_id
+        FROM FootballPlayers
+        WHERE id = @playerId;
       `,
       { playerId },
     );
@@ -239,13 +255,13 @@ router.put("/:id", requireAuth, requireTeamOwnership, checkPlayerTeamOwnership, 
 
     await query(
       `
-        UPDATE players
+        UPDATE FootballPlayers
         SET 
-          full_name = COALESCE(@name, full_name),
-          display_name = COALESCE(@name, display_name),
-          preferred_position = @position,
-          nationality = @nationality
-        WHERE player_id = @playerId;
+          name = COALESCE(@name, name),
+          position = COALESCE(@position, position),
+          nationality = COALESCE(@nationality, nationality),
+          updated_at = GETDATE()
+        WHERE id = @playerId;
       `,
       {
         playerId,
@@ -256,16 +272,11 @@ router.put("/:id", requireAuth, requireTeamOwnership, checkPlayerTeamOwnership, 
     );
 
     // Return updated player
-    const result = await query<{
-      player_id: number;
-      full_name: string;
-      preferred_position: string | null;
-      nationality: string | null;
-    }>(
+    const result = await query(
       `
-        SELECT player_id, full_name, preferred_position, nationality
-        FROM players
-        WHERE player_id = @playerId;
+        SELECT id as player_id, name as full_name, position as preferred_position, nationality
+        FROM FootballPlayers
+        WHERE id = @playerId;
       `,
       { playerId },
     );
@@ -293,8 +304,8 @@ router.delete("/:id", requireAuth, requireTeamOwnership, checkPlayerTeamOwnershi
 
     await query(
       `
-        DELETE FROM players
-        WHERE player_id = @playerId;
+        DELETE FROM FootballPlayers
+        WHERE id = @playerId;
       `,
       { playerId },
     );

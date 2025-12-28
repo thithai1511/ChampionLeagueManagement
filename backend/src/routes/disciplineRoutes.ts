@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticate, requireRole } from '../middleware/authMiddleware';
+import { requireAuth, requirePermission } from '../middleware/authMiddleware';
 import { 
   getCardSummary, 
   getSuspensionsForSeason, 
@@ -19,7 +19,7 @@ const router = Router();
  * GET /api/seasons/:seasonId/discipline/cards
  * Get card summary for all players in a season
  */
-router.get('/:seasonId/discipline/cards', authenticate, async (req: Request, res: Response) => {
+router.get('/:seasonId/discipline/cards', requireAuth, async (req: Request, res: Response) => {
   try {
     const seasonId = parseInt(req.params.seasonId);
 
@@ -53,7 +53,7 @@ router.get('/:seasonId/discipline/cards', authenticate, async (req: Request, res
  * Get suspensions for a season
  * Query params: status (optional) - filter by status (active, served, cancelled, archived)
  */
-router.get('/:seasonId/discipline/suspensions', authenticate, async (req: Request, res: Response) => {
+router.get('/:seasonId/discipline/suspensions', requireAuth, async (req: Request, res: Response) => {
   try {
     const seasonId = parseInt(req.params.seasonId);
     const statusFilter = req.query.status as string | undefined;
@@ -91,7 +91,7 @@ router.get('/:seasonId/discipline/suspensions', authenticate, async (req: Reques
  * GET /api/seasons/:seasonId/discipline/suspensions/active
  * Get active suspensions for a season
  */
-router.get('/:seasonId/discipline/suspensions/active', authenticate, async (req: Request, res: Response) => {
+router.get('/:seasonId/discipline/suspensions/active', requireAuth, async (req: Request, res: Response) => {
   try {
     const seasonId = parseInt(req.params.seasonId);
 
@@ -120,7 +120,7 @@ router.get('/:seasonId/discipline/suspensions/active', authenticate, async (req:
  * Check if a player is suspended for a specific match
  * Query params: matchId, seasonPlayerId
  */
-router.get('/:seasonId/discipline/check-suspension', authenticate, async (req: Request, res: Response) => {
+router.get('/:seasonId/discipline/check-suspension', requireAuth, async (req: Request, res: Response) => {
   try {
     const seasonId = parseInt(req.params.seasonId);
     const matchId = parseInt(req.query.matchId as string);
@@ -149,7 +149,7 @@ router.get('/:seasonId/discipline/check-suspension', authenticate, async (req: R
  * POST /api/seasons/:seasonId/discipline/recalculate
  * Recalculate disciplinary records for a season (admin only)
  */
-router.post('/:seasonId/discipline/recalculate', authenticate, requireRole(['admin', 'super_admin']), async (req: Request, res: Response) => {
+router.post('/:seasonId/discipline/recalculate', requireAuth, requirePermission('manage_matches'), async (req: Request, res: Response) => {
   try {
     const seasonId = parseInt(req.params.seasonId);
 

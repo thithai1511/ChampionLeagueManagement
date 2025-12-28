@@ -149,6 +149,3 @@ class OfficialService {
 
 export default new OfficialService();
 
-
-
-

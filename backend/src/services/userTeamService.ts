@@ -7,28 +7,20 @@ export async function getUserTeamIds(userId: number): Promise<number[]> {
     return [];
   }
 
-  try {
-    const result = await query<{ team_id: number }>(
-      `SELECT team_id
-       FROM user_team_assignments
-       WHERE user_id = @userId`,
-      { userId }
-    );
+  const result = await query<{ team_id: number }>(
+    `
+    SELECT DISTINCT team_id
+    FROM user_team_assignments
+    WHERE user_id = @userId
+    `,
+    { userId }
+  );
 
-    return result.recordset
-      .map((row) => Number(row.team_id))
-      .filter((teamId) => Number.isFinite(teamId) && teamId > 0);
-  } catch (error: any) {
-    // If the table hasn't been migrated yet, don't break authentication.
-    if (
-      error?.number === 208 ||
-      /invalid object name/i.test(String(error?.message ?? ""))
-    ) {
-      return [];
-    }
-    throw error;
-  }
+  return result.recordset
+    .map(r => Number(r.team_id))
+    .filter(id => Number.isFinite(id) && id > 0);
 }
+
 
 export async function listUserTeams(userId: number) {
   const result = await query<{
@@ -39,13 +31,13 @@ export async function listUserTeams(userId: number) {
   }>(
     `
       SELECT
-        uta.team_id,
+        utr.team_id,
         t.name AS team_name,
-        uta.assigned_at,
-        uta.assigned_by
-      FROM user_team_assignments uta
-      JOIN teams t ON uta.team_id = t.team_id
-      WHERE uta.user_id = @userId
+        utr.assigned_at,
+        utr.assigned_by
+      FROM user_team_roles utr
+      JOIN teams t ON utr.team_id = t.team_id
+      WHERE utr.user_id = @userId
       ORDER BY t.name
     `,
     { userId }

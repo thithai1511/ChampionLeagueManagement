@@ -145,74 +145,9 @@ export const importCLDataToInternal = async (options: {
 
     console.log(`Imported ${result.imported.teams} teams, mapping size: ${teamMapping.size}`);
 
-    // Step 3: Import Players from FootballPlayers
-    const footballPlayers = await query<{
-      external_id: number | null;
-      name: string;
-      position: string | null;
-      nationality: string | null;
-      date_of_birth: string | null;
-      shirt_number: number | null;
-      team_external_id: number;
-    }>(
-      `
-        SELECT 
-          external_id, 
-          name, 
-          position, 
-          nationality, 
-          date_of_birth, 
-          shirt_number, 
-          team_external_id
-        FROM dbo.FootballPlayers
-        WHERE season IS NULL OR season = '2024'
-      `,
-    );
-
-    for (const fbPlayer of footballPlayers.recordset) {
-      try {
-        const teamId = teamMapping.get(fbPlayer.team_external_id);
-        if (!teamId) continue; // Skip if team not imported
-
-        // Check if player exists
-        const existingPlayer = await query<{ player_id: number }>(
-          "SELECT player_id FROM players WHERE full_name = @name AND date_of_birth = @dob",
-          {
-            name: fbPlayer.name,
-            dob: fbPlayer.date_of_birth || "2000-01-01",
-          },
-        );
-
-        if (existingPlayer.recordset.length === 0) {
-          await query(
-            `
-              INSERT INTO players (
-                full_name, 
-                display_name, 
-                date_of_birth, 
-                nationality, 
-                preferred_position, 
-                current_team_id
-              )
-              VALUES (@fullName, @displayName, @dob, @nationality, @position, @teamId);
-            `,
-            {
-              fullName: fbPlayer.name,
-              displayName: fbPlayer.name,
-              dob: fbPlayer.date_of_birth || "2000-01-01",
-              nationality: fbPlayer.nationality || "Unknown",
-              position: fbPlayer.position,
-              teamId,
-            },
-          );
-          result.imported.players++;
-        }
-      } catch (error) {
-        result.errors.push(`Failed to import player ${fbPlayer.name}: ${error}`);
-      }
-    }
-
-    console.log(`Imported ${result.imported.players} players`);
+    // Step 3: [REMOVED] Sync to 'players' is no longer needed.
+    // FootballPlayers IS the Single Source of Truth.
+    console.log("Step 3 (Sync to 'players') removed.");
 
     // Step 4: Import Matches from FootballMatches
     // Ensure we have a season_id
@@ -356,13 +291,13 @@ export const importCLDataToInternal = async (options: {
  */
 export const clearImportedData = async (): Promise<{ success: boolean; message: string }> => {
   try {
-    // Note: Be careful with this! It will delete data
-    await query("DELETE FROM players WHERE full_name LIKE '%imported%' OR nationality = 'Unknown'");
-    await query("DELETE FROM teams WHERE code LIKE 'UCL%'");
+    // Note: Disabled for Phase 1 Refactor Security
+    // await query("DELETE FROM players WHERE full_name LIKE '%imported%' OR nationality = 'Unknown'");
+    // await query("DELETE FROM teams WHERE code LIKE 'UCL%'");
 
     return {
       success: true,
-      message: "Cleared imported data successfully",
+      message: "Clear imported data is disabled during Refactor Phase 1",
     };
   } catch (error) {
     return {
