@@ -24,7 +24,8 @@ import {
   Zap,
   Award,
   AlertTriangle,
-  Mail
+  Mail,
+  Building2
 } from 'lucide-react'
 
 const MENU_SECTIONS = [
@@ -34,6 +35,7 @@ const MENU_SECTIONS = [
     disallowedRoles: ['super_admin'],
     items: [
       { name: 'Đội của tôi', path: '/admin/my-team', icon: Users, permission: 'view_own_team' },
+      { name: 'Hồ sơ CLB', path: '/admin/club-profile', icon: Building2, permission: 'view_own_team' },
       {
         name: 'Đăng ký cầu thủ',
         path: '/admin/players',

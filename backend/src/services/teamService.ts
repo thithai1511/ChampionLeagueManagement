@@ -458,6 +458,47 @@ export const getTeamByExternalId = async (
   };
 };
 
+/**
+ * Get internal team by team_id from teams table
+ * This includes all custom fields like phone, email, stadium_name, etc.
+ */
+export const getInternalTeamById = async (teamId: number): Promise<any | null> => {
+  console.log('[getInternalTeamById] Fetching team:', teamId);
+  
+  const result = await query(
+    `
+      SELECT
+        team_id,
+        name,
+        short_name,
+        code,
+        governing_body,
+        city,
+        country,
+        home_stadium_id,
+        founded_year,
+        description,
+        home_kit_description,
+        phone,
+        email,
+        stadium_name,
+        stadium_capacity,
+        website,
+        status,
+        created_at,
+        updated_at
+      FROM teams
+      WHERE team_id = @teamId;
+    `,
+    { teamId },
+  );
+
+  const team = result.recordset[0] || null;
+  console.log('[getInternalTeamById] Result:', team ? 'Found' : 'Not found', team ? Object.keys(team) : []);
+  
+  return team;
+};
+
 export const updateTeam = async (
   id: number,
   payload: Partial<
@@ -474,8 +515,19 @@ export const updateTeam = async (
       | "website"
       | "address"
     >
-  >,
+  > & {
+    // Additional fields from teams table schema
+    code?: string | null;
+    city?: string | null;
+    country?: string | null;
+    founded_year?: number | null;
+    description?: string | null;
+    governing_body?: string | null;
+    home_kit_description?: string | null;
+  },
 ): Promise<TeamRecord | null> => {
+  console.log('[updateTeam] Called with id:', id, 'payload:', payload);
+  
   const fields: string[] = [];
   const params: Record<string, unknown> = { id };
 
@@ -486,6 +538,34 @@ export const updateTeam = async (
   if (payload.shortName !== undefined) {
     fields.push("short_name = @shortName");
     params.shortName = payload.shortName ? payload.shortName.trim() : null;
+  }
+  if (payload.code !== undefined) {
+    fields.push("code = @code");
+    params.code = payload.code ? payload.code.trim() : null;
+  }
+  if (payload.city !== undefined) {
+    fields.push("city = @city");
+    params.city = payload.city ? payload.city.trim() : null;
+  }
+  if (payload.country !== undefined) {
+    fields.push("country = @country");
+    params.country = payload.country ? payload.country.trim() : null;
+  }
+  if (payload.founded_year !== undefined) {
+    fields.push("founded_year = @founded_year");
+    params.founded_year = payload.founded_year ?? null;
+  }
+  if (payload.description !== undefined) {
+    fields.push("description = @description");
+    params.description = payload.description ? payload.description.trim() : null;
+  }
+  if (payload.governing_body !== undefined) {
+    fields.push("governing_body = @governing_body");
+    params.governing_body = payload.governing_body ? payload.governing_body.trim() : null;
+  }
+  if (payload.home_kit_description !== undefined) {
+    fields.push("home_kit_description = @home_kit_description");
+    params.home_kit_description = payload.home_kit_description ? payload.home_kit_description.trim() : null;
   }
   if (payload.tla !== undefined) {
     fields.push("tla = @tla");
@@ -521,23 +601,48 @@ export const updateTeam = async (
     fields.push("address = @address");
     params.address = payload.address ? payload.address.trim() : null;
   }
+  
+  // New fields from migration
+  if ((payload as any).phone !== undefined) {
+    fields.push("phone = @phone");
+    params.phone = (payload as any).phone ? (payload as any).phone.trim() : null;
+  }
+  if ((payload as any).email !== undefined) {
+    fields.push("email = @email");
+    params.email = (payload as any).email ? (payload as any).email.trim() : null;
+  }
+  if ((payload as any).stadium_name !== undefined) {
+    fields.push("stadium_name = @stadium_name");
+    params.stadium_name = (payload as any).stadium_name ? (payload as any).stadium_name.trim() : null;
+  }
+  if ((payload as any).stadium_capacity !== undefined) {
+    fields.push("stadium_capacity = @stadium_capacity");
+    params.stadium_capacity = (payload as any).stadium_capacity ?? null;
+  }
 
   if (fields.length === 0) {
-    return getTeamById(id);
+    console.log('[updateTeam] No fields to update, returning current data');
+    return getInternalTeamById(id);
   }
 
   fields.push("updated_at = SYSUTCDATETIME()");
+  
+  const updateQuery = `
+    UPDATE teams
+    SET ${fields.join(", ")}
+    WHERE team_id = @id;
+  `;
+  
+  console.log('[updateTeam] Executing UPDATE query:', updateQuery);
+  console.log('[updateTeam] With params:', params);
 
-  await query(
-    `
-      UPDATE dbo.FootballTeams
-      SET ${fields.join(", ")}
-      WHERE id = @id;
-    `,
-    params,
-  );
-
-  return getTeamById(id);
+  await query(updateQuery, params);
+  
+  console.log('[updateTeam] UPDATE completed, fetching updated data...');
+  const result = await getInternalTeamById(id);
+  console.log('[updateTeam] Returning updated team');
+  
+  return result;
 };
 
 export const deleteTeam = async (id: number): Promise<boolean> => {

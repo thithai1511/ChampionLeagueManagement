@@ -974,3 +974,6 @@ const SeasonAndRulesPage = () => {
 export default SeasonAndRulesPage
 
 
+
+
+

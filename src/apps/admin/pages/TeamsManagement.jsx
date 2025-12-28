@@ -88,6 +88,16 @@ const TeamsManagement = () => {
   const [invitationSubTab, setInvitationSubTab] = useState('overview') // 'overview' | 'list'
   const [generatingInvitations, setGeneratingInvitations] = useState(false)
   const [sendingInvitations, setSendingInvitations] = useState(false)
+  
+  // Add/Edit invitation modal
+  const [showInvitationModal, setShowInvitationModal] = useState(false)
+  const [editingInvitation, setEditingInvitation] = useState(null)
+  const [invitationForm, setInvitationForm] = useState({
+    teamId: '',
+    inviteType: 'manual',
+    deadlineDays: 14
+  })
+  const [savingInvitation, setSavingInvitation] = useState(false)
 
   // Load seasons for invitations
   useEffect(() => {
@@ -352,14 +362,81 @@ const TeamsManagement = () => {
     }
   }
 
+  // Open add invitation modal
+  const handleOpenAddInvitationModal = () => {
+    setEditingInvitation(null)
+    setInvitationForm({
+      teamId: '',
+      inviteType: 'replacement',
+      deadlineDays: 14
+    })
+    setShowInvitationModal(true)
+  }
+
+  // Open edit invitation modal
+  const handleOpenEditInvitationModal = (invitation) => {
+    setEditingInvitation(invitation)
+    setInvitationForm({
+      teamId: invitation.teamId,
+      inviteType: invitation.inviteType,
+      deadlineDays: 14
+    })
+    setShowInvitationModal(true)
+  }
+
+  // Save invitation (add or edit)
+  const handleSaveInvitation = async () => {
+    if (!invitationForm.teamId) {
+      toast.error('Vui lòng chọn đội bóng')
+      return
+    }
+
+    setSavingInvitation(true)
+    try {
+      if (editingInvitation) {
+        // Update deadline
+        await ApiService.patch(`/seasons/${selectedSeasonId}/invitations/${editingInvitation.invitationId}`, {
+          deadlineDays: invitationForm.deadlineDays
+        })
+        toast.success('Đã cập nhật lời mời')
+      } else {
+        // Add new invitation
+        await ApiService.post(`/seasons/${selectedSeasonId}/invitations`, {
+          teamId: parseInt(invitationForm.teamId),
+          inviteType: invitationForm.inviteType,
+          deadlineDays: invitationForm.deadlineDays
+        })
+        toast.success('Đã thêm lời mời')
+      }
+      setShowInvitationModal(false)
+      setReloadKey(prev => prev + 1)
+    } catch (err) {
+      logger.error('Failed to save invitation', err)
+      toast.error(err?.message || 'Không thể lưu lời mời')
+    } finally {
+      setSavingInvitation(false)
+    }
+  }
+
+  // Delete invitation
+  const handleDeleteInvitation = async (invitationId) => {
+    if (!confirm('Bạn có chắc muốn xóa lời mời này?')) return
+
+    try {
+      await ApiService.delete(`/seasons/${selectedSeasonId}/invitations/${invitationId}`)
+      toast.success('Đã xóa lời mời')
+      setReloadKey(prev => prev + 1)
+    } catch (err) {
+      logger.error('Failed to delete invitation', err)
+      toast.error(err?.message || 'Không thể xóa lời mời')
+    }
+  }
+
   const getInviteTypeLabel = (type) => {
     const labels = {
       'retained': 'Top 8 mùa trước',
       'promoted': 'Thăng hạng',
-      'replacement': 'Thay thế',
-      'top8': 'Top 8 mùa trước',
-      'reserve': 'Dự bị',
-      'manual': 'Thêm thủ công'
+      'replacement': 'Thay thế / Thủ công'
     }
     return labels[type] || type
   }
@@ -368,25 +445,18 @@ const TeamsManagement = () => {
     const colors = {
       'retained': 'bg-blue-100 text-blue-700 border-blue-200',
       'promoted': 'bg-green-100 text-green-700 border-green-200',
-      'replacement': 'bg-orange-100 text-orange-700 border-orange-200',
-      'top8': 'bg-blue-100 text-blue-700 border-blue-200',
-      'reserve': 'bg-purple-100 text-purple-700 border-purple-200',
-      'manual': 'bg-gray-100 text-gray-700 border-gray-200'
+      'replacement': 'bg-orange-100 text-orange-700 border-orange-200'
     }
     return colors[type] || 'bg-gray-100 text-gray-700 border-gray-200'
   }
 
   const getStatusBadgeColor = (status) => {
     const colors = {
-      'draft': 'bg-gray-100 text-gray-600 border-gray-200',
       'pending': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      'sent': 'bg-blue-100 text-blue-700 border-blue-200',
       'accepted': 'bg-green-100 text-green-700 border-green-200',
       'declined': 'bg-red-100 text-red-700 border-red-200',
-      'rejected': 'bg-red-100 text-red-700 border-red-200',
       'expired': 'bg-gray-100 text-gray-500 border-gray-200',
-      'qualified': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      'disqualified': 'bg-rose-100 text-rose-700 border-rose-200',
+      'rescinded': 'bg-purple-100 text-purple-600 border-purple-200',
       'replaced': 'bg-purple-100 text-purple-600 border-purple-200'
     }
     return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200'
@@ -394,15 +464,11 @@ const TeamsManagement = () => {
 
   const getStatusLabel = (status) => {
     const labels = {
-      'draft': 'Chưa gửi',
       'pending': 'Chờ phản hồi',
-      'sent': 'Đã gửi',
       'accepted': 'Đã chấp nhận',
       'declined': 'Đã từ chối',
-      'rejected': 'Đã từ chối',
       'expired': 'Hết hạn',
-      'qualified': 'Đủ điều kiện',
-      'disqualified': 'Không đủ ĐK',
+      'rescinded': 'Đã thu hồi',
       'replaced': 'Đã thay thế'
     }
     return labels[status] || status
@@ -792,6 +858,13 @@ const TeamsManagement = () => {
               {selectedSeasonId && (
                 <div className="flex items-center gap-3">
                   <button
+                    onClick={handleOpenAddInvitationModal}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    <Plus size={16} />
+                    <span>Thêm lời mời</span>
+                  </button>
+                  <button
                     onClick={handleGenerateSuggested}
                     disabled={generatingInvitations}
                     className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
@@ -985,36 +1058,41 @@ const TeamsManagement = () => {
                           <td className="px-6 py-4 text-sm">{formatDeadline(inv.responseDeadline)}</td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              {inv.status === 'accepted' && (
-                                <button
-                                  onClick={() => handleUpdateInvitationStatus(inv.invitationId, 'qualified')}
-                                  className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                                  title="Duyệt đủ điều kiện"
-                                >
-                                  Duyệt
-                                </button>
-                              )}
-                              {(inv.status === 'pending' || inv.status === 'sent') && (
+                              {/* Status indicators */}
+                              {inv.status === 'pending' && (
                                 <>
+                                  <span className="text-xs text-yellow-600 italic">Chờ đội phản hồi...</span>
+                                  {/* Edit & Delete buttons */}
                                   <button
-                                    onClick={() => handleUpdateInvitationStatus(inv.invitationId, 'accepted')}
-                                    className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                                    onClick={() => handleOpenEditInvitationModal(inv)}
+                                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                    title="Sửa hạn trả lời"
                                   >
-                                    Chấp nhận
+                                    <Edit size={14} />
                                   </button>
                                   <button
-                                    onClick={() => handleUpdateInvitationStatus(inv.invitationId, 'declined', 'Admin từ chối')}
+                                    onClick={() => handleDeleteInvitation(inv.invitationId)}
                                     className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                    title="Xóa lời mời"
                                   >
-                                    Từ chối
+                                    <Trash2 size={14} />
                                   </button>
                                 </>
                               )}
-                              {(inv.status === 'declined' || inv.status === 'rejected' || inv.status === 'expired') && (
-                                <span className="text-xs text-gray-400">Cần thay thế</span>
+                              {inv.status === 'accepted' && (
+                                <span className="text-xs text-green-600 font-medium">✓ Đội đã chấp nhận</span>
                               )}
-                              {inv.status === 'qualified' && (
-                                <span className="text-xs text-green-600 font-medium">✓ Đủ ĐK</span>
+                              {inv.status === 'declined' && (
+                                <span className="text-xs text-red-600">✗ Đội đã từ chối</span>
+                              )}
+                              {inv.status === 'expired' && (
+                                <span className="text-xs text-gray-400">⏱ Đã hết hạn</span>
+                              )}
+                              {inv.status === 'rescinded' && (
+                                <span className="text-xs text-purple-600">↩ Đã thu hồi</span>
+                              )}
+                              {inv.status === 'replaced' && (
+                                <span className="text-xs text-purple-600">🔄 Đã thay thế</span>
                               )}
                             </div>
                           </td>
@@ -1138,6 +1216,85 @@ const TeamsManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Invitation Modal */}
+      {showInvitationModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editingInvitation ? 'Sửa lời mời' : 'Thêm lời mời'}
+              </h3>
+              <button onClick={() => setShowInvitationModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {!editingInvitation && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Đội bóng *</label>
+                    <select
+                      value={invitationForm.teamId}
+                      onChange={(e) => setInvitationForm(prev => ({ ...prev, teamId: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={savingInvitation}
+                    >
+                      <option value="">-- Chọn đội --</option>
+                      {teams.map(team => (
+                        <option key={team.id} value={team.id}>{team.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Loại lời mời</label>
+                    <select
+                      value={invitationForm.inviteType}
+                      onChange={(e) => setInvitationForm(prev => ({ ...prev, inviteType: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={savingInvitation}
+                    >
+                      <option value="replacement">Thay thế / Thủ công</option>
+                      <option value="retained">Top 8 mùa trước</option>
+                      <option value="promoted">Thăng hạng</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hạn trả lời (ngày)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={invitationForm.deadlineDays}
+                  onChange={(e) => setInvitationForm(prev => ({ ...prev, deadlineDays: parseInt(e.target.value) || 14 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={savingInvitation}
+                />
+                <p className="mt-1 text-xs text-gray-500">Số ngày đội bóng có để phản hồi lời mời</p>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowInvitationModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                disabled={savingInvitation}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveInvitation}
+                disabled={savingInvitation || (!editingInvitation && !invitationForm.teamId)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {savingInvitation && <Loader2 size={16} className="animate-spin" />}
+                <span>{editingInvitation ? 'Cập nhật' : 'Thêm'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

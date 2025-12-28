@@ -7,43 +7,100 @@ import { AuthenticatedRequest } from "../types";
 const router = Router();
 const requireTeamManagement = requireAnyPermission("manage_teams", "manage_rulesets");
 
-// Status labels for frontend
+/**
+ * GET /api/invitations/my-pending-count
+ * Get count of pending invitations for current user's teams
+ */
+router.get(
+  "/my-pending-count",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userTeamIds = req.user?.teamIds || [];
+      
+      if (userTeamIds.length === 0) {
+        return res.json({ count: 0 });
+      }
+      
+      const teamIdPlaceholders = userTeamIds.map((_, i) => `@teamId${i}`).join(',');
+      const params: Record<string, any> = {};
+      userTeamIds.forEach((id, i) => {
+        params[`teamId${i}`] = id;
+      });
+      
+      const result = await query<{ count: number }>(
+        `SELECT COUNT(*) as count 
+         FROM season_invitations 
+         WHERE team_id IN (${teamIdPlaceholders}) 
+         AND status IN ('pending', 'sent')`,
+        params
+      );
+      
+      const count = result.recordset[0]?.count || 0;
+      console.log(`[GET my-pending-count] user=${req.user?.sub}, teams=${userTeamIds}, count=${count}`);
+      
+      res.json({ count });
+    } catch (error: any) {
+      console.error('[GET my-pending-count] Error:', error);
+      res.status(500).json({ error: "Failed to get pending invitation count" });
+    }
+  }
+);
+
+// Status labels for frontend - matches DB constraint
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Chưa gửi',
-  sent: 'Đã gửi',
   pending: 'Chờ phản hồi',
   accepted: 'Đã chấp nhận',
-  rejected: 'Đã từ chối',
+  declined: 'Đã từ chối',
   expired: 'Hết hạn',
-  awaiting_submission: 'Chờ nộp hồ sơ',
-  submitted: 'Đã nộp hồ sơ',
-  qualified: 'Đủ điều kiện',
-  disqualified: 'Không đủ điều kiện',
+  rescinded: 'Đã thu hồi',
   replaced: 'Đã thay thế'
 };
 
 const INVITE_TYPE_LABELS: Record<string, string> = {
-  top8: 'Top 8 mùa trước',
+  retained: 'Top 8 mùa trước',
   promoted: 'Thăng hạng',
-  reserve: 'Dự bị',
-  manual: 'Thêm thủ công'
+  replacement: 'Thay thế / Thủ công'
 };
 
 /**
  * GET /api/seasons/:seasonId/invitations
  * List all invitations for a season
+ * - Super admin / manage_teams: see all invitations
+ * - Team admin: only see invitations for their teams
  */
 router.get(
   "/:seasonId/invitations",
   requireAuth,
-  requireTeamManagement,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const seasonId = parseInt(req.params.seasonId, 10);
       if (isNaN(seasonId)) {
         return res.status(400).json({ error: "Invalid season ID" });
       }
-      const invitations = await invitationService.getSeasonInvitations(seasonId);
+      
+      // Check if user has team management permissions (see all)
+      const hasManageTeams = req.user?.permissions?.includes('manage_teams');
+      const isSuperAdmin = req.user?.roles?.includes('super_admin');
+      const canSeeAll = hasManageTeams || isSuperAdmin;
+      
+      // Get user's team IDs if not admin
+      const userTeamIds = req.user?.teamIds;
+      
+      let invitations = await invitationService.getSeasonInvitations(seasonId);
+      
+      // Filter by team if user is team admin
+      if (!canSeeAll && Array.isArray(userTeamIds) && userTeamIds.length > 0) {
+        console.log(`[GET invitations] Filtering for team admin, teamIds:`, userTeamIds);
+        invitations = invitations.filter(inv => userTeamIds.includes(inv.team_id));
+      } else if (!canSeeAll) {
+        // User has no teams and is not admin - return empty
+        console.log(`[GET invitations] User has no teams and is not admin, returning empty`);
+        return res.json({ data: [] });
+      }
+      
+      console.log(`[GET invitations] Returning ${invitations.length} invitations`);
+      
       // Transform to match frontend expected format
       const transformed = invitations.map(inv => ({
         invitationId: inv.invitation_id,
@@ -52,9 +109,9 @@ router.get(
         teamName: inv.team_name,
         shortName: inv.short_name,
         teamLogo: inv.team_logo,
-        inviteType: inv.invite_type || 'manual',
+        inviteType: inv.invite_type || 'replacement',
         inviteTypeLabel: INVITE_TYPE_LABELS[inv.invite_type] || inv.invite_type,
-        status: inv.response_status === 'pending' ? 'sent' : inv.response_status,
+        status: inv.response_status,
         statusLabel: STATUS_LABELS[inv.response_status] || inv.response_status,
         invitedAt: inv.sent_at,
         responseDeadline: inv.deadline,
@@ -65,7 +122,7 @@ router.get(
       }));
       res.json({ data: transformed });
     } catch (error: any) {
-      console.error('[GET invitations]', error);
+      console.error('[GET invitations] Error:', error);
       res.status(500).json({ error: "Failed to list invitations" });
     }
   }
@@ -179,14 +236,57 @@ router.delete(
       if (isNaN(invitationId)) {
         return res.status(400).json({ error: "Invalid invitation ID" });
       }
+      console.log(`[DELETE invitation] invitationId=${invitationId}, user=${req.user?.sub}`);
       const deleted = await invitationService.removeInvitation(invitationId);
       if (!deleted) {
-        return res.status(400).json({ error: "Chỉ có thể xóa lời mời ở trạng thái 'Chưa gửi'" });
+        return res.status(400).json({ error: "Chỉ có thể xóa lời mời ở trạng thái 'Chưa gửi' hoặc 'Chờ phản hồi'" });
       }
+      console.log(`[DELETE invitation] Success: deleted invitation ${invitationId}`);
       res.status(204).send();
     } catch (error: any) {
-      console.error('[DELETE invitation]', error);
+      console.error('[DELETE invitation] Error:', error);
       res.status(500).json({ error: "Failed to delete invitation" });
+    }
+  }
+);
+
+/**
+ * PATCH /api/seasons/:seasonId/invitations/:invitationId
+ * Update invitation (deadline)
+ */
+router.patch(
+  "/:seasonId/invitations/:invitationId",
+  requireAuth,
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const invitationId = parseInt(req.params.invitationId, 10);
+      const { deadlineDays } = req.body;
+      
+      if (isNaN(invitationId)) {
+        return res.status(400).json({ error: "Invalid invitation ID" });
+      }
+      if (!deadlineDays || deadlineDays < 1) {
+        return res.status(400).json({ error: "deadlineDays must be at least 1" });
+      }
+      
+      console.log(`[PATCH invitation] invitationId=${invitationId}, deadlineDays=${deadlineDays}, user=${req.user?.sub}`);
+      
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + deadlineDays);
+      
+      await query(
+        `UPDATE season_invitations 
+         SET response_deadline = @deadline 
+         WHERE invitation_id = @invitationId`,
+        { invitationId, deadline: deadline.toISOString() }
+      );
+      
+      console.log(`[PATCH invitation] Success: updated invitation ${invitationId} deadline`);
+      res.json({ message: "Invitation updated successfully" });
+    } catch (error: any) {
+      console.error('[PATCH invitation] Error:', error);
+      res.status(500).json({ error: "Failed to update invitation" });
     }
   }
 );
@@ -206,13 +306,15 @@ router.post(
         return res.status(400).json({ error: "Invalid season ID" });
       }
       const userId = req.user!.sub;
+      console.log(`[POST generate-suggested] seasonId=${seasonId}, userId=${userId}`);
       const result = await invitationService.generateSuggestedInvitations(seasonId, userId);
+      console.log(`[POST generate-suggested] Success: created ${result.created} invitations`);
       res.status(201).json({ 
         data: result,
         message: `Đã tạo ${result.created} lời mời đề xuất`
       });
     } catch (error: any) {
-      console.error('[POST generate-suggested]', error);
+      console.error('[POST generate-suggested] Error:', error);
       res.status(500).json({ error: "Failed to generate suggested invitations" });
     }
   }
@@ -233,13 +335,15 @@ router.post(
         return res.status(400).json({ error: "Invalid season ID" });
       }
       const { deadlineDays } = req.body;
+      console.log(`[POST send-all] seasonId=${seasonId}, deadlineDays=${deadlineDays || 14}`);
       const sent = await invitationService.sendAllDraftInvitations(seasonId, deadlineDays || 14);
+      console.log(`[POST send-all] Success: sent ${sent} invitations`);
       res.json({ 
         data: { sent },
         message: `Đã gửi ${sent} lời mời`
       });
     } catch (error: any) {
-      console.error('[POST send-all]', error);
+      console.error('[POST send-all] Error:', error);
       res.status(500).json({ error: "Failed to send invitations" });
     }
   }
@@ -395,23 +499,50 @@ router.get(
 /**
  * PATCH /api/seasons/:seasonId/invitations/:invitationId/status
  * Update invitation status
+ * - Team admin can accept/decline invitations for their teams
+ * - Super admin / manage_teams can do all status changes
  */
 router.patch(
   "/:seasonId/invitations/:invitationId/status",
   requireAuth,
-  requireTeamManagement,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const invitationId = parseInt(req.params.invitationId, 10);
       const { status, responseNotes } = req.body;
       
+      // Get invitation to check team ownership
+      const invitations = await invitationService.getSeasonInvitations(parseInt(req.params.seasonId, 10));
+      const invitation = invitations.find(inv => inv.invitation_id === invitationId);
+      
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+      
+      // Check permissions
+      const hasManageTeams = req.user?.permissions?.includes('manage_teams');
+      const isSuperAdmin = req.user?.roles?.includes('super_admin');
+      const userTeamIds = req.user?.teamIds || [];
+      const isTeamOwner = userTeamIds.includes(invitation.team_id);
+      
+      // Team admin can only accept/decline their own invitations
+      if (!hasManageTeams && !isSuperAdmin) {
+        if (!isTeamOwner) {
+          return res.status(403).json({ error: "You don't have permission to update this invitation" });
+        }
+        if (!['accepted', 'declined', 'rejected'].includes(status)) {
+          return res.status(403).json({ error: "You can only accept or decline invitations" });
+        }
+      }
+      
+      console.log(`[PATCH status] invitationId=${invitationId}, status=${status}, user=${req.user?.sub}`);
+      
       switch (status) {
         case 'accepted':
-        await invitationService.acceptInvitation(invitationId, responseNotes);
+          await invitationService.acceptInvitation(invitationId, responseNotes);
           break;
         case 'declined':
         case 'rejected':
-        await invitationService.rejectInvitation(invitationId, responseNotes);
+          await invitationService.rejectInvitation(invitationId, responseNotes);
           break;
         case 'qualified':
           await invitationService.qualifyTeam(invitationId);
@@ -423,9 +554,10 @@ router.patch(
           return res.status(400).json({ error: "Invalid status" });
       }
       
+      console.log(`[PATCH status] Success: invitation ${invitationId} updated to ${status}`);
       res.json({ message: "Invitation status updated successfully" });
     } catch (error: any) {
-      console.error('[PATCH status]', error);
+      console.error('[PATCH status] Error:', error);
       res.status(500).json({ error: "Failed to update invitation status" });
     }
   }

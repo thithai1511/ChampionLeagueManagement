@@ -24,7 +24,7 @@ export type InvitationStatus =
   | "disqualified"
   | "replaced";
 
-export type InviteSource = "top8" | "promoted" | "reserve" | "manual";
+export type InviteSource = "retained" | "promoted" | "replacement" | "top8" | "reserve" | "manual";
 
 export interface SeasonInvitation {
   invitation_id: number;
@@ -46,7 +46,7 @@ export interface SeasonInvitation {
   replacement_for_id: number | null;
 }
 
-// Map DB column names to service interface - handles both old and new schemas
+// Map DB column names to service interface
 const baseInvitationSelect = `
   SELECT
     si.invitation_id,
@@ -54,22 +54,21 @@ const baseInvitationSelect = `
     si.team_id,
     t.name AS team_name,
     t.short_name,
-    COALESCE(ft.crest, ft.logo) AS team_logo,
+    NULL AS team_logo,
     s.name AS season_name,
-    COALESCE(si.invited_by_user_id, si.invited_by) AS invited_by_user_id,
-    CONVERT(VARCHAR(23), COALESCE(si.sent_at, si.invited_at), 126) AS sent_at,
-    COALESCE(si.response_status, si.status) AS response_status,
-    CONVERT(VARCHAR(23), COALESCE(si.response_date, si.responded_at), 126) AS response_date,
+    si.invited_by AS invited_by_user_id,
+    CONVERT(VARCHAR(23), si.invited_at, 126) AS sent_at,
+    si.status AS response_status,
+    CONVERT(VARCHAR(23), si.responded_at, 126) AS response_date,
     si.response_notes,
-    CONVERT(VARCHAR(23), COALESCE(si.deadline, si.response_deadline), 126) AS deadline,
-    CONVERT(VARCHAR(23), COALESCE(si.created_at, si.invited_at), 126) AS created_at,
-    COALESCE(si.invite_type, 'manual') AS invite_type,
+    CONVERT(VARCHAR(23), si.response_deadline, 126) AS deadline,
+    CONVERT(VARCHAR(23), si.invited_at, 126) AS created_at,
+    si.invite_type,
     'missing' AS docs_status,
     si.replacement_for_id
   FROM season_invitations si
   INNER JOIN seasons s ON si.season_id = s.season_id
   INNER JOIN teams t ON si.team_id = t.team_id
-  LEFT JOIN FootballTeams ft ON t.external_id = ft.id
 `;
 
 /**
@@ -99,12 +98,12 @@ export async function generateSuggestedInvitations(
   // Get top 8 teams from previous season standings
   const top8Result = await query<{ team_id: number; team_name: string }>(
     `
-    SELECT TOP 8 stp.team_id, t.name AS team_name
-    FROM season_team_statistics stp
-    INNER JOIN season_team_participants stprt ON stp.season_team_id = stprt.season_team_id
+    SELECT TOP 8 stprt.team_id, t.name AS team_name
+    FROM season_team_statistics sts
+    INNER JOIN season_team_participants stprt ON sts.season_team_id = stprt.season_team_id
     INNER JOIN teams t ON stprt.team_id = t.team_id
     WHERE stprt.season_id = @prevSeasonId
-    ORDER BY stp.points DESC, (stp.goals_for - stp.goals_against) DESC
+    ORDER BY sts.points DESC, sts.goal_difference DESC
   `,
     { prevSeasonId: previousSeasonId || seasonId }
   );
@@ -140,7 +139,7 @@ export async function generateSuggestedInvitations(
     );
     
     if (existsResult.recordset[0]?.cnt === 0) {
-      // Use correct column names from schema: invited_by, status, invited_at, response_deadline
+      // Create as 'pending' - matches DB constraint
       const deadline = new Date();
       deadline.setDate(deadline.getDate() + 14);
       await query(
@@ -163,6 +162,7 @@ export async function generateSuggestedInvitations(
     );
     
     if (existsResult.recordset[0]?.cnt === 0) {
+      // Create as 'pending' - matches DB constraint
       const deadline = new Date();
       deadline.setDate(deadline.getDate() + 14);
       await query(
@@ -181,15 +181,12 @@ export async function generateSuggestedInvitations(
 }
 
 /**
- * Send invitations (change status from pending to sent - for UI purposes)
- * In this schema, pending = not yet responded
+ * Send invitations (update deadline for pending invitations)
  */
 export async function sendInvitations(
   invitationIds: number[],
   deadlineDays: number = 14
 ): Promise<number> {
-  // In this schema, invitations are already "sent" when created with pending status
-  // This function updates the deadline
   const deadline = new Date();
   deadline.setDate(deadline.getDate() + deadlineDays);
 
@@ -253,10 +250,14 @@ export async function addTeamToInvitations(
   const deadline = new Date();
   deadline.setDate(deadline.getDate() + 14);
   
-  // Map inviteType to schema constraint values
-  const dbInviteType = inviteType === 'top8' ? 'retained' : 
-                       inviteType === 'reserve' ? 'replacement' : 
-                       inviteType;
+  // Map inviteType to schema constraint values: 'retained','promoted','replacement'
+  let dbInviteType = inviteType;
+  if (inviteType === 'top8') dbInviteType = 'retained';
+  else if (inviteType === 'reserve' || inviteType === 'manual') dbInviteType = 'replacement';
+  // Ensure it's one of the allowed values
+  if (!['retained', 'promoted', 'replacement'].includes(dbInviteType)) {
+    dbInviteType = 'replacement';
+  }
 
   const result = await query<{ invitation_id: number }>(
     `
@@ -271,11 +272,13 @@ export async function addTeamToInvitations(
 }
 
 /**
- * Remove a pending invitation
+ * Remove a pending invitation (not accepted/declined)
  */
 export async function removeInvitation(invitationId: number): Promise<boolean> {
   const result = await query(
-    `DELETE FROM season_invitations WHERE invitation_id = @invitationId AND status = 'pending'`,
+    `DELETE FROM season_invitations 
+     WHERE invitation_id = @invitationId 
+     AND status = 'pending'`,
     { invitationId }
   );
   return (result.rowsAffected?.[0] ?? 0) > 0;
@@ -476,7 +479,7 @@ export async function getSeasonInvitations(
   seasonId: number
 ): Promise<SeasonInvitation[]> {
   const result = await query<SeasonInvitation>(
-    `${baseInvitationSelect} WHERE si.season_id = @seasonId ORDER BY si.sent_at DESC`,
+    `${baseInvitationSelect} WHERE si.season_id = @seasonId ORDER BY si.invited_at DESC`,
     { seasonId }
   );
   return result.recordset;
@@ -491,9 +494,9 @@ export async function getPendingInvitationsForTeam(
   const result = await query<SeasonInvitation>(
     `${baseInvitationSelect} 
      WHERE si.team_id = @teamId 
-     AND COALESCE(si.response_status, si.status) = 'pending'
-     AND COALESCE(si.deadline, si.response_deadline) > GETUTCDATE()
-     ORDER BY COALESCE(si.deadline, si.response_deadline) ASC`,
+     AND si.status = 'pending'
+     AND si.response_deadline > GETUTCDATE()
+     ORDER BY si.response_deadline ASC`,
     { teamId }
   );
   return result.recordset;
@@ -579,10 +582,10 @@ export async function getInvitationsSummary(seasonId: number): Promise<{
     `
     SELECT
       COUNT(*) AS total,
-      SUM(CASE WHEN COALESCE(response_status, status) = 'pending' THEN 1 ELSE 0 END) AS pending,
-      SUM(CASE WHEN COALESCE(response_status, status) = 'accepted' THEN 1 ELSE 0 END) AS accepted,
-      SUM(CASE WHEN COALESCE(response_status, status) IN ('rejected', 'declined') THEN 1 ELSE 0 END) AS rejected,
-      SUM(CASE WHEN COALESCE(response_status, status) = 'expired' THEN 1 ELSE 0 END) AS expired
+      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+      SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) AS accepted,
+      SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) AS rejected,
+      SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) AS expired
     FROM season_invitations
     WHERE season_id = @seasonId
   `,

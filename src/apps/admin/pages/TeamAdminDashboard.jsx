@@ -67,46 +67,206 @@ const TeamAdminDashboard = ({ currentUser }) => {
   // Active tab
   const [activeTab, setActiveTab] = useState('overview') // overview | invitations | club | players | schedule | lineup
 
-  // Get participation status
-  const participationStatus = useMemo(() => {
-    // Default status
-    let status = {
-      current: 'invitation',
-      label: 'Chờ lời mời',
-      color: 'gray'
-    }
+  // BTC Requirements validation
+  const BTC_REQUIREMENTS = {
+    MIN_PLAYERS: 16,
+    MAX_PLAYERS: 22,
+    MAX_FOREIGN_PLAYERS: 5,
+    MIN_PLAYER_AGE: 16,
+    MIN_STADIUM_CAPACITY: 10000,
+    REGISTRATION_FEE: 1000000000, // 1 tỷ đồng
+  }
+
+  // Calculate profile completion
+  const profileCompletion = useMemo(() => {
+    if (!team) return { complete: false, issues: [], percentage: 0 }
     
-    const activeInvitation = invitations.find(inv => 
-      inv.status === 'accepted' || inv.status === 'qualified' || inv.status === 'pending'
-    )
-    
-    if (!activeInvitation) {
-      return status
+    const issues = []
+    let completed = 0
+    const total = 6 // Required fields
+
+    // Check required fields
+    if (team.name) completed++
+    else issues.push('Tên CLB chưa điền')
+
+    if (team.city) completed++
+    else issues.push('Thành phố chưa điền')
+
+    if (team.country === 'Việt Nam' || team.country === 'Vietnam') completed++
+    else issues.push('CLB phải có trụ sở tại Việt Nam')
+
+    if (team.stadium_name) completed++
+    else issues.push('Tên sân nhà chưa điền')
+
+    if (team.stadium_capacity && team.stadium_capacity >= BTC_REQUIREMENTS.MIN_STADIUM_CAPACITY) {
+      completed++
+    } else if (!team.stadium_capacity) {
+      issues.push('Sức chứa sân nhà chưa điền')
+    } else {
+      issues.push(`Sân nhà cần tối thiểu ${BTC_REQUIREMENTS.MIN_STADIUM_CAPACITY.toLocaleString()} chỗ`)
     }
 
-    switch (activeInvitation.status) {
-      case 'pending':
-      case 'sent':
-        status = { current: 'invitation', label: 'Chờ xác nhận', color: 'yellow' }
-        break
-      case 'accepted':
-        status = { current: 'club_docs', label: 'Đang bổ sung hồ sơ', color: 'blue' }
-        break
-      case 'submitted':
-        status = { current: 'btc_approval', label: 'BTC đang thẩm định', color: 'purple' }
-        break
-      case 'qualified':
-        status = { current: 'complete', label: 'Đã đủ điều kiện', color: 'green' }
-        break
-      case 'disqualified':
-        status = { current: 'rejected', label: 'Bị loại', color: 'red' }
-        break
-      default:
-        break
+    if (team.phone || team.email) completed++
+    else issues.push('Thông tin liên hệ (SĐT/Email) chưa điền')
+
+    return {
+      complete: issues.length === 0,
+      issues,
+      percentage: Math.round((completed / total) * 100)
     }
+  }, [team])
+
+  // Calculate players completion
+  const playersCompletion = useMemo(() => {
+    const issues = []
+    const totalPlayers = players.length
+    const foreignPlayers = players.filter(p => p.nationality !== 'Việt Nam' && p.nationality !== 'Vietnam').length
     
-    return status
-  }, [invitations])
+    // Check player count
+    if (totalPlayers < BTC_REQUIREMENTS.MIN_PLAYERS) {
+      issues.push(`Cần tối thiểu ${BTC_REQUIREMENTS.MIN_PLAYERS} cầu thủ (hiện có ${totalPlayers})`)
+    }
+    if (totalPlayers > BTC_REQUIREMENTS.MAX_PLAYERS) {
+      issues.push(`Tối đa ${BTC_REQUIREMENTS.MAX_PLAYERS} cầu thủ (hiện có ${totalPlayers})`)
+    }
+
+    // Check foreign players
+    if (foreignPlayers > BTC_REQUIREMENTS.MAX_FOREIGN_PLAYERS) {
+      issues.push(`Tối đa ${BTC_REQUIREMENTS.MAX_FOREIGN_PLAYERS} cầu thủ ngoại (hiện có ${foreignPlayers})`)
+    }
+
+    // Check player ages
+    const today = new Date()
+    const underagePlayersCount = players.filter(p => {
+      if (!p.birth_date && !p.dateOfBirth) return false
+      const birthDate = new Date(p.birth_date || p.dateOfBirth)
+      const age = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000))
+      return age < BTC_REQUIREMENTS.MIN_PLAYER_AGE
+    }).length
+    
+    if (underagePlayersCount > 0) {
+      issues.push(`${underagePlayersCount} cầu thủ chưa đủ ${BTC_REQUIREMENTS.MIN_PLAYER_AGE} tuổi`)
+    }
+
+    const isValid = totalPlayers >= BTC_REQUIREMENTS.MIN_PLAYERS && 
+                    totalPlayers <= BTC_REQUIREMENTS.MAX_PLAYERS &&
+                    foreignPlayers <= BTC_REQUIREMENTS.MAX_FOREIGN_PLAYERS &&
+                    underagePlayersCount === 0
+
+    return {
+      complete: isValid,
+      issues,
+      total: totalPlayers,
+      foreign: foreignPlayers,
+      percentage: totalPlayers >= BTC_REQUIREMENTS.MIN_PLAYERS 
+        ? Math.min(100, Math.round((totalPlayers / BTC_REQUIREMENTS.MIN_PLAYERS) * 100))
+        : Math.round((totalPlayers / BTC_REQUIREMENTS.MIN_PLAYERS) * 100)
+    }
+  }, [players])
+
+  // Get participation status - dynamic based on actual completion
+  const participationStatus = useMemo(() => {
+    // Debug: log invitations data
+    console.log('[participationStatus] invitations:', invitations)
+    console.log('[participationStatus] selectedSeasonId:', selectedSeasonId)
+    
+    // Find active invitation for selected season - check both season_id and seasonId
+    const activeInvitation = invitations.find(inv => {
+      const invSeasonId = inv.season_id ?? inv.seasonId
+      const matchesSeason = invSeasonId === selectedSeasonId || invSeasonId === String(selectedSeasonId)
+      const hasValidStatus = inv.status === 'accepted' || inv.status === 'qualified' || inv.status === 'pending'
+      console.log('[participationStatus] checking inv:', { invSeasonId, selectedSeasonId, status: inv.status, matchesSeason, hasValidStatus })
+      return matchesSeason && hasValidStatus
+    })
+
+    // Step 1: No invitation yet
+    if (!activeInvitation) {
+      return {
+        current: 'invitation',
+        label: 'Chờ lời mời từ BTC',
+        color: 'gray',
+        stepIndex: 0
+      }
+    }
+
+    // Step 2: Invitation pending - waiting for confirmation
+    if (activeInvitation.status === 'pending' || activeInvitation.status === 'sent') {
+      return {
+        current: 'invitation',
+        label: 'Chờ xác nhận tham gia',
+        color: 'yellow',
+        stepIndex: 0
+      }
+    }
+
+    // Step 3: Accepted - check profile and players
+    if (activeInvitation.status === 'accepted') {
+      // Check club profile first
+      if (!profileCompletion.complete) {
+        return {
+          current: 'club_docs',
+          label: 'Đang bổ sung hồ sơ CLB',
+          color: 'blue',
+          stepIndex: 2
+        }
+      }
+
+      // Then check players
+      if (!playersCompletion.complete) {
+        return {
+          current: 'player_list',
+          label: 'Đang bổ sung danh sách cầu thủ',
+          color: 'blue',
+          stepIndex: 3
+        }
+      }
+
+      // Both complete - waiting for fee confirmation
+      return {
+        current: 'fees',
+        label: 'Chờ xác nhận lệ phí',
+        color: 'orange',
+        stepIndex: 4
+      }
+    }
+
+    // Step 4: Submitted for review
+    if (activeInvitation.status === 'submitted') {
+      return {
+        current: 'btc_approval',
+        label: 'BTC đang thẩm định',
+        color: 'purple',
+        stepIndex: 5
+      }
+    }
+
+    // Step 5: Qualified
+    if (activeInvitation.status === 'qualified') {
+      return {
+        current: 'complete',
+        label: 'Đã đủ điều kiện tham gia',
+        color: 'green',
+        stepIndex: 6
+      }
+    }
+
+    // Rejected
+    if (activeInvitation.status === 'disqualified' || activeInvitation.status === 'rejected') {
+      return {
+        current: 'rejected',
+        label: 'Bị từ chối / Loại',
+        color: 'red',
+        stepIndex: -1
+      }
+    }
+
+    return {
+      current: 'invitation',
+      label: 'Chờ lời mời',
+      color: 'gray',
+      stepIndex: 0
+    }
+  }, [invitations, selectedSeasonId, profileCompletion, playersCompletion])
 
   // Fetch initial data
   useEffect(() => {
@@ -149,8 +309,14 @@ const TeamAdminDashboard = ({ currentUser }) => {
         // Get invitations for this team
         const response = await ApiService.get(`/seasons/${selectedSeasonId}/invitations`)
         const allInvitations = response?.data || []
-        // Filter for this team
-        const myInvitations = allInvitations.filter(inv => teamIds.includes(inv.teamId))
+        console.log('[loadInvitations] Raw response:', allInvitations)
+        
+        // Filter for this team - check both team_id and teamId
+        const myInvitations = allInvitations.filter(inv => {
+          const invTeamId = inv.team_id ?? inv.teamId
+          return teamIds.includes(invTeamId)
+        })
+        console.log('[loadInvitations] My invitations:', myInvitations)
         setInvitations(myInvitations)
       } catch (err) {
         console.error('Failed to load invitations', err)
@@ -194,7 +360,10 @@ const TeamAdminDashboard = ({ currentUser }) => {
       // Reload invitations
       const response = await ApiService.get(`/seasons/${selectedSeasonId}/invitations`)
       const allInvitations = response?.data || []
-      setInvitations(allInvitations.filter(inv => teamIds.includes(inv.teamId)))
+      setInvitations(allInvitations.filter(inv => {
+        const invTeamId = inv.team_id ?? inv.teamId
+        return teamIds.includes(invTeamId)
+      }))
     } catch (err) {
       toast.error(err?.message || 'Không thể cập nhật lời mời')
     }
@@ -260,21 +429,35 @@ const TeamAdminDashboard = ({ currentUser }) => {
           <div className="flex items-center justify-between overflow-x-auto pb-2">
             {PARTICIPATION_STEPS.map((step, index) => {
               const StepIcon = step.icon
-              const isActive = participationStatus.current === step.key
-              const isCompleted = PARTICIPATION_STEPS.findIndex(s => s.key === participationStatus.current) > index
+              const stepIndex = participationStatus.stepIndex || 0
+              const isCompleted = index < stepIndex
+              const isActive = index === stepIndex
               const isRejected = participationStatus.current === 'rejected'
+              
+              // Determine step status based on actual data
+              let stepStatus = 'pending'
+              if (isCompleted) stepStatus = 'completed'
+              else if (isActive) stepStatus = 'active'
+              else if (isRejected) stepStatus = 'rejected'
               
               return (
                 <React.Fragment key={step.key}>
                   <div className="flex flex-col items-center min-w-[80px]">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
-                      isCompleted ? 'bg-green-500 border-green-500 text-white' :
-                      isActive ? `bg-${participationStatus.color}-100 border-${participationStatus.color}-500 text-${participationStatus.color}-600` :
+                      stepStatus === 'completed' ? 'bg-green-500 border-green-500 text-white' :
+                      stepStatus === 'active' ? 'bg-blue-100 border-blue-500 text-blue-600' :
+                      stepStatus === 'rejected' ? 'bg-red-100 border-red-500 text-red-600' :
                       'bg-gray-100 border-gray-300 text-gray-400'
                     }`}>
-                      {isCompleted ? <CheckCircle2 size={20} /> : <StepIcon size={20} />}
+                      {stepStatus === 'completed' ? <CheckCircle2 size={20} /> : 
+                       stepStatus === 'rejected' ? <XCircle size={20} /> :
+                       <StepIcon size={20} />}
                     </div>
-                    <span className={`text-xs mt-2 text-center ${isActive ? 'font-semibold text-gray-900' : 'text-gray-500'}`}>
+                    <span className={`text-xs mt-2 text-center ${
+                      stepStatus === 'active' ? 'font-semibold text-gray-900' : 
+                      stepStatus === 'completed' ? 'text-green-600' :
+                      'text-gray-500'
+                    }`}>
                       {step.label}
                     </span>
                   </div>
@@ -285,11 +468,98 @@ const TeamAdminDashboard = ({ currentUser }) => {
               )
             })}
           </div>
-          <div className={`mt-4 p-3 rounded-lg bg-${participationStatus.color}-50 border border-${participationStatus.color}-200`}>
-            <span className={`text-sm font-medium text-${participationStatus.color}-700`}>
+          
+          {/* Status message */}
+          <div className={`mt-4 p-3 rounded-lg ${
+            participationStatus.color === 'green' ? 'bg-green-50 border border-green-200' :
+            participationStatus.color === 'red' ? 'bg-red-50 border border-red-200' :
+            participationStatus.color === 'yellow' ? 'bg-yellow-50 border border-yellow-200' :
+            participationStatus.color === 'orange' ? 'bg-orange-50 border border-orange-200' :
+            participationStatus.color === 'purple' ? 'bg-purple-50 border border-purple-200' :
+            'bg-blue-50 border border-blue-200'
+          }`}>
+            <span className={`text-sm font-medium ${
+              participationStatus.color === 'green' ? 'text-green-700' :
+              participationStatus.color === 'red' ? 'text-red-700' :
+              participationStatus.color === 'yellow' ? 'text-yellow-700' :
+              participationStatus.color === 'orange' ? 'text-orange-700' :
+              participationStatus.color === 'purple' ? 'text-purple-700' :
+              'text-blue-700'
+            }`}>
               Trạng thái: {participationStatus.label}
             </span>
           </div>
+
+          {/* Progress Details */}
+          {participationStatus.current === 'club_docs' && profileCompletion.issues.length > 0 && (
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle size={16} className="text-amber-600" />
+                <span className="font-medium text-amber-800">Hồ sơ CLB cần bổ sung ({profileCompletion.percentage}% hoàn thành)</span>
+              </div>
+              <ul className="list-disc list-inside text-sm text-amber-700 space-y-1">
+                {profileCompletion.issues.map((issue, i) => (
+                  <li key={i}>{issue}</li>
+                ))}
+              </ul>
+              <Link 
+                to="/admin/club-profile" 
+                className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm"
+              >
+                Bổ sung hồ sơ CLB
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+          )}
+
+          {participationStatus.current === 'player_list' && playersCompletion.issues.length > 0 && (
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle size={16} className="text-amber-600" />
+                <span className="font-medium text-amber-800">
+                  Danh sách cầu thủ: {playersCompletion.total}/{BTC_REQUIREMENTS.MIN_PLAYERS} (tối thiểu)
+                </span>
+              </div>
+              <ul className="list-disc list-inside text-sm text-amber-700 space-y-1">
+                {playersCompletion.issues.map((issue, i) => (
+                  <li key={i}>{issue}</li>
+                ))}
+              </ul>
+              <Link 
+                to="/admin/player-registrations" 
+                className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm"
+              >
+                Đăng ký cầu thủ
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+          )}
+
+          {participationStatus.current === 'fees' && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 size={16} className="text-blue-600" />
+                <span className="font-medium text-blue-800">Hồ sơ và danh sách cầu thủ đã hoàn thành!</span>
+              </div>
+              <p className="text-sm text-blue-700 mb-3">
+                Lệ phí tham gia: <strong>{BTC_REQUIREMENTS.REGISTRATION_FEE.toLocaleString('vi-VN')} VND</strong>
+              </p>
+              <p className="text-xs text-blue-600">
+                Vui lòng liên hệ BTC để xác nhận thanh toán lệ phí và hoàn tất đăng ký.
+              </p>
+            </div>
+          )}
+
+          {participationStatus.current === 'complete' && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={20} className="text-green-600" />
+                <span className="font-medium text-green-800">
+                  🎉 CLB đã đủ điều kiện tham gia mùa giải!
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -321,6 +591,82 @@ const TeamAdminDashboard = ({ currentUser }) => {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* BTC Requirements Summary */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 lg:col-span-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Shield size={20} className="text-blue-600" />
+              Yêu cầu đăng ký (Quy định BTC)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Profile Requirements */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-gray-700 text-sm">Hồ sơ CLB</h4>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    {team?.country === 'Việt Nam' || team?.country === 'Vietnam' ? 
+                      <CheckCircle2 size={14} className="text-green-500" /> : 
+                      <XCircle size={14} className="text-red-400" />}
+                    <span className="text-gray-600">Trụ sở tại Việt Nam</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {team?.stadium_name ? 
+                      <CheckCircle2 size={14} className="text-green-500" /> : 
+                      <XCircle size={14} className="text-red-400" />}
+                    <span className="text-gray-600">Có sân nhà</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {team?.stadium_capacity >= BTC_REQUIREMENTS.MIN_STADIUM_CAPACITY ? 
+                      <CheckCircle2 size={14} className="text-green-500" /> : 
+                      <XCircle size={14} className="text-red-400" />}
+                    <span className="text-gray-600">
+                      Sức chứa ≥ {BTC_REQUIREMENTS.MIN_STADIUM_CAPACITY.toLocaleString()} chỗ
+                      {team?.stadium_capacity ? ` (${team.stadium_capacity.toLocaleString()})` : ''}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Player Requirements */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-gray-700 text-sm">Danh sách cầu thủ</h4>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    {playersCompletion.total >= BTC_REQUIREMENTS.MIN_PLAYERS ? 
+                      <CheckCircle2 size={14} className="text-green-500" /> : 
+                      <XCircle size={14} className="text-red-400" />}
+                    <span className="text-gray-600">
+                      {BTC_REQUIREMENTS.MIN_PLAYERS}-{BTC_REQUIREMENTS.MAX_PLAYERS} cầu thủ 
+                      ({playersCompletion.total} hiện tại)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {playersCompletion.foreign <= BTC_REQUIREMENTS.MAX_FOREIGN_PLAYERS ? 
+                      <CheckCircle2 size={14} className="text-green-500" /> : 
+                      <XCircle size={14} className="text-red-400" />}
+                    <span className="text-gray-600">
+                      Tối đa {BTC_REQUIREMENTS.MAX_FOREIGN_PLAYERS} ngoại binh 
+                      ({playersCompletion.foreign} hiện tại)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-green-500" />
+                    <span className="text-gray-600">Độ tuổi tối thiểu {BTC_REQUIREMENTS.MIN_PLAYER_AGE}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Fee info */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center gap-2 text-sm">
+                <Target size={14} className="text-amber-500" />
+                <span className="text-gray-600">
+                  Lệ phí tham gia: <strong className="text-gray-900">{BTC_REQUIREMENTS.REGISTRATION_FEE.toLocaleString('vi-VN')} VND</strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Quick Stats */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Thống kê mùa giải</h3>
@@ -514,21 +860,37 @@ const TeamAdminDashboard = ({ currentUser }) => {
               <dl className="space-y-3">
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <dt className="text-gray-500">Tên sân</dt>
-                  <dd className="font-medium text-gray-900">{team?.venue || '—'}</dd>
+                  <dd className="font-medium text-gray-900">{team?.stadium_name || '—'}</dd>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <dt className="text-gray-500">Sức chứa</dt>
-                  <dd className="font-medium text-gray-900">—</dd>
+                  <dd className="font-medium text-gray-900">{team?.stadium_capacity ? team.stadium_capacity.toLocaleString() : '—'}</dd>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
-                  <dt className="text-gray-500">Địa chỉ</dt>
-                  <dd className="font-medium text-gray-900">—</dd>
+                  <dt className="text-gray-500">Điện thoại</dt>
+                  <dd className="font-medium text-gray-900">{team?.phone || '—'}</dd>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <dt className="text-gray-500">Email</dt>
+                  <dd className="font-medium text-gray-900">{team?.email || '—'}</dd>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <dt className="text-gray-500">Website</dt>
+                  <dd className="font-medium text-gray-900">
+                    {team?.website ? (
+                      <a href={team.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {team.website}
+                      </a>
+                    ) : '—'}
+                  </dd>
                 </div>
               </dl>
-              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
-                <AlertCircle size={16} className="inline mr-2" />
-                Vui lòng bổ sung thông tin sân nhà để hoàn thiện hồ sơ
-              </div>
+              {(!team?.stadium_name || !team?.phone) && (
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+                  <AlertCircle size={16} className="inline mr-2" />
+                  Vui lòng bổ sung thông tin sân nhà để hoàn thiện hồ sơ
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -633,5 +995,8 @@ const TeamAdminDashboard = ({ currentUser }) => {
 }
 
 export default TeamAdminDashboard
+
+
+
 
 

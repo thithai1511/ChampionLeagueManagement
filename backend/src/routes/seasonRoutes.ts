@@ -12,7 +12,6 @@ import {
   updateSeason,
 } from "../services/seasonService";
 import { AuthenticatedRequest } from "../types";
-import { query } from "../db/sqlServer";
 
 const router = Router();
 const requireSeasonManagement = requireAnyPermission("manage_rulesets", "manage_teams");

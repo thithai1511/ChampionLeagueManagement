@@ -76,7 +76,6 @@ async function seedRoles() {
           ('admin', 'manage_rulesets'),
           ('admin', 'manage_matches'),
           ('admin', 'manage_teams'),
-          ('admin', 'approve_player_registrations'),
           ('content_manager', 'manage_content'),
           ('match_official', 'manage_matches'),
           ('team_admin', 'manage_own_player_registrations'),

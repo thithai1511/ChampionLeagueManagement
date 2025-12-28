@@ -55,6 +55,7 @@ app.use("/api/rulesets", rulesetRoutes);
 app.use("/api/seasons", awardsRoutes);
 app.use("/api/seasons", disciplineRoutes);
 app.use("/api/seasons", seasonInvitationRoutes);
+app.use("/api/invitations", seasonInvitationRoutes); // For /my-pending-count route
 app.use("/api/seasons", seasonRoutes);
 app.use("/api/audit-events", auditRoutes);
 app.use("/api/season-players", seasonRegistrationRoutes);

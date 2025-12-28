@@ -18,6 +18,13 @@ const teamCreateSchema = z.object({
   country: z.string().trim().max(100).optional().nullable(),
   founded_year: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
   status: z.enum(["active", "inactive", "suspended"]).optional().nullable(),
+  // New contact/stadium fields
+  phone: z.string().trim().max(32).optional().nullable(),
+  email: z.string().trim().max(255).optional().nullable(),
+  stadium_name: z.string().trim().max(255).optional().nullable(),
+  stadium_capacity: z.coerce.number().int().min(0).optional().nullable(),
+  website: z.string().trim().max(255).optional().nullable(),
+  description: z.string().trim().optional().nullable(),
 });
 
 const teamUpdateSchema = teamCreateSchema.partial();
@@ -246,6 +253,11 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
       description: string | null;
       home_kit_description: string | null;
       status: string;
+      phone: string | null;
+      email: string | null;
+      stadium_name: string | null;
+      stadium_capacity: number | null;
+      website: string | null;
     }>(
       `
         SELECT 
@@ -260,7 +272,12 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
           founded_year,
           description,
           home_kit_description,
-          status
+          status,
+          phone,
+          email,
+          stadium_name,
+          stadium_capacity,
+          website
         FROM teams
         WHERE team_id = @teamId;
       `,
@@ -289,12 +306,17 @@ router.get("/:id/players", async (req: AuthenticatedRequest, res, next) => {
       return res.status(400).json({ error: "Invalid team ID" });
     }
 
-    // ClubManager: check if this team is their managed team
-    const managedTeamId = (req.user as any)?.managed_team_id;
-    const isAdmin = req.user?.permissions?.includes("manage_teams");
+    // Check permissions
+    const isSuperAdmin = req.user?.roles?.includes('super_admin');
+    const hasManageTeams = req.user?.permissions?.includes("manage_teams");
+    const canSeeAll = isSuperAdmin || hasManageTeams;
     
-    if (!isAdmin && managedTeamId && teamId !== managedTeamId) {
-      return res.status(403).json({ error: "You can only view players of your assigned team" });
+    if (!canSeeAll) {
+      // Team admin: check if this team is in their assigned teams
+      const userTeamIds = req.user?.teamIds || [];
+      if (!userTeamIds.includes(teamId)) {
+        return res.status(403).json({ error: "You can only view players of your assigned team" });
+      }
     }
 
     const result = await query<{
@@ -389,23 +411,39 @@ router.put("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReques
     const hasCountry = Object.prototype.hasOwnProperty.call(payload, "country");
     const hasFoundedYear = Object.prototype.hasOwnProperty.call(payload, "founded_year");
     const hasStatus = Object.prototype.hasOwnProperty.call(payload, "status");
+    // New fields
+    const hasPhone = Object.prototype.hasOwnProperty.call(payload, "phone");
+    const hasEmail = Object.prototype.hasOwnProperty.call(payload, "email");
+    const hasStadiumName = Object.prototype.hasOwnProperty.call(payload, "stadium_name");
+    const hasStadiumCapacity = Object.prototype.hasOwnProperty.call(payload, "stadium_capacity");
+    const hasWebsite = Object.prototype.hasOwnProperty.call(payload, "website");
+    const hasDescription = Object.prototype.hasOwnProperty.call(payload, "description");
+
+    console.log('[PUT /internal/teams/:id] Updating team:', teamId);
+    console.log('[PUT /internal/teams/:id] Payload:', payload);
 
     try {
       await query(
         `
           UPDATE teams
-    SET
-    name = CASE WHEN @has_name = 1 THEN @name ELSE name END,
-      short_name = CASE WHEN @has_short_name = 1 THEN @short_name ELSE short_name END,
-        code = CASE WHEN @has_code = 1 THEN @code ELSE code END,
-          city = CASE WHEN @has_city = 1 THEN @city ELSE city END,
+          SET
+            name = CASE WHEN @has_name = 1 THEN @name ELSE name END,
+            short_name = CASE WHEN @has_short_name = 1 THEN @short_name ELSE short_name END,
+            code = CASE WHEN @has_code = 1 THEN @code ELSE code END,
+            city = CASE WHEN @has_city = 1 THEN @city ELSE city END,
             country = CASE WHEN @has_country = 1 THEN @country ELSE country END,
-              founded_year = CASE WHEN @has_founded_year = 1 THEN @founded_year ELSE founded_year END,
-                status = CASE WHEN @has_status = 1 THEN COALESCE(@status, status) ELSE status END,
-                  updated_at = SYSUTCDATETIME(),
-                  updated_by = @updated_by
+            founded_year = CASE WHEN @has_founded_year = 1 THEN @founded_year ELSE founded_year END,
+            status = CASE WHEN @has_status = 1 THEN COALESCE(@status, status) ELSE status END,
+            phone = CASE WHEN @has_phone = 1 THEN @phone ELSE phone END,
+            email = CASE WHEN @has_email = 1 THEN @email ELSE email END,
+            stadium_name = CASE WHEN @has_stadium_name = 1 THEN @stadium_name ELSE stadium_name END,
+            stadium_capacity = CASE WHEN @has_stadium_capacity = 1 THEN @stadium_capacity ELSE stadium_capacity END,
+            website = CASE WHEN @has_website = 1 THEN @website ELSE website END,
+            description = CASE WHEN @has_description = 1 THEN @description ELSE description END,
+            updated_at = SYSUTCDATETIME(),
+            updated_by = @updated_by
           WHERE team_id = @teamId;
-    `,
+        `,
         {
           teamId,
           updated_by: req.user?.sub ?? null,
@@ -423,8 +461,22 @@ router.put("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReques
           founded_year: hasFoundedYear ? (payload as any).founded_year ?? null : null,
           has_status: hasStatus ? 1 : 0,
           status: hasStatus ? (payload as any).status ?? null : null,
+          // New fields
+          has_phone: hasPhone ? 1 : 0,
+          phone: hasPhone ? (payload as any).phone ?? null : null,
+          has_email: hasEmail ? 1 : 0,
+          email: hasEmail ? (payload as any).email ?? null : null,
+          has_stadium_name: hasStadiumName ? 1 : 0,
+          stadium_name: hasStadiumName ? (payload as any).stadium_name ?? null : null,
+          has_stadium_capacity: hasStadiumCapacity ? 1 : 0,
+          stadium_capacity: hasStadiumCapacity ? (payload as any).stadium_capacity ?? null : null,
+          has_website: hasWebsite ? 1 : 0,
+          website: hasWebsite ? (payload as any).website ?? null : null,
+          has_description: hasDescription ? 1 : 0,
+          description: hasDescription ? (payload as any).description ?? null : null,
         },
       );
+      console.log('[PUT /internal/teams/:id] Update successful');
     } catch (error: any) {
       if (error?.number === 2627 || error?.number === 2601) {
         return res.status(409).json({ error: "Team name or code already exists" });
@@ -442,12 +494,19 @@ router.put("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReques
       country: string | null;
       founded_year: number | null;
       status: string;
+      phone: string | null;
+      email: string | null;
+      stadium_name: string | null;
+      stadium_capacity: number | null;
+      website: string | null;
+      description: string | null;
     }>(
       `
-        SELECT team_id, name, short_name, code, city, country, founded_year, status
+        SELECT team_id, name, short_name, code, city, country, founded_year, status,
+               phone, email, stadium_name, stadium_capacity, website, description
         FROM teams
         WHERE team_id = @teamId;
-    `,
+      `,
       { teamId },
     );
 

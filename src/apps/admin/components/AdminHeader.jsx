@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Bell, Search, Settings, User, LogOut, Sparkles, Menu, X } from 'lucide-react'
 import { toRoleLabel } from '../../../shared/utils/vi'
 import NotificationService from '../../../layers/application/services/NotificationService'
+import ApiService from '../../../layers/application/services/ApiService'
 
 const AdminHeader = ({ onLogout, currentUser }) => {
   const navigate = useNavigate()
@@ -10,6 +11,7 @@ const AdminHeader = ({ onLogout, currentUser }) => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [loadingNotifications, setLoadingNotifications] = useState(false)
+  const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0)
   const notificationRef = useRef(null)
   const profileRef = useRef(null)
 
@@ -52,6 +54,27 @@ const AdminHeader = ({ onLogout, currentUser }) => {
     
     return () => clearInterval(interval)
   }, [])
+
+  // Load pending invitations count for team admin
+  useEffect(() => {
+    const loadPendingInvitations = async () => {
+      // Only for team admin with assigned teams
+      if (!currentUser?.teamIds || currentUser.teamIds.length === 0) return
+      
+      try {
+        const response = await ApiService.get('/invitations/my-pending-count')
+        setPendingInvitationsCount(response.count || 0)
+      } catch (error) {
+        console.error('Failed to load pending invitations count:', error)
+      }
+    }
+
+    loadPendingInvitations()
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(loadPendingInvitations, 30000)
+    return () => clearInterval(interval)
+  }, [currentUser])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -125,9 +148,9 @@ const AdminHeader = ({ onLogout, currentUser }) => {
               className="relative p-2.5 text-blue-200/60 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-white/20 transition-all"
             >
               <Bell size={18} />
-              {notifications.length > 0 && (
+              {(notifications.length > 0 || pendingInvitationsCount > 0) && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-rose-500 to-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg shadow-rose-500/30 animate-pulse">
-                  {notifications.length}
+                  {notifications.length + pendingInvitationsCount}
                 </span>
               )}
             </button>
@@ -140,15 +163,31 @@ const AdminHeader = ({ onLogout, currentUser }) => {
                     Thông báo
                   </h3>
                   <span className="text-[10px] font-bold text-blue-200/50 uppercase tracking-wider">
-                    {notifications.length} mới
+                    {notifications.length + pendingInvitationsCount} mới
                   </span>
                 </div>
                 <div className="max-h-72 overflow-y-auto ucl-scrollbar">
+                  {/* Pending Invitations for Team Admin */}
+                  {pendingInvitationsCount > 0 && (
+                    <div 
+                      className="p-4 border-l-4 border-l-yellow-500 bg-yellow-500/10 hover:bg-white/5 transition-all cursor-pointer group"
+                      onClick={() => {
+                        navigate('/admin/dashboard')
+                        setIsNotificationOpen(false)
+                      }}
+                    >
+                      <div className="font-medium text-slate-100 text-sm group-hover:text-cyan-200 transition-colors">
+                        🎯 Bạn có {pendingInvitationsCount} lời mời tham gia mùa giải đang chờ phản hồi
+                      </div>
+                      <div className="text-blue-200/40 text-xs mt-1">Nhấn để xem chi tiết</div>
+                    </div>
+                  )}
+                  
                   {loadingNotifications ? (
                     <div className="p-4 text-center text-blue-200/50 text-sm">
                       Đang tải thông báo...
                     </div>
-                  ) : notifications.length === 0 ? (
+                  ) : notifications.length === 0 && pendingInvitationsCount === 0 ? (
                     <div className="p-4 text-center text-blue-200/50 text-sm">
                       Không có thông báo mới
                     </div>

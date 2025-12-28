@@ -90,8 +90,8 @@ router.get("/:teamId", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid team ID" });
     }
 
-    const season = parseSeason(req.query.season);
-    const team = await getTeamByExternalId(teamId, season);
+    const { getInternalTeamById } = await import("../services/teamService");
+    const team = await getInternalTeamById(teamId);
 
     if (!team) {
       return res.status(404).json({ error: "Team not found" });
@@ -134,17 +134,26 @@ router.get("/:teamId/players", async (req, res, next) => {
 router.put("/:id", async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
+    console.log('[PUT /teams/:id] ===================');
+    console.log('[PUT /teams/:id] Request received for team:', id);
+    console.log('[PUT /teams/:id] Raw body:', req.body);
+    console.log('[PUT /teams/:id] stadium_name from body:', req.body.stadium_name);
+    console.log('[PUT /teams/:id] ===================');
+    
     if (isNaN(id)) {
       return res.status(400).json({ error: "Invalid team ID" });
     }
 
     const updatedTeam = await updateTeam(id, req.body);
+    console.log('[PUT /teams/:id] Updated team:', updatedTeam ? 'Success' : 'Not found');
+    
     if (!updatedTeam) {
       return res.status(404).json({ error: "Team not found" });
     }
 
     res.json({ data: updatedTeam });
   } catch (error) {
+    console.error('[PUT /teams/:id] Error:', error);
     next(error);
   }
 });
@@ -173,3 +182,4 @@ router.delete("/:id", async (req, res, next) => {
 });
 
 export default router;
+

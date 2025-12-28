@@ -28,6 +28,7 @@ import OfficialsManagement from './pages/OfficialsManagement'
 // Các trang tích hợp mới
 import StatisticsPage from './pages/StatisticsPage'
 import SeasonAndRulesPage from './pages/SeasonAndRulesPage'
+import ClubProfilePage from './pages/ClubProfilePage'
 
 
 const AdminApp = ({ onLogout, currentUser }) => {
@@ -153,6 +154,20 @@ const AdminApp = ({ onLogout, currentUser }) => {
               currentUser={currentUser}
             >
               <TeamAdminDashboard currentUser={currentUser} />
+            </AccessGuard>
+          }
+        />
+
+        <Route
+          path="club-profile"
+          element={
+            <AccessGuard
+              permission="view_own_team"
+              allowedRoles={['team_admin']}
+              disallowedRoles={['super_admin']}
+              currentUser={currentUser}
+            >
+              <ClubProfilePage currentUser={currentUser} />
             </AccessGuard>
           }
         />

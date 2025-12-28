@@ -17,7 +17,13 @@ class TeamsService {
       governing_body: payload.governing_body ?? payload.governingBody ?? null,
       description: payload.description ?? null,
       home_stadium_id: payload.home_stadium_id ?? payload.homeStadiumId ?? null,
-      home_kit_description: payload.home_kit_description ?? payload.homeKitDescription ?? null
+      home_kit_description: payload.home_kit_description ?? payload.homeKitDescription ?? null,
+      // New fields
+      phone: payload.phone ?? null,
+      email: payload.email ?? null,
+      stadium_name: payload.stadium_name ?? payload.stadiumName ?? null,
+      stadium_capacity: payload.stadium_capacity ?? payload.stadiumCapacity ?? null,
+      website: payload.website ?? null,
     }
   }
 

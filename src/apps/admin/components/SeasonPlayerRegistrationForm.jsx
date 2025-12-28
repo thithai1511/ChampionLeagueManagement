@@ -29,9 +29,11 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
     const [message, setMessage] = useState(null);
 
     // Data
+    const [seasons, setSeasons] = useState([]);
     const [seasonTeams, setSeasonTeams] = useState([]);
     const [teamPlayers, setTeamPlayers] = useState([]);
     const [loadingData, setLoadingData] = useState(false);
+    const [loadingSeasons, setLoadingSeasons] = useState(false);
 
     // Selection & Details (Map: playerId -> { shirt_number, player_type })
     const [selectedPlayerIds, setSelectedPlayerIds] = useState(new Set());
@@ -39,6 +41,24 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
 
     // Filter
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Fetch seasons on mount
+    useEffect(() => {
+        const fetchSeasons = async () => {
+            setLoadingSeasons(true);
+            try {
+                const response = await ApiService.get('/seasons');
+                const seasonsData = Array.isArray(response) ? response : (response?.data || []);
+                setSeasons(seasonsData);
+            } catch (err) {
+                console.error('Failed to fetch seasons', err);
+                setSeasons([]);
+            } finally {
+                setLoadingSeasons(false);
+            }
+        };
+        fetchSeasons();
+    }, []);
 
     // Fetch teams when season_id changes
     useEffect(() => {
@@ -51,12 +71,12 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
 
             try {
                 const response = await ApiService.get(`/seasons/${formData.season_id}/teams`)
-                const teams = Array.isArray(response?.data) ? response.data : []
+                const teams = Array.isArray(response) ? response : (response?.data || [])
                 setSeasonTeams(teams)
 
-                // Auto select if 1 team
-                if (teams.length > 0 && !formData.season_team_id) {
-                    setFormData(prev => ({ ...prev, season_team_id: String(teams[0].id) }))
+                // Auto select first team (team admin usually has only 1 team)
+                if (teams.length > 0) {
+                    setFormData(prev => ({ ...prev, season_team_id: String(teams[0].id || teams[0].team_id) }))
                 }
             } catch (err) {
                 console.error('Failed to fetch teams', err)
@@ -233,31 +253,37 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 gap-4 mb-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mùa giải <span className="text-red-500">*</span></label>
-                    <input
-                        type="number"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        placeholder="Season ID"
-                        value={formData.season_id}
-                        onChange={e => setFormData(p => ({ ...p, season_id: e.target.value }))}
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Đội bóng <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Mùa giải <span className="text-red-500">*</span>
+                    </label>
                     <select
                         className="w-full border border-gray-300 rounded px-3 py-2"
-                        value={formData.season_team_id}
-                        onChange={e => setFormData(p => ({ ...p, season_team_id: e.target.value }))}
-                        disabled={!formData.season_id}
+                        value={formData.season_id}
+                        onChange={e => setFormData(p => ({ ...p, season_id: e.target.value, season_team_id: '' }))}
+                        disabled={loadingSeasons}
                     >
-                        <option value="">-- Chọn đội --</option>
-                        {seasonTeams.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
+                        <option value="">-- Chọn mùa giải --</option>
+                        {seasons.map(s => (
+                            <option key={s.season_id} value={s.season_id}>
+                                {s.name} {s.code ? `(${s.code})` : ''}
+                            </option>
                         ))}
                     </select>
+                    {loadingSeasons && (
+                        <p className="text-xs text-gray-500 mt-1">Đang tải danh sách mùa giải...</p>
+                    )}
                 </div>
+                
+                {/* Hidden info about selected team - for team admin this is auto-selected */}
+                {formData.season_team_id && seasonTeams.length > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded px-4 py-3">
+                        <p className="text-sm text-blue-800">
+                            <strong>Đội bóng:</strong> {seasonTeams.find(t => String(t.id || t.team_id) === String(formData.season_team_id))?.name || 'N/A'}
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Player Selection Table */}

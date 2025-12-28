@@ -49,7 +49,7 @@ async function checkPlayerTeamOwnership(req: AuthenticatedRequest, _res: any, ne
 router.post("/", requireAuth, requireAnyPermission("manage_own_player_registrations", "manage_teams"), createPlayerHandler);
 
 
-router.get("/", async (req: AuthenticatedRequest, res, next) => {
+router.get("/", requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
     const teamId = typeof req.query.teamId === "string" ? parseInt(req.query.teamId, 10) : null;
@@ -60,18 +60,48 @@ router.get("/", async (req: AuthenticatedRequest, res, next) => {
     const conditions: string[] = ["1=1"];
     const params: Record<string, unknown> = { offset, limit };
 
-    // ClubManager: only see players of their managed team
-    const managedTeamId = (req.user as any)?.managed_team_id;
-    const isAdmin = req.user?.permissions?.includes("manage_teams");
+    // Check permissions
+    const isSuperAdmin = req.user?.roles?.includes('super_admin');
+    const hasManageTeams = req.user?.permissions?.includes("manage_teams");
+    const canSeeAll = isSuperAdmin || hasManageTeams;
     
-    if (!isAdmin && managedTeamId) {
-      // ClubManager can only see their team's players
-      conditions.push("current_team_id = @managedTeamId");
-      params.managedTeamId = managedTeamId;
-    } else if (teamId && !isNaN(teamId)) {
-      // Admin can filter by any team
-      conditions.push("current_team_id = @teamId");
+    console.log('[GET /api/players] User:', {
+      roles: req.user?.roles,
+      permissions: req.user?.permissions,
+      teamIds: req.user?.teamIds,
+      isSuperAdmin,
+      hasManageTeams,
+      canSeeAll
+    });
+    
+    // Team admin: only see players from their assigned teams
+    const userTeamIds = req.user?.teamIds || [];
+    
+    if (!canSeeAll && userTeamIds.length > 0) {
+      // Team admin can only see their teams' players
+      const teamIdPlaceholders = userTeamIds.map((_, i) => `@userTeamId${i}`).join(',');
+      conditions.push(`internal_team_id IN (${teamIdPlaceholders})`);
+      userTeamIds.forEach((id, i) => {
+        params[`userTeamId${i}`] = id;
+      });
+      console.log('[GET /api/players] Team admin filter applied:', userTeamIds);
+    } else if (!canSeeAll) {
+      // User has no teams assigned and is not admin - return empty
+      console.log('[GET /api/players] No permissions, returning empty');
+      return res.json({
+        data: [],
+        total: 0,
+        pagination: { page, limit, totalPages: 0 }
+      });
+    } else {
+      console.log('[GET /api/players] Super admin or manage_teams, showing all players');
+    }
+    
+    // Optional filter by team (for super admin and admin with manage_teams)
+    if (canSeeAll && teamId && !isNaN(teamId)) {
+      conditions.push("internal_team_id = @teamId");
       params.teamId = teamId;
+      console.log('[GET /api/players] Filter by teamId:', teamId);
     }
 
     if (search) {
@@ -79,13 +109,8 @@ router.get("/", async (req: AuthenticatedRequest, res, next) => {
       params.search = `%${search}%`;
     }
 
-    if (teamId && !isNaN(teamId)) {
-      // internal_team_id
-      conditions.push("(internal_team_id = @teamId OR team_external_id = (SELECT external_id FROM teams WHERE team_id = @teamId))");
-      params.teamId = teamId;
-    }
-
     const whereClause = `WHERE ${conditions.join(" AND ")}`;
+    console.log('[GET /api/players] WHERE clause:', whereClause);
 
     const playersResult = await query<{
       player_id: number;
@@ -120,6 +145,13 @@ router.get("/", async (req: AuthenticatedRequest, res, next) => {
 
     const total = countResult.recordset[0]?.total ?? 0;
     const totalPages = Math.ceil(total / limit);
+
+    console.log('[GET /api/players] Results:', {
+      total,
+      returned: playersResult.recordset.length,
+      page,
+      limit
+    });
 
     res.json({
       data: playersResult.recordset,
@@ -227,12 +259,17 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
       return res.status(404).json({ error: "Player not found" });
     }
 
-    // ClubManager: check if player belongs to their managed team
-    const managedTeamId = (req.user as any)?.managed_team_id;
-    const isAdmin = req.user?.permissions?.includes("manage_teams");
+    // Check permissions
+    const isSuperAdmin = req.user?.roles?.includes('super_admin');
+    const hasManageTeams = req.user?.permissions?.includes("manage_teams");
+    const canSeeAll = isSuperAdmin || hasManageTeams;
     
-    if (!isAdmin && managedTeamId && player.current_team_id !== managedTeamId) {
-      return res.status(403).json({ error: "This player does not belong to your managed team" });
+    if (!canSeeAll) {
+      // Team admin: check if player belongs to their assigned teams
+      const userTeamIds = req.user?.teamIds || [];
+      if (!userTeamIds.includes(player.current_team_id)) {
+        return res.status(403).json({ error: "This player does not belong to your assigned team" });
+      }
     }
 
     res.json({ data: player });
