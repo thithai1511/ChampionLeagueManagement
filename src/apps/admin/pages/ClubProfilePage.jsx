@@ -39,9 +39,7 @@ const ClubProfilePage = ({ currentUser }) => {
     const fetchTeamData = async () => {
         setLoading(true);
         try {
-            console.log('[ClubProfile] Fetching team data for ID:', teamId);
             const response = await TeamsService.getTeamById(teamId);
-            console.log('[ClubProfile] Team data received:', response);
             setTeamData(response);
             
             // Populate form
@@ -57,14 +55,6 @@ const ClubProfilePage = ({ currentUser }) => {
                 email: response.email || '',
                 website: response.website || '',
                 description: response.description || ''
-            });
-            console.log('[ClubProfile] Form populated with:', {
-                name: response.name,
-                code: response.code,
-                phone: response.phone,
-                email: response.email,
-                stadium_name: response.stadium_name,
-                website: response.website
             });
         } catch (err) {
             console.error('[ClubProfile] Failed to fetch team data:', err);
@@ -99,17 +89,9 @@ const ClubProfilePage = ({ currentUser }) => {
                 website: formData.website || null,
             };
             
-            console.log('[ClubProfile] Submitting payload:', payload);
-            console.log('[ClubProfile] Team ID:', teamId);
-            
-            const result = await TeamsService.updateTeam(teamId, payload);
-            console.log('[ClubProfile] Update result:', result);
-            
+            await TeamsService.updateTeam(teamId, payload);
             toast.success('Cập nhật thông tin đội bóng thành công');
-            
-            console.log('[ClubProfile] Reloading team data...');
             await fetchTeamData(); // Reload data
-            console.log('[ClubProfile] Team data reloaded');
         } catch (err) {
             console.error('[ClubProfile] Failed to update team:', err);
             toast.error(err?.message || 'Không thể cập nhật thông tin đội bóng');

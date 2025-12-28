@@ -419,9 +419,6 @@ router.put("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReques
     const hasWebsite = Object.prototype.hasOwnProperty.call(payload, "website");
     const hasDescription = Object.prototype.hasOwnProperty.call(payload, "description");
 
-    console.log('[PUT /internal/teams/:id] Updating team:', teamId);
-    console.log('[PUT /internal/teams/:id] Payload:', payload);
-
     try {
       await query(
         `
@@ -476,7 +473,6 @@ router.put("/:id", ...requireTeamOwnershipCheck, async (req: AuthenticatedReques
           description: hasDescription ? (payload as any).description ?? null : null,
         },
       );
-      console.log('[PUT /internal/teams/:id] Update successful');
     } catch (error: any) {
       if (error?.number === 2627 || error?.number === 2601) {
         return res.status(409).json({ error: "Team name or code already exists" });

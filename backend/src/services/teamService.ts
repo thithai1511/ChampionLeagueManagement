@@ -463,7 +463,6 @@ export const getTeamByExternalId = async (
  * This includes all custom fields like phone, email, stadium_name, etc.
  */
 export const getInternalTeamById = async (teamId: number): Promise<any | null> => {
-  console.log('[getInternalTeamById] Fetching team:', teamId);
   
   const result = await query(
     `
@@ -494,7 +493,6 @@ export const getInternalTeamById = async (teamId: number): Promise<any | null> =
   );
 
   const team = result.recordset[0] || null;
-  console.log('[getInternalTeamById] Result:', team ? 'Found' : 'Not found', team ? Object.keys(team) : []);
   
   return team;
 };
@@ -526,7 +524,6 @@ export const updateTeam = async (
     home_kit_description?: string | null;
   },
 ): Promise<TeamRecord | null> => {
-  console.log('[updateTeam] Called with id:', id, 'payload:', payload);
   
   const fields: string[] = [];
   const params: Record<string, unknown> = { id };
@@ -621,7 +618,6 @@ export const updateTeam = async (
   }
 
   if (fields.length === 0) {
-    console.log('[updateTeam] No fields to update, returning current data');
     return getInternalTeamById(id);
   }
 
@@ -632,15 +628,9 @@ export const updateTeam = async (
     SET ${fields.join(", ")}
     WHERE team_id = @id;
   `;
-  
-  console.log('[updateTeam] Executing UPDATE query:', updateQuery);
-  console.log('[updateTeam] With params:', params);
 
   await query(updateQuery, params);
-  
-  console.log('[updateTeam] UPDATE completed, fetching updated data...');
   const result = await getInternalTeamById(id);
-  console.log('[updateTeam] Returning updated team');
   
   return result;
 };

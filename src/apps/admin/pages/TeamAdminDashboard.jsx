@@ -166,16 +166,11 @@ const TeamAdminDashboard = ({ currentUser }) => {
 
   // Get participation status - dynamic based on actual completion
   const participationStatus = useMemo(() => {
-    // Debug: log invitations data
-    console.log('[participationStatus] invitations:', invitations)
-    console.log('[participationStatus] selectedSeasonId:', selectedSeasonId)
-    
     // Find active invitation for selected season - check both season_id and seasonId
     const activeInvitation = invitations.find(inv => {
       const invSeasonId = inv.season_id ?? inv.seasonId
       const matchesSeason = invSeasonId === selectedSeasonId || invSeasonId === String(selectedSeasonId)
       const hasValidStatus = inv.status === 'accepted' || inv.status === 'qualified' || inv.status === 'pending'
-      console.log('[participationStatus] checking inv:', { invSeasonId, selectedSeasonId, status: inv.status, matchesSeason, hasValidStatus })
       return matchesSeason && hasValidStatus
     })
 
@@ -309,14 +304,12 @@ const TeamAdminDashboard = ({ currentUser }) => {
         // Get invitations for this team
         const response = await ApiService.get(`/seasons/${selectedSeasonId}/invitations`)
         const allInvitations = response?.data || []
-        console.log('[loadInvitations] Raw response:', allInvitations)
         
         // Filter for this team - check both team_id and teamId
         const myInvitations = allInvitations.filter(inv => {
           const invTeamId = inv.team_id ?? inv.teamId
           return teamIds.includes(invTeamId)
         })
-        console.log('[loadInvitations] My invitations:', myInvitations)
         setInvitations(myInvitations)
       } catch (err) {
         console.error('Failed to load invitations', err)
