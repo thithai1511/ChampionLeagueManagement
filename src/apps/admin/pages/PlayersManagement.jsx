@@ -54,6 +54,11 @@ const PlayersManagement = ({ currentUser }) => {
     internal_team_id: ''
   })
   const [userTeams, setUserTeams] = useState([])
+  // Registration state for pool tab
+  const [selectedPlayersForRegistration, setSelectedPlayersForRegistration] = useState(new Set())
+  const [playerRegistrationStatus, setPlayerRegistrationStatus] = useState({}) // playerId -> { status, season_id, etc }
+  const [seasonsForRegistration, setSeasonsForRegistration] = useState([])
+  const [selectedSeasonForRegistration, setSelectedSeasonForRegistration] = useState('')
 
   // ========== LOOKUP TAB STATE ==========
   const [lookupFilters, setLookupFilters] = useState({
@@ -62,6 +67,7 @@ const PlayersManagement = ({ currentUser }) => {
     position_code: '',
     player_type: ''
   })
+  const [lookupSeasons, setLookupSeasons] = useState([])
   const [seasonTeams, setSeasonTeams] = useState([])
   const [loadingTeams, setLoadingTeams] = useState(false)
   const [lookupResult, setLookupResult] = useState(null)
@@ -85,6 +91,13 @@ const PlayersManagement = ({ currentUser }) => {
   const canApprove = hasPermission(currentUser, 'approve_player_registrations')
   const isSuperAdmin = currentUser?.roles?.includes('super_admin')
 
+  // Redirect if team_admin tries to access approval tab
+  useEffect(() => {
+    if (activeTab === 'approval' && !canApprove) {
+      setActiveTab('pool')
+    }
+  }, [activeTab, canApprove])
+
   // ========== POOL TAB FUNCTIONS ==========
   const fetchPlayers = async () => {
     setLoading(true)
@@ -105,8 +118,44 @@ const PlayersManagement = ({ currentUser }) => {
   useEffect(() => {
     if (activeTab === 'pool') {
       fetchPlayers()
+      loadPlayerRegistrationStatuses()
+      loadSeasonsForRegistration()
     }
   }, [searchTerm, activeTab])
+
+  const loadSeasonsForRegistration = async () => {
+    try {
+      const response = await ApiService.get('/seasons')
+      const seasonsData = Array.isArray(response) ? response : (response?.data || [])
+      setSeasonsForRegistration(seasonsData)
+    } catch (err) {
+      console.error('Failed to load seasons', err)
+    }
+  }
+
+  const loadPlayerRegistrationStatuses = async () => {
+    if (!currentUser?.teamIds?.length) return
+    
+    try {
+      const response = await ApiService.get(APP_CONFIG.API.ENDPOINTS.PLAYER_REGISTRATIONS.LIST)
+      const registrations = Array.isArray(response) ? response : (response?.data || [])
+      
+      const statusMap = {}
+      registrations.forEach(reg => {
+        if (reg.player_id) {
+          statusMap[reg.player_id] = {
+            status: reg.registration_status,
+            season_id: reg.season_id,
+            season_name: reg.season_name,
+            registered_at: reg.registered_at
+          }
+        }
+      })
+      setPlayerRegistrationStatus(statusMap)
+    } catch (err) {
+      console.error('Failed to load registration statuses', err)
+    }
+  }
 
   useEffect(() => {
     const loadTeams = async () => {
@@ -168,16 +217,37 @@ const PlayersManagement = ({ currentUser }) => {
   }
 
   // ========== LOOKUP TAB FUNCTIONS ==========
+  // Fetch seasons on mount
+  useEffect(() => {
+    const fetchSeasons = async () => {
+      try {
+        const response = await ApiService.get('/seasons')
+        const seasonsData = Array.isArray(response) ? response : (response?.data || [])
+        setLookupSeasons(seasonsData)
+      } catch (err) {
+        console.error('Failed to fetch seasons', err)
+        setLookupSeasons([])
+      }
+    }
+    fetchSeasons()
+  }, [])
+
   useEffect(() => {
     const fetchTeams = async () => {
       if (!lookupFilters.season_id) {
         setSeasonTeams([])
+        setLookupFilters(prev => ({ ...prev, team_id: '' }))
         return
       }
       setLoadingTeams(true)
       try {
         const response = await ApiService.get(`/seasons/${lookupFilters.season_id}/teams`)
         setSeasonTeams(Array.isArray(response) ? response : (response?.data || []))
+        // Auto-select first team if only one team
+        const teams = Array.isArray(response) ? response : (response?.data || [])
+        if (teams.length === 1 && currentUser?.teamIds?.length === 1) {
+          setLookupFilters(prev => ({ ...prev, team_id: String(teams[0].id || teams[0].team_id) }))
+        }
       } catch (err) {
         console.error('Failed to fetch teams', err)
         setSeasonTeams([])
@@ -188,15 +258,15 @@ const PlayersManagement = ({ currentUser }) => {
 
     const timerId = setTimeout(() => {
       if (lookupFilters.season_id) fetchTeams()
-    }, 500)
+    }, 300)
 
     return () => clearTimeout(timerId)
-  }, [lookupFilters.season_id])
+  }, [lookupFilters.season_id, currentUser])
 
   const handleLookupSearch = async (e) => {
     if (e) e.preventDefault()
     if (!lookupFilters.season_id) {
-      setLookupError('Vui lòng nhập Season ID.')
+      setLookupError('Vui lòng chọn mùa giải.')
       return
     }
 
@@ -206,13 +276,27 @@ const PlayersManagement = ({ currentUser }) => {
     setHasSearched(true)
 
     try {
-      const params = {}
-      if (lookupFilters.team_id) params.team_id = lookupFilters.team_id
-      if (lookupFilters.position_code) params.position_code = lookupFilters.position_code
-      if (lookupFilters.player_type) params.player_type = lookupFilters.player_type
+      // Get approved players for the season (cầu thủ đã được duyệt trong mùa giải)
+      const players = await TeamsService.getApprovedSeasonPlayers(lookupFilters.season_id, {
+        team_id: lookupFilters.team_id,
+        position_code: lookupFilters.position_code,
+        player_type: lookupFilters.player_type
+      })
+      
+      // Map to expected format
+      const mappedPlayers = players.map(p => ({
+        player_id: p.player_id,
+        player_name: p.player_name,
+        team_name: p.team_name,
+        season_id: lookupFilters.season_id,
+        shirt_number: p.shirt_number,
+        position_code: p.position_code,
+        player_type: p.player_type,
+        registered_at: p.registered_at,
+        registration_status: 'approved' // Only approved players shown here
+      }))
 
-      const players = await TeamsService.getApprovedSeasonPlayers(lookupFilters.season_id, params)
-      setLookupResult({ total: players.length, players })
+      setLookupResult({ total: mappedPlayers.length, players: mappedPlayers })
     } catch (err) {
       console.error('Search failed', err)
       setLookupError(err?.message || 'Không thể tải danh sách cầu thủ.')
@@ -338,7 +422,7 @@ const PlayersManagement = ({ currentUser }) => {
           }`}
         >
           <Users size={18} />
-          <span>Danh sách cầu thủ</span>
+          <span>Gửi đơn đăng ký</span>
         </button>
         <button
           onClick={() => setActiveTab('lookup')}
@@ -351,20 +435,22 @@ const PlayersManagement = ({ currentUser }) => {
           <Search size={18} />
           <span>Tra cứu mùa giải</span>
         </button>
-        <button
-          onClick={() => setActiveTab('approval')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'approval'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <ShieldCheck size={18} />
-          <span>Duyệt đăng ký</span>
-          {approvalList.length > 0 && (
-            <span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">{approvalList.length}</span>
-          )}
-        </button>
+        {canApprove && (
+          <button
+            onClick={() => setActiveTab('approval')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'approval'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <ShieldCheck size={18} />
+            <span>Duyệt đăng ký</span>
+            {approvalList.length > 0 && (
+              <span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">{approvalList.length}</span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Pool Tab */}
@@ -455,6 +541,40 @@ const PlayersManagement = ({ currentUser }) => {
               <input type="text" placeholder="Tìm kiếm cầu thủ..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg" />
             </div>
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedSeasonForRegistration}
+                onChange={(e) => setSelectedSeasonForRegistration(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2"
+              >
+                <option value="">-- Chọn mùa giải --</option>
+                {seasonsForRegistration.map(s => (
+                  <option key={s.season_id || s.id} value={s.season_id || s.id}>
+                    {s.name} {s.code ? `(${s.code})` : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedPlayersForRegistration.size > 0 && selectedSeasonForRegistration && (
+                <button
+                  onClick={() => {
+                    // Save to localStorage and navigate to registration page
+                    const selectedData = Array.from(selectedPlayersForRegistration).map(playerId => {
+                      const player = players.find(p => p.id === playerId)
+                      return {
+                        player_id: playerId,
+                        player_name: player?.name || player?.full_name,
+                        season_id: selectedSeasonForRegistration
+                      }
+                    })
+                    localStorage.setItem('selectedPlayersForRegistration', JSON.stringify(selectedData))
+                    toast.success(`Đã chọn ${selectedPlayersForRegistration.size} cầu thủ. Vui lòng vào trang "Đăng ký mùa giải" để hoàn tất.`)
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Gửi đơn đăng ký ({selectedPlayersForRegistration.size})
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -470,32 +590,87 @@ const PlayersManagement = ({ currentUser }) => {
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
                     <tr>
+                      <th className="px-6 py-3 font-medium w-12">
+                        <input
+                          type="checkbox"
+                          checked={players.length > 0 && players.every(p => selectedPlayersForRegistration.has(p.id))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedPlayersForRegistration(new Set(players.map(p => p.id)))
+                            } else {
+                              setSelectedPlayersForRegistration(new Set())
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                      </th>
                       <th className="px-6 py-3 font-medium">ID</th>
                       <th className="px-6 py-3 font-medium">Họ tên</th>
                       <th className="px-6 py-3 font-medium">Ngày sinh</th>
                       <th className="px-6 py-3 font-medium">Quốc tịch</th>
                       <th className="px-6 py-3 font-medium">Vị trí</th>
                       <th className="px-6 py-3 font-medium">Đội</th>
+                      <th className="px-6 py-3 font-medium">Trạng thái đăng ký</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {players.map(player => (
-                      <tr key={player.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-gray-500 text-sm">#{player.id}</td>
-                        <td className="px-6 py-4 font-medium text-gray-900">{player.name || player.full_name}</td>
-                        <td className="px-6 py-4 text-gray-600">{player.date_of_birth?.split('T')[0]}</td>
-                        <td className="px-6 py-4 text-gray-600">{player.nationality}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded text-xs font-semibold 
-                            ${player.position === 'GK' ? 'bg-yellow-100 text-yellow-800' :
-                              player.position === 'FW' ? 'bg-red-100 text-red-800' :
-                              player.position === 'MF' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                            {player.position}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600 text-sm">{player.internal_team_id}</td>
-                      </tr>
-                    ))}
+                    {players.map(player => {
+                      const regStatus = playerRegistrationStatus[player.id]
+                      return (
+                        <tr key={player.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedPlayersForRegistration.has(player.id)}
+                              onChange={(e) => {
+                                const newSet = new Set(selectedPlayersForRegistration)
+                                if (e.target.checked) {
+                                  newSet.add(player.id)
+                                } else {
+                                  newSet.delete(player.id)
+                                }
+                                setSelectedPlayersForRegistration(newSet)
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-gray-500 text-sm">#{player.id}</td>
+                          <td className="px-6 py-4 font-medium text-gray-900">{player.name || player.full_name}</td>
+                          <td className="px-6 py-4 text-gray-600">{player.date_of_birth?.split('T')[0]}</td>
+                          <td className="px-6 py-4 text-gray-600">{player.nationality}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded text-xs font-semibold 
+                              ${player.position === 'GK' ? 'bg-yellow-100 text-yellow-800' :
+                                player.position === 'FW' ? 'bg-red-100 text-red-800' :
+                                player.position === 'MF' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                              {player.position}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-600 text-sm">{player.internal_team_id}</td>
+                          <td className="px-6 py-4">
+                            {regStatus ? (
+                              <div className="flex flex-col gap-1">
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded w-fit ${
+                                  regStatus.status === 'approved' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : regStatus.status === 'pending'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {regStatus.status === 'approved' ? 'Đã duyệt' : 
+                                   regStatus.status === 'pending' ? 'Chờ duyệt' : 'Từ chối'}
+                                </span>
+                                {regStatus.season_name && (
+                                  <span className="text-xs text-gray-500">{regStatus.season_name}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">Chưa đăng ký</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -510,10 +685,19 @@ const PlayersManagement = ({ currentUser }) => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <form onSubmit={handleLookupSearch} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Season ID <span className="text-red-500">*</span></label>
-                <input type="number" value={lookupFilters.season_id}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mùa giải <span className="text-red-500">*</span></label>
+                <select
+                  value={lookupFilters.season_id}
                   onChange={(e) => setLookupFilters(prev => ({ ...prev, season_id: e.target.value, team_id: '' }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Nhập ID" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="">-- Chọn mùa giải --</option>
+                  {lookupSeasons.map(s => (
+                    <option key={s.season_id || s.id} value={s.season_id || s.id}>
+                      {s.name} {s.code ? `(${s.code})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Đội bóng</label>
@@ -558,7 +742,7 @@ const PlayersManagement = ({ currentUser }) => {
           {!lookupLoading && !lookupResult && !lookupError && !hasSearched && (
             <div className="bg-blue-50 rounded-lg border border-blue-100 p-8 text-center text-blue-700">
               <Users size={48} className="mx-auto mb-3 opacity-50" />
-              <p>Nhập Season ID và nhấn Tìm kiếm.</p>
+              <p>Chọn mùa giải và nhấn Tìm kiếm.</p>
             </div>
           )}
 
@@ -576,6 +760,20 @@ const PlayersManagement = ({ currentUser }) => {
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
                     <tr>
+                      <th className="px-6 py-3 w-12">
+                        <input
+                          type="checkbox"
+                          checked={lookupResult.players.length > 0 && lookupResult.players.every(p => selectedPlayersForRegistration.has(p.player_id))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedPlayersForRegistration(new Set(lookupResult.players.map(p => p.player_id)))
+                            } else {
+                              setSelectedPlayersForRegistration(new Set())
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                      </th>
                       <th className="px-6 py-3">Cầu thủ</th>
                       <th className="px-6 py-3">Đội bóng</th>
                       <th className="px-6 py-3 text-center">Số áo</th>
@@ -587,6 +785,22 @@ const PlayersManagement = ({ currentUser }) => {
                   <tbody className="divide-y divide-gray-200">
                     {lookupResult.players.map((player) => (
                       <tr key={`${player.season_id}-${player.player_id}`} className="bg-white hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedPlayersForRegistration.has(player.player_id)}
+                            onChange={(e) => {
+                              const newSet = new Set(selectedPlayersForRegistration)
+                              if (e.target.checked) {
+                                newSet.add(player.player_id)
+                              } else {
+                                newSet.delete(player.player_id)
+                              }
+                              setSelectedPlayersForRegistration(newSet)
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                        </td>
                         <td className="px-6 py-4 font-medium text-gray-900">{player.player_name}</td>
                         <td className="px-6 py-4">{player.team_name}</td>
                         <td className="px-6 py-4 text-center font-semibold">{player.shirt_number}</td>
@@ -598,19 +812,63 @@ const PlayersManagement = ({ currentUser }) => {
                             {PLAYER_TYPE_MAP[player.player_type] || player.player_type}
                           </span>
                         </td>
-                        <td className="px-6 py-4">{formatDate(player.registered_at)}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-gray-600 text-sm">{formatDate(player.registered_at)}</span>
+                            {player.registration_status && (
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded w-fit ${
+                                player.registration_status === 'approved' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : player.registration_status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {player.registration_status === 'approved' ? 'Đã duyệt' : 
+                                 player.registration_status === 'pending' ? 'Chờ duyệt' : 'Từ chối'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              {selectedPlayersForRegistration.size > 0 && (
+                <div className="p-4 bg-blue-50 border-t border-blue-200 flex justify-between items-center">
+                  <span className="text-sm text-blue-800 font-medium">
+                    Đã chọn {selectedPlayersForRegistration.size} cầu thủ
+                  </span>
+                  <button
+                    onClick={() => {
+                      // Save selected players to localStorage
+                      const selectedPlayersData = Array.from(selectedPlayersForRegistration).map(playerId => {
+                        const player = lookupResult.players.find(p => p.player_id === playerId)
+                        return {
+                          player_id: playerId,
+                          player_name: player?.player_name,
+                          position_code: player?.position_code,
+                          player_type: player?.player_type,
+                          season_id: lookupFilters.season_id,
+                          team_id: lookupFilters.team_id
+                        }
+                      })
+                      localStorage.setItem('selectedPlayersForRegistration', JSON.stringify(selectedPlayersData))
+                      toast.success(`Đã chọn ${selectedPlayersForRegistration.size} cầu thủ. Vui lòng vào trang "Đăng ký mùa giải" để hoàn tất.`)
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                  >
+                    Chuyển đến đăng ký
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
       )}
 
       {/* Approval Tab */}
-      {activeTab === 'approval' && (
+      {activeTab === 'approval' && canApprove && (
         <>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-wrap gap-4 items-end">
             <div className="flex items-center gap-2 text-gray-600 mr-2">

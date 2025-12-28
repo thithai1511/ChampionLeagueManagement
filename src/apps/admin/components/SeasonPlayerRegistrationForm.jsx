@@ -42,6 +42,80 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
     // Filter
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Load selected players from localStorage on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('selectedPlayersForRegistration');
+            if (saved) {
+                const selectedPlayersData = JSON.parse(saved);
+                if (selectedPlayersData.length > 0) {
+                    console.log('[SeasonPlayerRegistrationForm] Loading selected players from localStorage:', selectedPlayersData);
+                    // Set season_id from saved data
+                    const firstPlayer = selectedPlayersData[0];
+                    if (firstPlayer.season_id) {
+                        setFormData(prev => ({ ...prev, season_id: String(firstPlayer.season_id) }));
+                    }
+                    // Pre-select players
+                    const playerIds = new Set(selectedPlayersData.map(p => p.player_id));
+                    setSelectedPlayerIds(playerIds);
+                    // Pre-fill player details
+                    const details = {};
+                    selectedPlayersData.forEach(p => {
+                        details[p.player_id] = {
+                            shirt_number: '',
+                            player_type: p.player_type || 'domestic'
+                        };
+                    });
+                    setPlayerDetails(details);
+                    
+                    // Load player info from API
+                    loadSelectedPlayersInfo(selectedPlayersData.map(p => p.player_id));
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load selected players', err);
+        }
+    }, []);
+
+    // Load player info from API
+    const loadSelectedPlayersInfo = async (playerIds) => {
+        if (!playerIds || playerIds.length === 0) return;
+        
+        try {
+            // Load players from API
+            const playersPromises = playerIds.map(async (playerId) => {
+                try {
+                    const response = await ApiService.get(`/players/${playerId}`);
+                    return response?.data || response;
+                } catch (err) {
+                    console.error(`Failed to load player ${playerId}`, err);
+                    return null;
+                }
+            });
+            
+            const players = (await Promise.all(playersPromises)).filter(p => p !== null);
+            
+            // Add to teamPlayers if not already there
+            setTeamPlayers(prev => {
+                const existingIds = new Set(prev.map(p => p.id));
+                const newPlayers = players.filter(p => {
+                    const playerId = p.id || p.player_id;
+                    return playerId && !existingIds.has(playerId);
+                });
+                const mappedPlayers = newPlayers.map(p => ({
+                    id: p.id || p.player_id,
+                    name: p.name || p.full_name,
+                    nationality: p.nationality,
+                    position: p.position || p.preferred_position,
+                    date_of_birth: p.date_of_birth
+                }));
+                return [...prev, ...mappedPlayers];
+            });
+        } catch (err) {
+            console.error('Failed to load selected players info', err);
+        }
+    };
+
     // Fetch seasons on mount
     useEffect(() => {
         const fetchSeasons = async () => {
@@ -105,6 +179,40 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
                     // Get Players from FootballPlayers pool belonging to this team
                     const players = await TeamsService.getTeamPlayers(teamId);
                     setTeamPlayers(players || []);
+                    
+                    // If we have selected players from localStorage, ensure they're in the list
+                    if (selectedPlayerIds.size > 0) {
+                        const selectedIds = Array.from(selectedPlayerIds);
+                        const existingIds = new Set(players.map(p => p.id));
+                        const missingIds = selectedIds.filter(id => !existingIds.has(id));
+                        
+                        if (missingIds.length > 0) {
+                            // Load missing players from API
+                            const missingPlayers = await Promise.all(
+                                missingIds.map(async (playerId) => {
+                                    try {
+                                        const response = await ApiService.get(`/players/${playerId}`);
+                                        const player = response?.data || response;
+                                        return {
+                                            id: player.id || player.player_id,
+                                            name: player.name || player.full_name,
+                                            nationality: player.nationality,
+                                            position: player.position || player.preferred_position,
+                                            date_of_birth: player.date_of_birth
+                                        };
+                                    } catch (err) {
+                                        console.error(`Failed to load player ${playerId}`, err);
+                                        return null;
+                                    }
+                                })
+                            );
+                            
+                            const validPlayers = missingPlayers.filter(p => p !== null);
+                            if (validPlayers.length > 0) {
+                                setTeamPlayers(prev => [...prev, ...validPlayers]);
+                            }
+                        }
+                    }
                 }
             } catch (e) {
                 console.error(e)
@@ -113,7 +221,7 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
             }
         }
         fetchPlayers()
-    }, [formData.season_team_id, seasonTeams])
+    }, [formData.season_team_id, seasonTeams, selectedPlayerIds])
 
 
     const handleCheckboxChange = (playerId) => {
@@ -216,6 +324,8 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
             setSelectedPlayerIds(new Set());
             setPlayerDetails({});
             setFile(null);
+            // Clear localStorage after successful registration
+            localStorage.removeItem('selectedPlayersForRegistration');
             if (onSuccess) onSuccess();
         } else {
             setMessage({
@@ -286,11 +396,32 @@ const SeasonPlayerRegistrationForm = ({ currentUser, onSuccess }) => {
                 )}
             </div>
 
+            {/* Show selected players from localStorage if any */}
+            {selectedPlayerIds.size > 0 && !formData.season_team_id && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-medium text-yellow-800 mb-1">Cầu thủ đã chọn từ "Gửi đơn đăng ký"</h3>
+                            <p className="text-sm text-yellow-700">
+                                Đã chọn {selectedPlayerIds.size} cầu thủ. Vui lòng chọn mùa giải và đội bóng để tiếp tục.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Player Selection Table */}
             {formData.season_team_id && (
                 <div className="border rounded-lg overflow-hidden mb-6">
                     <div className="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
-                        <h3 className="font-medium text-gray-700">Chọn cầu thủ từ Team Pool</h3>
+                        <h3 className="font-medium text-gray-700">
+                            Chọn cầu thủ từ Team Pool
+                            {selectedPlayerIds.size > 0 && (
+                                <span className="ml-2 text-sm text-blue-600 font-normal">
+                                    ({selectedPlayerIds.size} cầu thủ đã được chọn từ "Gửi đơn đăng ký")
+                                </span>
+                            )}
+                        </h3>
                         <div className="relative">
                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input

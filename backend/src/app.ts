@@ -37,6 +37,12 @@ const app = express();
 
 app.set("etag", false);
 app.use(cors());
+// Ensure UTF-8 encoding for all responses
+app.use((req, res, next) => {
+  res.charset = 'utf-8';
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  next();
+});
 app.use(express.json());
 if ((process.env.NODE_ENV ?? "development") !== "test") {
   app.use(morgan("dev"));
