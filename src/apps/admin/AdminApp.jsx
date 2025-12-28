@@ -33,6 +33,7 @@ import PlayerRegistrationsPage from './pages/PlayerRegistrationsPage'
 import OfficialsManagement from './pages/OfficialsManagement'
 import SeasonAwardsPage from './pages/SeasonAwardsPage'
 import SeasonDisciplinePage from './pages/SeasonDisciplinePage'
+import SeasonTeamInvitationsPage from './pages/SeasonTeamInvitationsPage'
 
 
 const AdminApp = ({ onLogout, currentUser }) => {
@@ -168,6 +169,14 @@ const AdminApp = ({ onLogout, currentUser }) => {
           element={
             <AccessGuard permission="manage_teams" currentUser={currentUser}>
               <SeasonManagement />
+            </AccessGuard>
+          }
+        />
+        <Route
+          path="season-invitations"
+          element={
+            <AccessGuard permission="manage_teams" currentUser={currentUser}>
+              <SeasonTeamInvitationsPage />
             </AccessGuard>
           }
         />

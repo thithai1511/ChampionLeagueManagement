@@ -23,7 +23,8 @@ import {
   Sparkles,
   Zap,
   Award,
-  AlertTriangle
+  AlertTriangle,
+  Mail
 } from 'lucide-react'
 
 const MENU_SECTIONS = [
@@ -55,6 +56,7 @@ const MENU_SECTIONS = [
     title: 'Quản lý giải đấu',
     items: [
       { name: 'Mùa giải', path: '/admin/seasons', icon: Swords, permission: 'manage_teams' },
+      { name: 'Lời mời đội bóng', path: '/admin/season-invitations', icon: Mail, permission: 'manage_teams' },
       { name: 'Đội bóng', path: '/admin/teams', icon: Users, permission: 'manage_teams' },
       { name: 'Trận đấu', path: '/admin/matches', icon: Calendar, permission: 'manage_matches' },
       { name: 'Trận trong ngày', path: '/admin/matches-today', icon: PlayCircle, permission: 'manage_matches' },

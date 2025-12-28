@@ -1,178 +1,187 @@
 import { Router, Request, Response } from "express";
-import { requireAuth, requirePermission } from "../middleware/authMiddleware";
-import * as seasonInvitationService from "../services/seasonInvitationService";
+import { requireAuth, requireAnyPermission } from "../middleware/authMiddleware";
+import * as invitationService from "../services/seasonInvitationService";
+import { query } from "../db/sqlServer";
+import { AuthenticatedRequest } from "../types";
 
 const router = Router();
+const requireTeamManagement = requireAnyPermission("manage_teams", "manage_rulesets");
 
 /**
- * GET /api/season-invitations/season/:seasonId
- * Get all invitations for a season (Admin only)
+ * GET /api/seasons/:seasonId/invitations
+ * List all invitations for a season
  */
 router.get(
-  "/season/:seasonId",
+  "/:seasonId/invitations",
   requireAuth,
-  requirePermission("manage_season_invitations"),
-  async (req: Request, res: Response) => {
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const seasonId = parseInt(req.params.seasonId, 10);
-      const invitations =
-        await seasonInvitationService.getSeasonInvitations(seasonId);
-      res.json(invitations);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch invitations" });
+      if (isNaN(seasonId)) {
+        return res.status(400).json({ error: "Invalid season ID" });
+      }
+      const invitations = await invitationService.getSeasonInvitations(seasonId);
+      // Transform to match frontend expected format
+      const transformed = invitations.map(inv => ({
+        invitationId: inv.invitation_id,
+        seasonId: inv.season_id,
+        teamId: inv.team_id,
+        teamName: inv.team_name,
+        shortName: null,
+        inviteType: 'retained', // Default, would need to check database
+        status: inv.response_status,
+        invitedAt: inv.sent_at,
+        responseDeadline: inv.deadline,
+        respondedAt: inv.response_date,
+        responseNotes: inv.response_notes
+      }));
+      res.json({ data: transformed });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to list invitations" });
     }
   }
 );
 
 /**
- * GET /api/season-invitations/team/:teamId
- * Get pending invitations for a team
+ * GET /api/seasons/:seasonId/invitations/stats
+ * Get invitation statistics
  */
 router.get(
-  "/team/:teamId",
+  "/:seasonId/invitations/stats",
   requireAuth,
-  async (req: Request, res: Response) => {
-    try {
-      const teamId = parseInt(req.params.teamId, 10);
-      const invitations =
-        await seasonInvitationService.getPendingInvitationsForTeam(teamId);
-      res.json(invitations);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch pending invitations" });
-    }
-  }
-);
-
-/**
- * GET /api/season-invitations/summary/:seasonId
- * Get invitations summary for a season
- */
-router.get(
-  "/summary/:seasonId",
-  requireAuth,
-  requirePermission("view_season_statistics"),
-  async (req: Request, res: Response) => {
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const seasonId = parseInt(req.params.seasonId, 10);
-      const summary =
-        await seasonInvitationService.getInvitationsSummary(seasonId);
-      res.json(summary);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch invitations summary" });
-    }
-  }
-);
-
-/**
- * GET /api/season-invitations/:invitationId
- * Get invitation details
- */
-router.get(
-  "/:invitationId",
-  requireAuth,
-  async (req: Request, res: Response) => {
-    try {
-      const invitationId = parseInt(req.params.invitationId, 10);
-      const invitation =
-        await seasonInvitationService.getInvitationDetails(invitationId);
-
-      if (!invitation) {
-        return res.status(404).json({ error: "Invitation not found" });
+      if (isNaN(seasonId)) {
+        return res.status(400).json({ error: "Invalid season ID" });
       }
-
-      res.json(invitation);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch invitation details" });
-    }
-  }
-);
-
-/**
- * POST /api/season-invitations/send
- * Send invitations for a season (Auto-invite 14 previous + 2 promoted teams)
- */
-router.post(
-  "/send",
-  requireAuth,
-  requirePermission("manage_season_invitations"),
-  async (req: Request, res: Response) => {
-    try {
-      const { seasonId } = req.body;
-
-      if (!seasonId) {
-        return res.status(400).json({ error: "Season ID is required" });
-      }
-
-      const userId = req.user?.sub;
-      if (!userId) {
-        return res.status(401).json({ error: "User not authenticated" });
-      }
-
-      await seasonInvitationService.createSeasonInvitations(seasonId, userId);
+      
+      const summary = await invitationService.getInvitationsSummary(seasonId);
+      
+      // Get accepted count
+      const acceptedResult = await query<{ count: number }>(
+        `SELECT COUNT(*) as count FROM season_invitations WHERE season_id = @seasonId AND response_status = 'accepted'`,
+        { seasonId }
+      );
+      const acceptedCount = acceptedResult.recordset[0]?.count || 0;
+      
       res.json({
-        message: "Invitations sent successfully",
+        data: {
+          acceptedCount,
+          totalPending: summary.pending,
+          totalDeclined: summary.rejected,
+          totalExpired: summary.expired,
+          totalReplaced: 0, // Would need to check replacement_for_id
+        },
       });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to send invitations" });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to get invitation statistics" });
     }
   }
 );
 
 /**
- * POST /api/season-invitations/:invitationId/accept
- * Accept an invitation
+ * POST /api/seasons/:seasonId/invitations
+ * Create a single invitation (stub - needs implementation)
  */
 router.post(
-  "/:invitationId/accept",
+  "/:seasonId/invitations",
   requireAuth,
-  async (req: Request, res: Response) => {
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
+    res.status(501).json({ error: "Not implemented yet" });
+  }
+);
+
+/**
+ * POST /api/seasons/:seasonId/invitations/auto-create
+ * Automatically create invitations (uses existing service)
+ */
+router.post(
+  "/:seasonId/invitations/auto-create",
+  requireAuth,
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const seasonId = parseInt(req.params.seasonId, 10);
+      if (isNaN(seasonId)) {
+        return res.status(400).json({ error: "Invalid season ID" });
+      }
+      const userId = req.user!.sub;
+      await invitationService.createSeasonInvitations(seasonId, userId);
+      res.status(201).json({ data: { message: "Invitations created successfully" } });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to auto-create invitations" });
+    }
+  }
+);
+
+/**
+ * GET /api/seasons/:seasonId/invitations/:invitationId/eligibility
+ * Check team eligibility (stub - needs implementation)
+ */
+router.get(
+  "/:seasonId/invitations/:invitationId/eligibility",
+  requireAuth,
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
+    res.status(501).json({ error: "Not implemented yet" });
+  }
+);
+
+/**
+ * PATCH /api/seasons/:seasonId/invitations/:invitationId/status
+ * Update invitation status
+ */
+router.patch(
+  "/:seasonId/invitations/:invitationId/status",
+  requireAuth,
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const invitationId = parseInt(req.params.invitationId, 10);
-      const { notes } = req.body;
-
-      await seasonInvitationService.acceptInvitation(invitationId, notes);
-      res.json({ message: "Invitation accepted successfully" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to accept invitation" });
+      const { status, responseNotes } = req.body;
+      
+      if (status === 'accepted') {
+        await invitationService.acceptInvitation(invitationId, responseNotes);
+      } else if (status === 'declined') {
+        await invitationService.rejectInvitation(invitationId, responseNotes);
+      } else {
+        return res.status(400).json({ error: "Invalid status. Use 'accepted' or 'declined'" });
+      }
+      
+      res.json({ message: "Invitation status updated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update invitation status" });
     }
   }
 );
 
 /**
- * POST /api/season-invitations/:invitationId/reject
- * Reject an invitation
+ * POST /api/seasons/:seasonId/invitations/:invitationId/create-replacement
+ * Create replacement invitation (stub - needs implementation)
  */
 router.post(
-  "/:invitationId/reject",
+  "/:seasonId/invitations/:invitationId/create-replacement",
   requireAuth,
-  async (req: Request, res: Response) => {
-    try {
-      const invitationId = parseInt(req.params.invitationId, 10);
-      const { notes } = req.body;
-
-      await seasonInvitationService.rejectInvitation(invitationId, notes);
-      res.json({ message: "Invitation rejected successfully" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to reject invitation" });
-    }
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
+    res.status(501).json({ error: "Not implemented yet" });
   }
 );
 
 /**
- * POST /api/season-invitations/expire/check
- * Mark expired invitations (Admin task - can be run via cron)
+ * POST /api/seasons/:seasonId/invitations/ensure-minimum-teams
+ * Ensure minimum teams (stub - needs implementation)
  */
 router.post(
-  "/expire/check",
+  "/:seasonId/invitations/ensure-minimum-teams",
   requireAuth,
-  requirePermission("manage_season_invitations"),
-  async (req: Request, res: Response) => {
-    try {
-      await seasonInvitationService.markExpiredInvitations();
-      res.json({ message: "Expired invitations marked" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to mark expired invitations" });
-    }
+  requireTeamManagement,
+  async (req: AuthenticatedRequest, res: Response) => {
+    res.status(501).json({ error: "Not implemented yet" });
   }
 );
 
