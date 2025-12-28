@@ -251,12 +251,13 @@ const TeamProfilePage = () => {
                 </div>
                 <div className="space-y-3">
                   {players.map((player) => (
-                    <div
+                    <Link
                       key={player.id ?? `${player.name}-${player.shirtNumber}`}
-                      className="flex items-center justify-between gap-3"
+                      to={player.id ? `/players/${player.id}` : '#'}
+                      className="flex items-center justify-between gap-3 p-2 -mx-2 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer group"
                     >
                       <div>
-                        <p className="font-semibold text-white">{player.name}</p>
+                        <p className="font-semibold text-white group-hover:text-cyan-300 transition-colors">{player.name}</p>
                         <p className="text-xs text-white/60 flex items-center gap-2">
                           <Flag size={12} /> {player.nationality ? toCountryLabel(player.nationality) : '—'}
                         </p>
@@ -269,11 +270,11 @@ const TeamProfilePage = () => {
                           <p className="text-xs uppercase tracking-[0.3em] text-white/60">Số áo</p>
                           <p className="text-lg font-semibold">{player.shirtNumber ?? '—'}</p>
                         </div>
-                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
+                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10 group-hover:border-cyan-400/30 group-hover:bg-white/20 transition-colors">
                           <Shirt size={18} />
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>

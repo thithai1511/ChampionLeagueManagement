@@ -38,7 +38,6 @@ const MENU_SECTIONS = [
         name: 'Đăng ký cầu thủ',
         path: '/admin/players',
         icon: UserCheck,
-        // Allow if user has either team management or specifically own player registration
         anyPermissions: ['manage_teams', 'manage_own_player_registrations'],
         disallowedRoles: ['super_admin']
       },
@@ -55,23 +54,12 @@ const MENU_SECTIONS = [
   {
     title: 'Quản lý giải đấu',
     items: [
-      { name: 'Mùa giải', path: '/admin/seasons', icon: Swords, permission: 'manage_teams' },
-      { name: 'Lời mời đội bóng', path: '/admin/season-invitations', icon: Mail, permission: 'manage_teams' },
+      { name: 'Mùa giải & Quy tắc', path: '/admin/seasons', icon: Swords, permission: 'manage_teams' },
       { name: 'Đội bóng', path: '/admin/teams', icon: Users, permission: 'manage_teams' },
+      { name: 'Cầu thủ', path: '/admin/players', icon: UserCheck, anyPermissions: ['manage_teams', 'approve_player_registrations'] },
       { name: 'Trận đấu', path: '/admin/matches', icon: Calendar, permission: 'manage_matches' },
-      { name: 'Trận trong ngày', path: '/admin/matches-today', icon: PlayCircle, permission: 'manage_matches' },
-      { name: 'Tra cứu cầu thủ', path: '/admin/season-players', icon: Users, permission: 'manage_teams' },
-      {
-        name: 'Duyệt đăng ký cầu thủ',
-        path: '/admin/season-player-approvals',
-        icon: ScrollText,
-        permission: 'approve_player_registrations'
-      },
-      { name: 'Thống kê cầu thủ', path: '/admin/player-stats', icon: Target, permission: 'manage_matches' },
-      { name: 'Bảng xếp hạng', path: '/admin/standings', icon: Trophy, permission: 'manage_matches' },
-      { name: 'Trọng tài & Giám sát', path: '/admin/officials', icon: Shield, permission: 'manage_matches' },
-      { name: 'Giải thưởng', path: '/admin/awards', icon: Award, permission: 'view_reports' },
-      { name: 'Kỷ luật', path: '/admin/discipline', icon: AlertTriangle, permission: 'manage_matches' }
+      { name: 'Thống kê', path: '/admin/statistics', icon: Trophy, permission: 'manage_matches' },
+      { name: 'Trọng tài & Giám sát', path: '/admin/officials', icon: Shield, permission: 'manage_matches' }
     ]
   },
   {
@@ -86,10 +74,7 @@ const MENU_SECTIONS = [
     title: 'Hệ thống',
     items: [
       { name: 'Quản lý người dùng', path: '/admin/users', icon: Shield, permission: 'manage_users' },
-      { name: 'Vai trò & Quyền', path: '/admin/roles', icon: KeyRound, permission: 'manage_users' },
-      { name: 'Quản trị Quy tắc', path: '/admin/rulesets', icon: ScrollText, permission: 'manage_rulesets' },
-      { name: 'Lịch sử Kiểm toán', path: '/admin/audit-log', icon: History, permission: 'view_audit_logs' },
-      { name: 'Cài đặt', path: '/admin/settings', icon: Settings, permission: 'manage_users' }
+      { name: 'Vai trò & Quyền', path: '/admin/roles', icon: KeyRound, permission: 'manage_users' }
     ]
   }
 ]

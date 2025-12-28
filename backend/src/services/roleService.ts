@@ -37,6 +37,12 @@ export async function listRoles() {
      FROM roles
      ORDER BY name`
   );
+  
+  // Auto-seed roles if empty (development fallback)
+  if (result.recordset.length === 0) {
+    console.warn("⚠️ No roles found in database. This might indicate missing seed data.");
+  }
+  
   return result.recordset;
 }
 

@@ -89,7 +89,9 @@ export const APP_CONFIG = {
         UPDATE: '/users/:id',
         DELETE: '/users/:id',
         ROLES: '/users/:id/roles',
-        REMOVE_ROLE: '/users/:id/roles/:roleId'
+        REMOVE_ROLE: '/users/:id/roles/:roleId',
+        TEAMS: '/users/:id/teams',
+        REMOVE_TEAM: '/users/:id/teams/:teamId'
       },
       ROLES: {
         LIST: '/roles',

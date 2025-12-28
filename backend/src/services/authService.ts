@@ -5,6 +5,7 @@ import { query } from "../db/sqlServer";
 import { appConfig } from "../config";
 import { HttpError, UnauthorizedError } from "../utils/httpError";
 import { logEvent } from "./auditService";
+import { getUserTeamIds } from "./userTeamService";
 
 interface UserRecord {
   user_id: number;
@@ -234,6 +235,7 @@ export async function login(username: string, password: string) {
   const permissions = await getUserPermissions(user.user_id);
   const managedTeamId = await getManagedTeamId(user.user_id);
   const officialId = await getOfficialId(user.user_id);
+  const teamIds = await getUserTeamIds(user.user_id);
 
   const payload: any = {
     sub: user.user_id,
@@ -249,6 +251,9 @@ export async function login(username: string, password: string) {
   }
   if (officialId) {
     payload.official_id = officialId;
+  }
+  if (teamIds && teamIds.length > 0) {
+    payload.teamIds = teamIds;
   }
 
   const secret: Secret = appConfig.jwt.secret;
@@ -307,6 +312,7 @@ export async function getProfile(userId: number) {
   const permissions = await getUserPermissions(user.user_id);
   const managedTeamId = await getManagedTeamId(user.user_id);
   const officialId = await getOfficialId(user.user_id);
+  const teamIds = await getUserTeamIds(user.user_id);
 
   const profile: any = {
     id: user.user_id,
@@ -327,6 +333,9 @@ export async function getProfile(userId: number) {
   }
   if (officialId) {
     profile.official_id = officialId;
+  }
+  if (teamIds && teamIds.length > 0) {
+    profile.teamIds = teamIds;
   }
 
   return profile;

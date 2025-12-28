@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react'
 import { toRoleLabel } from '../../../shared/utils/vi'
 
-const UserFormModal = ({ isOpen, onClose, onSave, user, roles, isSubmitting = false }) => {
+const UserFormModal = ({ isOpen, onClose, onSave, user, roles = [], isSubmitting = false, rolesLoading = false }) => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -31,6 +31,14 @@ const UserFormModal = ({ isOpen, onClose, onSave, user, roles, isSubmitting = fa
       }
     }
   }, [user, isEditing, isOpen])
+
+  // Debug: Log roles when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('UserFormModal - Roles received:', roles)
+      console.log('UserFormModal - Roles length:', roles?.length)
+    }
+  }, [isOpen, roles])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -73,8 +81,8 @@ const UserFormModal = ({ isOpen, onClose, onSave, user, roles, isSubmitting = fa
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md relative z-50">
         <h2 className="text-2xl font-bold mb-6">{isEditing ? 'Sửa người dùng' : 'Thêm người dùng mới'}</h2>
         {errors.length > 0 && (
           <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -87,38 +95,85 @@ const UserFormModal = ({ isOpen, onClose, onSave, user, roles, isSubmitting = fa
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <input name="firstName" value={formData.firstName} onChange={handleChange} placeholder="Họ" className="p-2 border rounded" required />
-            <input name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Tên" className="p-2 border rounded" required />
+            <input 
+              name="firstName" 
+              value={formData.firstName} 
+              onChange={handleChange} 
+              placeholder="Họ" 
+              className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+              required 
+            />
+            <input 
+              name="lastName" 
+              value={formData.lastName} 
+              onChange={handleChange} 
+              placeholder="Tên" 
+              className="p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+              required 
+            />
           </div>
           <input
             name="username"
             value={formData.username}
             onChange={handleChange}
             placeholder="Tên đăng nhập"
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             required
             disabled={isEditing}
           />
-          <input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="Email" className="w-full p-2 border rounded" required />
+          <input 
+            name="email" 
+            type="email" 
+            value={formData.email} 
+            onChange={handleChange} 
+            placeholder="Email" 
+            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+            required 
+          />
           <input
             name="password"
             type="password"
             value={formData.password}
             onChange={handleChange}
             placeholder={isEditing ? 'Mật khẩu mới (tùy chọn)' : 'Mật khẩu'}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             required={!isEditing}
           />
-          <select name="roleId" value={formData.roleId} onChange={handleChange} className="w-full p-2 border rounded" required>
-            <option value="" disabled>
-              Chọn vai trò
-            </option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {toRoleLabel(role)}
+          <div className="relative">
+            <select 
+              name="roleId" 
+              value={formData.roleId} 
+              onChange={handleChange} 
+              className="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+              required
+              disabled={rolesLoading || !roles || roles.length === 0}
+            >
+              <option value="" disabled>
+                {rolesLoading ? 'Đang tải vai trò...' : (roles && roles.length > 0 ? 'Chọn vai trò' : 'Không có vai trò nào')}
               </option>
-            ))}
-          </select>
+              {!rolesLoading && roles && roles.length > 0 && (
+                roles.map((role) => {
+                  const roleLabel = toRoleLabel(role) || role.name || `Role ${role.id}`
+                  return (
+                    <option key={role.id} value={role.id}>
+                      {roleLabel}
+                    </option>
+                  )
+                })
+              )}
+            </select>
+            {rolesLoading && (
+              <div className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+                <span className="animate-spin">⏳</span>
+                Đang tải danh sách vai trò...
+              </div>
+            )}
+            {!rolesLoading && roles && roles.length === 0 && (
+              <div className="mt-1 text-xs text-red-600">
+                ⚠️ Không có vai trò nào. Vui lòng kiểm tra lại.
+              </div>
+            )}
+          </div>
           <div className="flex justify-end space-x-4 pt-4">
             <button
               type="button"

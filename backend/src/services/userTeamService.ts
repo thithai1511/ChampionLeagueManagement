@@ -31,13 +31,13 @@ export async function listUserTeams(userId: number) {
   }>(
     `
       SELECT
-        utr.team_id,
+        uta.team_id,
         t.name AS team_name,
-        utr.assigned_at,
-        utr.assigned_by
-      FROM user_team_roles utr
-      JOIN teams t ON utr.team_id = t.team_id
-      WHERE utr.user_id = @userId
+        uta.assigned_at,
+        uta.assigned_by
+      FROM user_team_assignments uta
+      JOIN teams t ON uta.team_id = t.team_id
+      WHERE uta.user_id = @userId
       ORDER BY t.name
     `,
     { userId }

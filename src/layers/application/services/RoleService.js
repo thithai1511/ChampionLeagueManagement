@@ -23,8 +23,22 @@ const normalizePermission = (payload = {}) => ({
 
 class RoleService {
   async listRoles() {
-    const response = await ApiService.get(ENDPOINTS.LIST)
-    return Array.isArray(response) ? response.map(normalizeRole) : []
+    console.log('RoleService.listRoles: Calling API...')
+    try {
+      const response = await ApiService.get(ENDPOINTS.LIST)
+      console.log('RoleService.listRoles: Raw response:', response)
+      
+      // ApiService wraps arrays in {data: array}, extract it
+      const rolesArray = Array.isArray(response) ? response : (response?.data || [])
+      console.log('RoleService.listRoles: Roles array:', rolesArray)
+      
+      const normalized = Array.isArray(rolesArray) ? rolesArray.map(normalizeRole) : []
+      console.log('RoleService.listRoles: Normalized roles:', normalized)
+      return normalized
+    } catch (error) {
+      console.error('RoleService.listRoles: Error:', error)
+      throw error
+    }
   }
 
   async getRolePermissions(roleId) {

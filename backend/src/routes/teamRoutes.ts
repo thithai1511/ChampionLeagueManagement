@@ -164,7 +164,8 @@ router.delete("/:id", async (req, res, next) => {
 
     res.status(204).send();
   } catch (error: any) {
-    if (error.message && error.message.includes("Cannot delete team")) {
+    // Handle both English and Vietnamese error messages
+    if (error.message && (error.message.includes("Cannot delete team") || error.message.includes("Không thể xóa đội bóng"))) {
       return res.status(409).json({ message: error.message });
     }
     next(error);

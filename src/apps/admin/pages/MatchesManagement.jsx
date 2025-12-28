@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus,
   Calendar,
@@ -15,7 +15,9 @@ import {
   Play,
   Loader2,
   Shield,
-  UserPlus
+  UserPlus,
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react'
 import MatchesService from '../../../layers/application/services/MatchesService'
 import SeasonService from '../../../layers/application/services/SeasonService'
@@ -90,6 +92,11 @@ const formatTime = (isoString) => {
 }
 
 const MatchesManagement = () => {
+  const navigate = useNavigate()
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState('all') // 'all' | 'today'
+  
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -106,6 +113,57 @@ const MatchesManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showOfficialModal, setShowOfficialModal] = useState(false)
   const [selectedMatchForOfficials, setSelectedMatchForOfficials] = useState(null)
+  
+  // Today matches state
+  const [todayMatches, setTodayMatches] = useState([])
+  const [todayLoading, setTodayLoading] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
+  
+  const getTodayRange = () => {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    const end = new Date()
+    end.setHours(23, 59, 59, 999)
+    return {
+      dateFrom: start.toISOString(),
+      dateTo: end.toISOString()
+    }
+  }
+  
+  const fetchTodayMatches = async () => {
+    setTodayLoading(true)
+    try {
+      const { dateFrom, dateTo } = getTodayRange()
+      const response = await MatchesService.getAllMatches({
+        dateFrom,
+        dateTo,
+        limit: 100
+      })
+      setTodayMatches(response.matches || [])
+      setLastUpdated(new Date())
+    } catch (err) {
+      console.error('Failed to fetch today matches:', err)
+    } finally {
+      setTodayLoading(false)
+    }
+  }
+  
+  // Auto-refresh today matches when tab is active
+  useEffect(() => {
+    if (activeTab === 'today') {
+      fetchTodayMatches()
+      const interval = setInterval(fetchTodayMatches, 60000) // Refresh every 60 seconds
+      return () => clearInterval(interval)
+    }
+  }, [activeTab])
+  
+  const getTodayStatusColor = (status) => {
+    const s = status?.toUpperCase()
+    if (s === 'IN_PROGRESS' || s === 'LIVE' || s === 'IN_PLAY') return 'bg-red-500 text-white animate-pulse'
+    if (s === 'FINISHED' || s === 'COMPLETED') return 'bg-green-500 text-white'
+    if (s === 'SCHEDULED' || s === 'TIMED') return 'bg-blue-100 text-blue-800'
+    return 'bg-gray-200 text-gray-800'
+  }
 
   const openOfficialModal = (match) => {
     setSelectedMatchForOfficials({
@@ -326,43 +384,82 @@ const MatchesManagement = () => {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Matches Management</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Quản lý Trận đấu</h1>
             <p className="text-gray-600 mt-2">
-              View real fixtures and results from the Champions League data feed, edit local details or remove entries.
+              Quản lý lịch thi đấu, cập nhật kết quả và theo dõi trận đấu trong ngày.
             </p>
           </div>
           <div className="flex space-x-3">
-            <button
-              onClick={handleClearAll}
-              className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              <Trash2 size={16} />
-              <span>Clear DB</span>
-            </button>
-            <button
-              onClick={handleSync}
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={syncing}
-            >
-              {syncing ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-              <span>{syncing ? 'Syncing...' : 'Sync Matches'}</span>
-            </button>
-            <button className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
-              <Download size={16} />
-              <span>Xuất lịch thi đấu</span>
-            </button>
-            <Link
-              to="/admin/schedule"
-              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              <Calendar size={16} />
-              <span>Generate Schedule</span>
-            </Link>
+            {activeTab === 'all' && (
+              <>
+                <button
+                  onClick={handleSync}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={syncing}
+                >
+                  {syncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                  <span>{syncing ? 'Đang đồng bộ...' : 'Đồng bộ trận đấu'}</span>
+                </button>
+                <button className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                  <Download size={16} />
+                  <span>Xuất lịch</span>
+                </button>
+                <Link
+                  to="/admin/schedule"
+                  className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Calendar size={16} />
+                  <span>Tạo lịch thi đấu</span>
+                </Link>
+              </>
+            )}
+            {activeTab === 'today' && (
+              <button
+                onClick={fetchTodayMatches}
+                disabled={todayLoading}
+                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+              >
+                <RefreshCw size={16} className={todayLoading ? 'animate-spin' : ''} />
+                <span>{todayLoading ? 'Đang tải...' : 'Làm mới'}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+      {/* Tab Navigation */}
+      <div className="mb-6 flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'all'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Calendar size={18} />
+          <span>Tất cả trận đấu</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('today')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'today'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Play size={18} />
+          <span>Trận trong ngày</span>
+          {todayMatches.length > 0 && (
+            <span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">{todayMatches.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* All Matches Tab */}
+      {activeTab === 'all' && (
+        <>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="flex items-center space-x-3">
             <Calendar size={18} className="text-gray-400" />
@@ -565,43 +662,132 @@ const MatchesManagement = () => {
       </div>
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <Calendar size={24} className="text-blue-500 mr-3" />
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{pagination.total}</div>
-              <div className="text-gray-600 text-sm">Total Matches</div>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center">
+              <Calendar size={24} className="text-blue-500 mr-3" />
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{pagination.total}</div>
+                <div className="text-gray-600 text-sm">Tổng trận đấu</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center">
+              <CheckCircle size={24} className="text-green-500 mr-3" />
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{totals.finished}</div>
+                <div className="text-gray-600 text-sm">Đã hoàn thành</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center">
+              <Clock size={24} className="text-blue-500 mr-3" />
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{totals.scheduled}</div>
+                <div className="text-gray-600 text-sm">Đã lên lịch</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center">
+              <Play size={24} className="text-red-500 mr-3" />
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{totals.live}</div>
+                <div className="text-gray-600 text-sm">Đang diễn ra</div>
+              </div>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <CheckCircle size={24} className="text-green-500 mr-3" />
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{totals.finished}</div>
-              <div className="text-gray-600 text-sm">Completed</div>
+      </>
+      )}
+
+      {/* Today Matches Tab */}
+      {activeTab === 'today' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Trận đấu hôm nay</h2>
+                <p className="text-gray-500 text-sm">
+                  {new Date().toLocaleDateString('vi-VN')}
+                  {lastUpdated && <span className="ml-2">(Cập nhật: {lastUpdated.toLocaleTimeString()})</span>}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <Clock size={24} className="text-blue-500 mr-3" />
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{totals.scheduled}</div>
-              <div className="text-gray-600 text-sm">Scheduled</div>
+          
+          {todayLoading && todayMatches.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <Loader2 className="animate-spin mx-auto mb-2" size={24} />
+              Đang tải trận đấu hôm nay...
             </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <Play size={24} className="text-red-500 mr-3" />
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{totals.live}</div>
-              <div className="text-gray-600 text-sm">Live Now</div>
+          ) : todayMatches.length === 0 ? (
+            <div className="p-12 text-center flex flex-col items-center justify-center text-gray-500">
+              <Calendar size={48} className="mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium text-gray-900">Không có trận đấu nào hôm nay</h3>
+              <p className="mt-1">Xem lịch thi đấu đầy đủ ở tab "Tất cả trận đấu".</p>
             </div>
-          </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {todayMatches.map(match => (
+                <div key={match.id} className="p-6 hover:bg-gray-50 transition-colors flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="flex-1 flex items-center justify-center md:justify-start gap-8 w-full md:w-auto">
+                    <div className="flex items-center gap-4 flex-1 justify-end text-right">
+                      <span className="font-bold text-lg text-gray-900">{match.homeTeamName}</span>
+                      {match.homeTeamLogo && (
+                        <img src={match.homeTeamLogo} alt={match.homeTeamName} className="w-10 h-10 object-contain" />
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-center min-w-[100px]">
+                      {['IN_PROGRESS', 'LIVE', 'IN_PLAY', 'FINISHED', 'COMPLETED'].includes(match.status?.toUpperCase()) ? (
+                        <span className="text-2xl font-bold font-mono">
+                          {match.scoreHome} - {match.scoreAway}
+                        </span>
+                      ) : (
+                        <span className="text-xl font-bold font-mono text-gray-400">vs</span>
+                      )}
+                      <span className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        <Clock size={12} />
+                        {formatTime(match.utcDate)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-1 justify-start text-left">
+                      {match.awayTeamLogo && (
+                        <img src={match.awayTeamLogo} alt={match.awayTeamName} className="w-10 h-10 object-contain" />
+                      )}
+                      <span className="font-bold text-lg text-gray-900">{match.awayTeamName}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
+                    <span className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full ${getTodayStatusColor(match.status)}`}>
+                      {match.status?.replace('_', ' ')}
+                    </span>
+
+                    <button
+                      onClick={() => navigate(`/admin/matches/${match.id}/live`)}
+                      className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 shadow-sm transition-all active:scale-95 font-medium"
+                    >
+                      {['IN_PROGRESS', 'LIVE', 'IN_PLAY'].includes(match.status?.toUpperCase()) ? (
+                        <>
+                          <Play size={18} /> Tiếp tục cập nhật
+                        </>
+                      ) : (
+                        <>
+                          Cập nhật trực tiếp <ArrowRight size={18} />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {showEditModal && editingMatch && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">

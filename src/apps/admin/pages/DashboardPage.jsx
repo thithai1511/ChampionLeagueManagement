@@ -1,12 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
+  AlertTriangle,
   Bell,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  Download,
   FileText,
+  Filter,
   MoreHorizontal,
+  RefreshCw,
   Search,
+  Settings,
+  Shield,
+  ShieldCheck,
   Target,
   TrendingDown,
   TrendingUp,
@@ -19,21 +29,312 @@ import {
   Star,
   Activity,
   Play,
-  ChevronRight
+  X
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import StatsService from '../../../layers/application/services/StatsService'
 import AuditLogService from '../../../layers/application/services/AuditLogService'
 import MatchesService from '../../../layers/application/services/MatchesService'
 import bannerImage from '@/assets/images/banner_c1.jpg'
 import uclLogo from '@/assets/images/UEFA_CHAMPIONS_LEAGUE.png'
 
+// =====================================================================
+// AUDIT LOG MODAL COMPONENT
+// =====================================================================
+const severityFilters = ['All severity', 'info', 'warning', 'critical']
+const DEFAULT_PAGE_SIZE = 25
+
+const formatAuditTimestamp = (timestamp) => {
+  if (!timestamp) return '--'
+  const date = new Date(timestamp)
+  return date.toLocaleString('vi-VN', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const AuditLogModal = ({ isOpen, onClose }) => {
+  const [logs, setLogs] = useState([])
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    total: 0
+  })
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [moduleFilter, setModuleFilter] = useState('All modules')
+  const [severityFilter, setSeverityFilter] = useState('All severity')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [onlyCritical, setOnlyCritical] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim())
+    }, 350)
+    return () => clearTimeout(handle)
+  }, [searchTerm])
+
+  const normalizedSeverity = useMemo(() => {
+    if (onlyCritical) return 'critical'
+    return severityFilter === 'All severity' ? null : severityFilter
+  }, [onlyCritical, severityFilter])
+
+  const severitySelectValue = onlyCritical ? 'critical' : severityFilter
+
+  const buildQueryPayload = useCallback(
+    (pageOverride = 1) => {
+      const payload = { page: pageOverride, pageSize: pagination.pageSize }
+      if (normalizedSeverity) payload.severity = normalizedSeverity
+      if (moduleFilter !== 'All modules') payload.entityType = moduleFilter.toLowerCase()
+      if (debouncedSearch) payload.search = debouncedSearch
+      if (fromDate) payload.from = `${fromDate}T00:00:00Z`
+      if (toDate) payload.to = `${toDate}T23:59:59Z`
+      return payload
+    },
+    [pagination.pageSize, normalizedSeverity, moduleFilter, debouncedSearch, fromDate, toDate]
+  )
+
+  const loadLogs = useCallback(async (pageOverride = 1) => {
+    setIsLoading(true)
+    try {
+      const response = await AuditLogService.listEvents(buildQueryPayload(pageOverride))
+      setLogs(response.data)
+      setPagination({ page: response.page, pageSize: response.pageSize, total: response.total })
+    } catch (error) {
+      console.error(error)
+      toast.error('Không thể tải nhật ký kiểm toán.')
+      setLogs([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [buildQueryPayload])
+
+  useEffect(() => {
+    if (isOpen) loadLogs(1)
+  }, [isOpen, loadLogs, debouncedSearch, moduleFilter, normalizedSeverity, fromDate, toDate, pagination.pageSize])
+
+  const moduleOptions = useMemo(() => {
+    const unique = new Set(logs.map((log) => log.module ?? 'SYSTEM'))
+    return ['All modules', ...unique]
+  }, [logs])
+
+  const totalPages = useMemo(() => {
+    if (!pagination.total || !pagination.pageSize) return 1
+    return Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
+  }, [pagination.total, pagination.pageSize])
+
+  const paginationSummary = useMemo(() => {
+    if (pagination.total === 0 || logs.length === 0) return 'Không có sự kiện nào'
+    const start = (pagination.page - 1) * pagination.pageSize + 1
+    const end = Math.min(pagination.total, start + logs.length - 1)
+    return `Hiển thị ${start}-${end} của ${pagination.total} sự kiện`
+  }, [logs.length, pagination.page, pagination.pageSize, pagination.total])
+
+  const handlePageChange = (direction) => {
+    if (direction === 'prev' && pagination.page > 1) loadLogs(pagination.page - 1)
+    if (direction === 'next' && pagination.page < totalPages) loadLogs(pagination.page + 1)
+  }
+
+  const handleExport = () => {
+    toast.success('Yêu cầu xuất đã được gửi. Báo cáo sẽ được gửi qua email.')
+  }
+
+  const renderSeverityIcon = (severity) => {
+    if (severity === 'critical') return <AlertTriangle size={16} className="text-red-500" />
+    if (severity === 'warning') return <Shield size={16} className="text-yellow-500" />
+    return <ShieldCheck size={16} className="text-blue-500" />
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-start justify-center min-h-screen px-4 pt-10 pb-20">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[85vh] overflow-hidden">
+          {/* Header */}
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Nhật ký kiểm toán</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Theo dõi mọi hành động trong hệ thống để đảm bảo tuân thủ và điều tra
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => loadLogs(pagination.page)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                Làm mới
+              </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-black"
+              >
+                <Download size={16} />
+                Xuất
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <select
+                value={moduleFilter}
+                onChange={(e) => setModuleFilter(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                {moduleOptions.map((module) => (
+                  <option key={module} value={module}>{module}</option>
+                ))}
+              </select>
+              <select
+                value={severitySelectValue}
+                onChange={(e) => setSeverityFilter(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                disabled={onlyCritical}
+              >
+                {severityFilters.map((entry) => (
+                  <option key={entry} value={entry}>
+                    {entry === 'info' ? 'Thông tin' : entry === 'warning' ? 'Cảnh báo' : entry === 'critical' ? 'Nghiêm trọng' : 'Tất cả'}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                placeholder="Từ ngày"
+              />
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                placeholder="Đến ngày"
+              />
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={onlyCritical}
+                  onChange={(e) => setOnlyCritical(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-red-600"
+                />
+                Chỉ nghiêm trọng
+              </label>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 overflow-y-auto max-h-[50vh]">
+            {isLoading && (
+              <div className="text-center py-8 text-gray-500">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                Đang tải...
+              </div>
+            )}
+            {!isLoading && logs.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                Không có sự kiện nào phù hợp với bộ lọc.
+              </div>
+            )}
+            {!isLoading && logs.length > 0 && (
+              <div className="space-y-3">
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className={`rounded-lg border p-4 ${
+                      log.severity === 'critical'
+                        ? 'bg-red-50 border-red-200'
+                        : log.severity === 'warning'
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-blue-50 border-blue-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {renderSeverityIcon(log.severity)}
+                        <div>
+                          <p className="font-semibold text-gray-900">{log.action}</p>
+                          <p className="text-xs text-gray-500 uppercase">{log.module} · {log.actor ?? 'Hệ thống'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Clock size={14} />
+                        {formatAuditTimestamp(log.timestamp)}
+                      </div>
+                    </div>
+                    {log.details && (
+                      <p className="mt-2 text-sm text-gray-600">{log.details}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+            <p className="text-sm text-gray-600">{paginationSummary}</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePageChange('prev')}
+                disabled={pagination.page === 1 || isLoading}
+                className="flex items-center gap-1 px-3 py-1 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                <ChevronLeft size={14} />
+                Trước
+              </button>
+              <span className="text-xs text-gray-500">Trang {pagination.page}/{totalPages}</span>
+              <button
+                onClick={() => handlePageChange('next')}
+                disabled={pagination.page === totalPages || isLoading}
+                className="flex items-center gap-1 px-3 py-1 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Sau
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const DashboardPage = () => {
+  const navigate = useNavigate()
   const [overview, setOverview] = useState(null)
   const [activities, setActivities] = useState([])
   const [todayMatches, setTodayMatches] = useState([])
   const [pendingTasks, setPendingTasks] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isAuditLogOpen, setIsAuditLogOpen] = useState(false)
 
   const getTodayRange = () => {
     const start = new Date()
@@ -216,6 +517,20 @@ const DashboardPage = () => {
                 <Activity size={18} />
                 Thống kê
               </button>
+              <button 
+                onClick={() => setIsAuditLogOpen(true)}
+                className="px-6 py-3 bg-white/10 backdrop-blur-sm rounded-xl font-semibold text-white border border-white/20 hover:bg-white/20 transition-all duration-300 flex items-center gap-2"
+              >
+                <FileText size={18} />
+                Audit Log
+              </button>
+              <button 
+                onClick={() => navigate('/admin/settings')}
+                className="p-3 bg-white/10 backdrop-blur-sm rounded-xl text-white border border-white/20 hover:bg-white/20 transition-all duration-300"
+                title="Cài đặt"
+              >
+                <Settings size={18} />
+              </button>
             </div>
           </div>
           
@@ -330,7 +645,10 @@ const DashboardPage = () => {
                   <span className="text-xs text-blue-200/40">{activities.length} sự kiện hôm nay</span>
                 </div>
               </div>
-              <button className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-lg transition-all flex items-center gap-1">
+              <button 
+                onClick={() => setIsAuditLogOpen(true)}
+                className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-lg transition-all flex items-center gap-1"
+              >
                 Xem tất cả <ChevronRight size={14} />
               </button>
             </div>
@@ -546,6 +864,9 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Audit Log Modal */}
+      <AuditLogModal isOpen={isAuditLogOpen} onClose={() => setIsAuditLogOpen(false)} />
     </div>
   )
 }

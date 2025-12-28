@@ -46,15 +46,20 @@ class TeamsService {
       const teams = rawTeams.map(team => ({
         id: team.team_id ?? team.id,
         name: team.name,
-        short_name: team.short_name,
-        code: team.code,
+        short_name: team.short_name ?? team.shortName,
+        code: team.code ?? team.tla,
         city: team.city,
         country: team.country,
-        founded_year: team.founded_year,
+        founded_year: team.founded_year ?? team.founded,
         status: team.status,
         governing_body: team.governing_body,
         description: team.description,
-        playerCount: 0 // Will be populated separately if needed
+        playerCount: 0, // Will be populated separately if needed
+        // Logo fields from different API formats
+        logo: team.logo ?? team.crest ?? null,
+        crest: team.crest ?? team.logo ?? null,
+        venue: team.venue ?? null,
+        coach: team.coach ?? null
       }))
 
       return {

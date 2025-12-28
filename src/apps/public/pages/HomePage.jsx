@@ -292,7 +292,7 @@ const HomePage = () => {
                         lineHeight: '1.2'
                       }}
                     >
-                      Giải vô địch bóng đá châu Âu
+                      Giải vô địch bóng đá KỶ NGUYÊN MỚI
                     </span>
                   </span>
                   
@@ -302,7 +302,7 @@ const HomePage = () => {
 
               <div className="relative mt-6">
                 <p className="text-base md:text-lg text-slate-200 max-w-2xl leading-relaxed font-light backdrop-blur-sm bg-black/10 p-4 rounded-2xl border border-white/10">
-                  Mang bầu không khí <span className="text-cyan-300 font-semibold">Champions League</span> sống động đến từng thiết bị – nơi mỗi trận đấu không chỉ là kết quả, mà là câu chuyện, ký ức và đam mê.
+                  Mang bầu không khí <span className="text-cyan-300 font-semibold">bóng đá Việt Nam </span> sống động đến từng thiết bị – nơi mỗi trận đấu không chỉ là kết quả, mà là câu chuyện, ký ức và đam mê.
                 </p>
               </div>
 
@@ -484,9 +484,9 @@ const HomePage = () => {
                     </span>
                   </h2>
                   <p className="text-white/80 text-sm md:text-base leading-relaxed backdrop-blur-sm bg-black/20 p-4 rounded-xl border border-white/10">
-                    Chiếc cúp UEFA Champions League, được gọi thân thương là "Big Ears" với hai quai cầm đặc trưng, 
+                    Chiếc cúp KỶ NGUYÊN MỚI, được gọi thân thương là "Big Ears" với hai quai cầm đặc trưng, 
                     là giấc mơ của mọi câu lạc bộ bóng đá. Cao 73.5cm và nặng 7.5kg bạc nguyên chất, 
-                    đây là biểu tượng tối cao của bóng đá câu lạc bộ châu Âu.
+                    đây là biểu tượng tối cao của bóng đá câu lạc bộ .
                   </p>
                 </div>
 
@@ -904,8 +904,13 @@ const HomePage = () => {
                           className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.08] hover:border-green-400/30 transition-all cursor-pointer group"
                         >
                           <div className="flex items-center gap-3">
-                            {team.logoUrl ? (
-                              <img src={team.logoUrl} alt={team.name} className="w-8 h-8 object-contain" />
+                            {(team.logo || team.crest || team.logoUrl) ? (
+                              <img 
+                                src={team.logo || team.crest || team.logoUrl} 
+                                alt={team.name} 
+                                className="w-8 h-8 object-contain"
+                                onError={(e) => { e.target.style.display = 'none' }}
+                              />
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
                                 <Shield size={14} className="text-white/40" />
@@ -914,7 +919,7 @@ const HomePage = () => {
                             <div>
                               <div className="font-semibold text-white group-hover:text-green-300 transition-colors">{team.name}</div>
                               <div className="text-xs text-white/50 mt-0.5">
-                                {team.shortName || team.tla} · {toCountryLabel(team.country)}
+                                {team.short_name || team.shortName || team.tla || team.code} · {toCountryLabel(team.country)}
                       </div>
                     </div>
                     </div>

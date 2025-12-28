@@ -54,10 +54,33 @@ const seasonBaseSchema = z.object({
 router.get(
   "/:id/teams",
   requireAuth,
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     res.setHeader('Cache-Control', 'no-store')
 
     const seasonId = Number(req.params.id)
+    
+    // Check if user has restricted team access
+    const userTeamIds = req.user?.teamIds
+    const isSuperAdmin = req.user?.roles?.includes('super_admin')
+    const hasManageTeams = req.user?.permissions?.includes('manage_teams')
+    
+    // Super admin and users with manage_teams permission see all teams
+    const canSeeAllTeams = isSuperAdmin || hasManageTeams
+    
+    let whereClause = 'WHERE stp.season_id = @seasonId'
+    const params: Record<string, any> = { seasonId }
+    
+    // If user is restricted to specific teams, filter results
+    if (!canSeeAllTeams && Array.isArray(userTeamIds) && userTeamIds.length > 0) {
+      const teamIdPlaceholders = userTeamIds.map((_, i) => `@teamId${i}`).join(',')
+      whereClause += ` AND t.team_id IN (${teamIdPlaceholders})`
+      userTeamIds.forEach((id, i) => {
+        params[`teamId${i}`] = id
+      })
+    } else if (!canSeeAllTeams && (!userTeamIds || userTeamIds.length === 0)) {
+      // User has no teams assigned and is not admin - return empty
+      return res.json([])
+    }
 
     const result = await query(`
       SELECT
@@ -67,9 +90,9 @@ router.get(
         t.name AS team_name
       FROM season_team_participants stp
       JOIN teams t ON stp.team_id = t.team_id
-      WHERE stp.season_id = @seasonId
+      ${whereClause}
       ORDER BY t.name
-    `, { seasonId })
+    `, params)
 
     res.json(
       result.recordset.map(r => ({

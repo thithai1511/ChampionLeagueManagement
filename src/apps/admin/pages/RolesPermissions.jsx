@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Shield, CheckCircle2, AlertCircle, Save, RefreshCw, ShieldCheck, Lock } from 'lucide-react'
+import { Shield, CheckCircle2, AlertCircle, Save, RefreshCw, ShieldCheck, Lock, Loader2 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import RoleService from '../../../layers/application/services/RoleService'
 import PermissionService from '../../../layers/application/services/PermissionService'
@@ -12,22 +12,25 @@ const RolesPermissions = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isRefreshingAssignments, setIsRefreshingAssignments] = useState(false)
+  const [loadError, setLoadError] = useState(null)
 
   const loadReferenceData = useCallback(async () => {
     setIsLoading(true)
+    setLoadError(null)
     try {
       const [roleList, permissionList] = await Promise.all([
-        RoleService.listRoles(),
-        PermissionService.listPermissions()
+        RoleService.listRoles().catch(() => []),
+        PermissionService.listPermissions().catch(() => [])
       ])
-      setRoles(roleList)
-      setPermissionCatalog(permissionList)
-      if (roleList.length > 0) {
+      setRoles(roleList || [])
+      setPermissionCatalog(permissionList || [])
+      if (roleList && roleList.length > 0) {
         setSelectedRoleId((prev) => prev ?? roleList[0].id)
       }
     } catch (error) {
-      console.error(error)
-      toast.error('Unable to load roles or permission catalog.')
+      console.error('Error loading roles/permissions:', error)
+      setLoadError('Không thể tải danh sách vai trò hoặc quyền hạn. Vui lòng thử lại.')
+      toast.error('Không thể tải dữ liệu vai trò và quyền hạn.')
     } finally {
       setIsLoading(false)
     }
@@ -42,10 +45,13 @@ const RolesPermissions = () => {
       setIsRefreshingAssignments(true)
       try {
         const assignments = await RoleService.getRolePermissions(roleId)
-        setSelectedPermissions(assignments.map((permission) => permission.id))
+        setSelectedPermissions(assignments ? assignments.map((permission) => permission.id) : [])
       } catch (error) {
-        console.error(error)
-        toast.error('Unable to load assigned permissions.')
+        console.error('Error loading role permissions:', error)
+        // Don't show error toast if it's a 404 - role might not have any permissions yet
+        if (error?.response?.status !== 404) {
+          toast.error('Không thể tải quyền hạn của vai trò.')
+        }
         setSelectedPermissions([])
       } finally {
         setIsRefreshingAssignments(false)
@@ -90,10 +96,10 @@ const RolesPermissions = () => {
     setIsSaving(true)
     try {
       await RoleService.setRolePermissions(selectedRoleId, selectedPermissions)
-      toast.success('Permissions updated for role.')
+      toast.success('Đã cập nhật quyền hạn cho vai trò.')
     } catch (error) {
-      console.error(error)
-      toast.error('Unable to update role permissions.')
+      console.error('Error saving role permissions:', error)
+      toast.error('Không thể cập nhật quyền hạn vai trò. Vui lòng thử lại.')
     } finally {
       setIsSaving(false)
     }
@@ -106,11 +112,11 @@ const RolesPermissions = () => {
         <div>
           <div className="inline-flex items-center gap-3 rounded-lg bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
             <Shield size={16} />
-            Access governance
+            Quản lý phân quyền
           </div>
-          <h1 className="mt-2 text-3xl font-bold text-gray-900">Roles & permissions</h1>
+          <h1 className="mt-2 text-3xl font-bold text-gray-900">Vai trò & Quyền hạn</h1>
           <p className="text-sm text-gray-600">
-            Keep least-privilege enforced by mapping each admin role to the granular permissions exposed by the API.
+            Gán quyền hạn chi tiết cho từng vai trò quản trị viên trong hệ thống.
           </p>
         </div>
         <div className="flex gap-3">
@@ -121,7 +127,7 @@ const RolesPermissions = () => {
             disabled={isLoading}
           >
             <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-            Refresh catalog
+            Làm mới
           </button>
           <button
             type="button"
@@ -129,22 +135,38 @@ const RolesPermissions = () => {
             disabled={!selectedRoleId || isSaving}
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-60"
           >
-            <Save size={16} />
-            {isSaving ? 'Saving...' : 'Save changes'}
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
           </button>
         </div>
       </header>
+
+      {loadError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle size={18} />
+          <span>{loadError}</span>
+          <button 
+            onClick={loadReferenceData} 
+            className="ml-auto text-red-600 hover:text-red-800 underline"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
 
       <section className="grid gap-6 lg:grid-cols-12">
         <aside className="lg:col-span-4">
           <div className="rounded-xl border border-gray-200 bg-white">
             <div className="border-b border-gray-100 px-5 py-4">
-              <p className="text-sm font-semibold text-gray-900">Role catalog</p>
-              <p className="text-xs text-gray-500">Select a role to manage its permission map</p>
+              <p className="text-sm font-semibold text-gray-900">Danh sách vai trò</p>
+              <p className="text-xs text-gray-500">Chọn một vai trò để quản lý quyền hạn</p>
             </div>
             <ul className="max-h-[480px] divide-y divide-gray-100 overflow-y-auto">
               {isLoading && (
-                <li className="px-5 py-4 text-sm text-gray-500">Loading roles...</li>
+                <li className="px-5 py-4 text-sm text-gray-500 flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin" />
+                  Đang tải vai trò...
+                </li>
               )}
               {!isLoading &&
                 roles.map((role) => (
@@ -177,7 +199,7 @@ const RolesPermissions = () => {
                   </li>
                 ))}
               {!isLoading && roles.length === 0 && (
-                <li className="px-5 py-4 text-sm text-gray-500">No roles found.</li>
+                <li className="px-5 py-4 text-sm text-gray-500">Không tìm thấy vai trò nào.</li>
               )}
             </ul>
           </div>
@@ -188,7 +210,7 @@ const RolesPermissions = () => {
             {!selectedRole && (
               <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                 <AlertCircle size={18} />
-                Select a role from the left column to view its permissions.
+                Chọn một vai trò từ danh sách bên trái để xem quyền hạn.
               </div>
             )}
 
@@ -198,17 +220,17 @@ const RolesPermissions = () => {
                   <div>
                     <p className="text-lg font-semibold text-gray-900">{selectedRole.name}</p>
                     <p className="text-sm text-gray-500">
-                      Manage permissions for <span className="font-mono">{selectedRole.code}</span>
+                      Quản lý quyền hạn cho <span className="font-mono">{selectedRole.code}</span>
                     </p>
                   </div>
                   <div className="flex gap-2 text-xs">
                     <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 font-medium text-blue-700">
                       <CheckCircle2 size={14} />
-                      {selectedPermissions.length} granted
+                      {selectedPermissions.length} được cấp
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 font-medium text-gray-600">
                       <Lock size={14} />
-                      {permissionCatalog.length - selectedPermissions.length} restricted
+                      {permissionCatalog.length - selectedPermissions.length} bị hạn chế
                     </span>
                   </div>
                 </div>
@@ -220,7 +242,7 @@ const RolesPermissions = () => {
                     className="rounded-lg border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
                     disabled={permissionCatalog.length === 0}
                   >
-                    Select all
+                    Chọn tất cả
                   </button>
                   <button
                     type="button"
@@ -228,12 +250,12 @@ const RolesPermissions = () => {
                     className="rounded-lg border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
                     disabled={selectedPermissions.length === 0}
                   >
-                    Clear all
+                    Bỏ chọn tất cả
                   </button>
                   {isRefreshingAssignments && (
                     <span className="inline-flex items-center gap-2 rounded-lg bg-yellow-50 px-3 py-1 text-sm font-medium text-yellow-700">
-                      <RefreshCw size={14} className="animate-spin" />
-                      Syncing assignments...
+                      <Loader2 size={14} className="animate-spin" />
+                      Đang đồng bộ...
                     </span>
                   )}
                 </div>
@@ -266,7 +288,7 @@ const RolesPermissions = () => {
                   })}
                   {!isLoading && permissionCatalog.length === 0 && (
                     <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                      No permissions were found in the catalog. Seed permissions before mapping them to roles.
+                      Không tìm thấy quyền hạn nào trong hệ thống. Vui lòng thêm quyền hạn trước khi gán cho vai trò.
                     </div>
                   )}
                 </div>

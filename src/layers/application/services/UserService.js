@@ -85,6 +85,64 @@ class UserService {
     const endpoint = withParams(ENDPOINTS.REMOVE_ROLE, { id: userId, roleId })
     await ApiService.delete(endpoint)
   }
+
+  async getUserTeams(userId) {
+    console.log('UserService.getUserTeams: Getting teams for user:', userId)
+    const endpoint = withParams(ENDPOINTS.TEAMS, { id: userId })
+    console.log('UserService.getUserTeams: Endpoint:', endpoint)
+    
+    try {
+      const response = await ApiService.get(endpoint)
+      console.log('UserService.getUserTeams: Raw response:', response)
+      
+      // Handle both array and wrapped response
+      const teamsData = Array.isArray(response) ? response : (response?.data || [])
+      console.log('UserService.getUserTeams: Teams data:', teamsData)
+      
+      const normalized = Array.isArray(teamsData) ? teamsData.map((team) => ({
+        teamId: team.team_id ?? team.teamId ?? team.id,
+        teamName: team.team_name ?? team.teamName ?? team.name ?? '',
+        assignedAt: team.assigned_at ?? team.assignedAt ?? null,
+        assignedBy: team.assigned_by ?? team.assignedBy ?? null
+      })) : []
+      
+      console.log('UserService.getUserTeams: Normalized teams:', normalized)
+      return normalized
+    } catch (error) {
+      console.error('UserService.getUserTeams: Error:', error)
+      throw error
+    }
+  }
+
+  async assignTeamToUser(userId, teamId) {
+    console.log('UserService.assignTeamToUser:', { userId, teamId })
+    const endpoint = withParams(ENDPOINTS.TEAMS, { id: userId })
+    console.log('UserService.assignTeamToUser: Endpoint:', endpoint)
+    
+    try {
+      const response = await ApiService.post(endpoint, { teamId })
+      console.log('UserService.assignTeamToUser: Success response:', response)
+      return response
+    } catch (error) {
+      console.error('UserService.assignTeamToUser: Error:', error)
+      throw error
+    }
+  }
+
+  async removeTeamFromUser(userId, teamId) {
+    console.log('UserService.removeTeamFromUser:', { userId, teamId })
+    const endpoint = withParams(ENDPOINTS.REMOVE_TEAM, { id: userId, teamId })
+    console.log('UserService.removeTeamFromUser: Endpoint:', endpoint)
+    
+    try {
+      const response = await ApiService.delete(endpoint)
+      console.log('UserService.removeTeamFromUser: Success response:', response)
+      return response
+    } catch (error) {
+      console.error('UserService.removeTeamFromUser: Error:', error)
+      throw error
+    }
+  }
 }
 
 export default new UserService()

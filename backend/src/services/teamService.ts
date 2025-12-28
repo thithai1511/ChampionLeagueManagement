@@ -541,6 +541,63 @@ export const updateTeam = async (
 };
 
 export const deleteTeam = async (id: number): Promise<boolean> => {
+  // First, check for references to give informative error message
+  const refCheckResult = await query<{
+    table_name: string;
+    ref_count: number;
+  }>(
+    `
+    SELECT 'season_team_participants' AS table_name, COUNT(*) AS ref_count 
+    FROM season_team_participants WHERE team_id = @id
+    UNION ALL
+    SELECT 'season_invitations', COUNT(*) FROM season_invitations WHERE team_id = @id
+    UNION ALL
+    SELECT 'season_team_registrations', COUNT(*) FROM season_team_registrations WHERE team_id = @id
+    UNION ALL
+    SELECT 'team_kits', COUNT(*) FROM team_kits WHERE team_id = @id
+    UNION ALL
+    SELECT 'players', COUNT(*) FROM players WHERE current_team_id = @id
+    UNION ALL
+    SELECT 'user_team_assignments', COUNT(*) FROM user_team_assignments WHERE team_id = @id
+    `,
+    { id }
+  );
+  
+  const references: string[] = [];
+  for (const row of refCheckResult.recordset || []) {
+    if (row.ref_count > 0) {
+      const tableName = row.table_name;
+      const count = row.ref_count;
+      switch (tableName) {
+        case 'season_team_participants':
+          references.push(`${count} mùa giải tham gia`);
+          break;
+        case 'season_invitations':
+          references.push(`${count} lời mời giải đấu`);
+          break;
+        case 'season_team_registrations':
+          references.push(`${count} đăng ký giải đấu`);
+          break;
+        case 'team_kits':
+          references.push(`${count} bộ đồng phục`);
+          break;
+        case 'players':
+          references.push(`${count} cầu thủ`);
+          break;
+        case 'user_team_assignments':
+          references.push(`${count} quản trị viên đội`);
+          break;
+        default:
+          references.push(`${count} tham chiếu từ ${tableName}`);
+      }
+    }
+  }
+
+  // Log the references found
+  if (references.length > 0) {
+    console.log(`[deleteTeam] Team ${id} has references: ${references.join(', ')}`);
+  }
+
   // Cascading delete implementation
 
   // 1. Delete detailed match data for matches involving this team
@@ -552,69 +609,80 @@ export const deleteTeam = async (id: number): Promise<boolean> => {
        OR away_season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id)
   `;
 
-  await query(
-    `
-    DELETE FROM match_events WHERE match_id IN (${matchSubquery});
-    DELETE FROM match_mvps WHERE match_id IN (${matchSubquery});
-    DELETE FROM match_team_statistics WHERE match_id IN (${matchSubquery});
-    DELETE FROM match_audit_logs WHERE match_id IN (${matchSubquery});
-    DELETE FROM match_lineup_players WHERE lineup_id IN (SELECT lineup_id FROM match_lineups WHERE match_id IN (${matchSubquery}));
-    DELETE FROM match_lineups WHERE match_id IN (${matchSubquery});
-    DELETE FROM match_official_assignments WHERE match_id IN (${matchSubquery});
-    DELETE FROM match_reports WHERE match_id IN (${matchSubquery});
-    DELETE FROM player_match_stats WHERE match_id IN (${matchSubquery});
-    `,
-    { id }
-  );
+  try {
+    await query(
+      `
+      DELETE FROM match_events WHERE match_id IN (${matchSubquery});
+      DELETE FROM match_mvps WHERE match_id IN (${matchSubquery});
+      DELETE FROM match_team_statistics WHERE match_id IN (${matchSubquery});
+      DELETE FROM match_audit_logs WHERE match_id IN (${matchSubquery});
+      DELETE FROM match_lineup_players WHERE lineup_id IN (SELECT lineup_id FROM match_lineups WHERE match_id IN (${matchSubquery}));
+      DELETE FROM match_lineups WHERE match_id IN (${matchSubquery});
+      DELETE FROM match_official_assignments WHERE match_id IN (${matchSubquery});
+      DELETE FROM match_reports WHERE match_id IN (${matchSubquery});
+      DELETE FROM player_match_stats WHERE match_id IN (${matchSubquery});
+      `,
+      { id }
+    );
 
-  // 2. Delete the matches themselves
-  await query(
-    `DELETE FROM matches 
-     WHERE home_season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id) 
-        OR away_season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id);`,
-    { id }
-  );
+    // 2. Delete the matches themselves
+    await query(
+      `DELETE FROM matches 
+       WHERE home_season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id) 
+          OR away_season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id);`,
+      { id }
+    );
 
-  // 3. Delete season participation data
-  // Delete statistics and player registrations first as they reference season_team_participants
-  await query(
-    `
-    DELETE FROM season_team_statistics WHERE season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id);
-    DELETE FROM season_player_registrations WHERE season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id);
-    `,
-    { id }
-  );
+    // 3. Delete season participation data
+    // Delete statistics and player registrations first as they reference season_team_participants
+    await query(
+      `
+      DELETE FROM season_team_statistics WHERE season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id);
+      DELETE FROM season_player_registrations WHERE season_team_id IN (SELECT season_team_id FROM season_team_participants WHERE team_id = @id);
+      `,
+      { id }
+    );
 
-  // 4. Delete season participation
-  // This must be done after matches because matches reference season_team_participants
-  await query(
-    "DELETE FROM season_team_participants WHERE team_id = @id;",
-    { id }
-  );
+    // 4. Delete season participation
+    // This must be done after matches because matches reference season_team_participants
+    await query(
+      "DELETE FROM season_team_participants WHERE team_id = @id;",
+      { id }
+    );
 
-  // 5. Delete direct team dependencies
-  await query(
-    `
-    DELETE FROM season_invitations WHERE team_id = @id;
-    DELETE FROM season_team_registrations WHERE team_id = @id;
-    DELETE FROM team_kits WHERE team_id = @id;
-    UPDATE players SET current_team_id = NULL WHERE current_team_id = @id;
-    DELETE FROM user_team_assignments WHERE team_id = @id;
-    DELETE FROM FootballTeamCompetitions WHERE team_id = @id;
-    `,
-    { id }
-  );
+    // 5. Delete direct team dependencies
+    await query(
+      `
+      DELETE FROM season_invitations WHERE team_id = @id;
+      DELETE FROM season_team_registrations WHERE team_id = @id;
+      DELETE FROM team_kits WHERE team_id = @id;
+      UPDATE players SET current_team_id = NULL WHERE current_team_id = @id;
+      DELETE FROM user_team_assignments WHERE team_id = @id;
+      DELETE FROM FootballTeamCompetitions WHERE team_id = @id;
+      `,
+      { id }
+    );
 
-  // 6. Finally delete the team (try both generic and internal tables)
-  // We use a transaction-like approach or just best-effort delete for both.
-  const result = await query<{ rowsAffected: number }>(
-    `
-    DELETE FROM dbo.FootballTeams WHERE id = @id;
-    DELETE FROM teams WHERE team_id = @id;
-    `,
-    { id },
-  );
-  const rowsAffected = result.rowsAffected?.[0] ?? 0;
-  return rowsAffected > 0;
+    // 6. Finally delete the team (try both generic and internal tables)
+    // We use a transaction-like approach or just best-effort delete for both.
+    const result = await query<{ rowsAffected: number }>(
+      `
+      DELETE FROM dbo.FootballTeams WHERE id = @id;
+      DELETE FROM teams WHERE team_id = @id;
+      `,
+      { id },
+    );
+    const rowsAffected = result.rowsAffected?.[0] ?? 0;
+    return rowsAffected > 0;
+  } catch (error: any) {
+    // If we still hit a FK constraint error, provide detailed message
+    if (error?.number === 547) {
+      const refInfo = references.length > 0 
+        ? `Đội bóng có liên kết với: ${references.join(', ')}. `
+        : '';
+      throw new Error(`Không thể xóa đội bóng. ${refInfo}Vui lòng liên hệ quản trị viên hệ thống nếu vẫn gặp lỗi này.`);
+    }
+    throw error;
+  }
 };
 

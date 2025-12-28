@@ -11,13 +11,16 @@ import {
   RefreshCw,
   Shield,
   KeyRound,
-  History
+  History,
+  Users
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import UserFormModal from '../components/UserFormModal'
 import ConfirmationModal from '../components/ConfirmationModal'
+import TeamAssignmentModal from '../components/TeamAssignmentModal'
 import UserService from '../../../layers/application/services/UserService'
 import RoleService from '../../../layers/application/services/RoleService'
+import { useAuth } from '../../../layers/application/context/AuthContext'
 
 const statuses = [
   { id: 'all', name: 'Tất cả trạng thái' },
@@ -65,6 +68,7 @@ const pickPrimaryRole = (user) => {
 }
 
 const UsersManagement = () => {
+  const { user: currentUser } = useAuth()
   const [allUsers, setAllUsers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -79,6 +83,13 @@ const UsersManagement = () => {
   const [roles, setRoles] = useState([])
   const [rolesLoading, setRolesLoading] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false)
+  const [selectedUserForTeam, setSelectedUserForTeam] = useState(null)
+  const [userTeamsMap, setUserTeamsMap] = useState({})
+
+  const isSuperAdmin = useMemo(() => {
+    return Array.isArray(currentUser?.roles) && currentUser.roles.includes('super_admin')
+  }, [currentUser])
 
   const loadUsers = useCallback(async () => {
     setIsLoading(true)
@@ -90,6 +101,25 @@ const UsersManagement = () => {
         lastLoginLabel: formatDateTime(user.lastLoginAt)
       }))
       setAllUsers(enriched)
+      
+      // Load teams for all users if super admin
+      if (isSuperAdmin) {
+        const teamsPromises = enriched.map(async (user) => {
+          try {
+            const teams = await UserService.getUserTeams(user.id)
+            return { userId: user.id, teams }
+          } catch (error) {
+            console.error(`Failed to load teams for user ${user.id}:`, error)
+            return { userId: user.id, teams: [] }
+          }
+        })
+        const teamsResults = await Promise.all(teamsPromises)
+        const teamsMap = {}
+        teamsResults.forEach(({ userId, teams }) => {
+          teamsMap[userId] = teams
+        })
+        setUserTeamsMap(teamsMap)
+      }
     } catch (error) {
       console.error(error)
       toast.error('Không thể tải danh sách người dùng từ máy chủ.')
@@ -97,19 +127,26 @@ const UsersManagement = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [isSuperAdmin])
 
   const loadRoles = useCallback(async () => {
+    console.log('loadRoles: Starting to load roles...')
     setRolesLoading(true)
     try {
       const result = await RoleService.listRoles()
+      console.log('loadRoles: Received roles:', result)
       setRoles(result)
+      if (!result || result.length === 0) {
+        console.warn('loadRoles: No roles returned from API')
+        toast.error('Không tìm thấy vai trò nào trong hệ thống')
+      }
     } catch (error) {
-      console.error(error)
-      toast.error('Không thể tải danh mục vai trò.')
+      console.error('loadRoles: Error loading roles:', error)
+      toast.error('Không thể tải danh mục vai trò: ' + (error?.message || 'Unknown error'))
       setRoles([])
     } finally {
       setRolesLoading(false)
+      console.log('loadRoles: Finished loading roles')
     }
   }, [])
 
@@ -154,6 +191,24 @@ const UsersManagement = () => {
   }, [allUsers, searchTerm, selectedRole, selectedStatus])
 
   const handleOpenAddModal = () => {
+    console.log('handleOpenAddModal: roles =', roles)
+    console.log('handleOpenAddModal: rolesLoading =', rolesLoading)
+    console.log('handleOpenAddModal: roles.length =', roles?.length)
+    
+    if (roles.length === 0 && !rolesLoading) {
+      console.warn('handleOpenAddModal: Roles not loaded yet, reloading...')
+      toast.error('Vui lòng đợi danh sách vai trò được tải xong')
+      loadRoles()
+      return
+    }
+    
+    if (rolesLoading) {
+      console.warn('handleOpenAddModal: Roles still loading...')
+      toast.error('Đang tải danh sách vai trò, vui lòng đợi...')
+      return
+    }
+    
+    console.log('handleOpenAddModal: Opening modal with roles:', roles)
     setEditingUser(null)
     setIsFormModalOpen(true)
   }
@@ -310,6 +365,37 @@ const UsersManagement = () => {
     setIsSyncing(false)
   }
 
+  const handleOpenTeamModal = (user) => {
+    setSelectedUserForTeam(user)
+    setIsTeamModalOpen(true)
+  }
+
+  const handleCloseTeamModal = () => {
+    setIsTeamModalOpen(false)
+    setSelectedUserForTeam(null)
+  }
+
+  const handleTeamAssignmentSuccess = async () => {
+    console.log('handleTeamAssignmentSuccess called for user:', selectedUserForTeam?.id)
+    if (selectedUserForTeam) {
+      try {
+        const teams = await UserService.getUserTeams(selectedUserForTeam.id)
+        console.log('Refreshed teams for user:', selectedUserForTeam.id, teams)
+        setUserTeamsMap((prev) => {
+          const updated = {
+            ...prev,
+            [selectedUserForTeam.id]: teams
+          }
+          console.log('Updated userTeamsMap:', updated)
+          return updated
+        })
+      } catch (error) {
+        console.error('Failed to refresh user teams:', error)
+        toast.error('Không thể cập nhật hiển thị đội bóng')
+      }
+    }
+  }
+
   const renderStatusBadge = (status) => (
     <span
       className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
@@ -336,6 +422,30 @@ const UsersManagement = () => {
         }`}
       >
         {role.name ?? role.code}
+      </span>
+    )
+  }
+
+  const renderTeamsBadge = (user) => {
+    const teams = userTeamsMap[user.id] || []
+    console.log(`renderTeamsBadge for user ${user.id}:`, teams)
+    if (teams.length === 0) {
+      return (
+        <span className="text-xs text-gray-500">Chưa gán đội bóng</span>
+      )
+    }
+    if (teams.length === 1) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-full">
+          <Users size={12} />
+          {teams[0].teamName}
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-full">
+        <Users size={12} />
+        {teams.length} đội bóng
       </span>
     )
   }
@@ -457,6 +567,9 @@ const UsersManagement = () => {
               <tr>
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">User</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">Role</th>
+                {isSuperAdmin && (
+                  <th className="px-6 py-3 text-left font-semibold text-gray-600">Đội bóng</th>
+                )}
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">Created</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">Last login</th>
                 <th className="px-6 py-3 text-left font-semibold text-gray-600">Status</th>
@@ -467,14 +580,14 @@ const UsersManagement = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">
+                  <td colSpan={isSuperAdmin ? 8 : 7} className="px-6 py-10 text-center text-sm text-gray-500">
                     Loading users...
                   </td>
                 </tr>
               )}
               {!isLoading && filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-500">
+                  <td colSpan={isSuperAdmin ? 8 : 7} className="px-6 py-12 text-center text-sm text-gray-500">
                     No users match your filters. Adjust the search term or filter options.
                   </td>
                 </tr>
@@ -498,6 +611,11 @@ const UsersManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">{renderRoleBadge(user)}</td>
+                    {isSuperAdmin && (
+                      <td className="px-6 py-4">
+                        {renderTeamsBadge(user)}
+                      </td>
+                    )}
                     <td className="px-6 py-4 text-gray-700">{user.createdAtLabel}</td>
                     <td className="px-6 py-4 text-gray-700">{user.lastLoginLabel}</td>
                     <td className="px-6 py-4">{renderStatusBadge(user.status)}</td>
@@ -517,6 +635,16 @@ const UsersManagement = () => {
                         >
                           <Edit size={16} />
                         </button>
+                        {isSuperAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenTeamModal(user)}
+                            className="text-gray-600 hover:text-cyan-600"
+                            title="Gán đội bóng"
+                          >
+                            <Users size={16} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleResetPassword(user)}
@@ -564,8 +692,13 @@ const UsersManagement = () => {
         onClose={closeFormModal}
         onSave={handleSaveUser}
         user={editingUser}
-        roles={roles.map((role) => ({ id: String(role.id), name: role.name }))}
+        roles={Array.isArray(roles) ? roles.map((role) => ({ 
+          id: String(role.id), 
+          name: role.name || '', 
+          code: role.code || '' 
+        })) : []}
         isSubmitting={isFormSubmitting}
+        rolesLoading={rolesLoading}
       />
 
       <ConfirmationModal
@@ -582,6 +715,16 @@ const UsersManagement = () => {
             : ''
         }
       />
+
+      {isSuperAdmin && selectedUserForTeam && (
+        <TeamAssignmentModal
+          isOpen={isTeamModalOpen}
+          onClose={handleCloseTeamModal}
+          userId={selectedUserForTeam.id}
+          userName={`${selectedUserForTeam.firstName} ${selectedUserForTeam.lastName}`}
+          onSuccess={handleTeamAssignmentSuccess}
+        />
+      )}
     </div>
   )
 }

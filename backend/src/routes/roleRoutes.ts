@@ -17,7 +17,6 @@ const router = Router();
 router.get(
   "/",
   requireAuth,
-  requirePermission("manage_users"),
   async (_req, res) => {
     const roles = await listRoles();
     res.json(roles);
