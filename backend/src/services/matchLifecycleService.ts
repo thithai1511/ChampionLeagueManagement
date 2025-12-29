@@ -15,8 +15,6 @@ import { query } from "../db/sqlServer";
 import { NotificationService } from "./notificationService";
 import * as matchOfficialService from "./matchOfficialService";
 import * as matchLineupService from "./matchLineupService";
-import * as matchOfficialService from "./matchOfficialService";
-import * as matchLineupService from "./matchLineupService";
 
 // Match lifecycle statuses
 export type MatchStatus =
@@ -240,19 +238,26 @@ export async function assignOfficials(
   }
 
   // Use matchOfficialService to assign officials (normalized table)
-  await matchOfficialService.assignOfficialToMatch(matchId, mainRefereeId, 'referee');
+  // assignOfficialToMatch requires: matchId, officialId, role, assignedByUserId
+  const assigner = assignedBy || 1; // Default to system user if not provided
+  
+  await matchOfficialService.assignOfficialToMatch(matchId, mainRefereeId, 'referee', assigner);
   
   if (assistantReferee1Id) {
-    await matchOfficialService.assignOfficialToMatch(matchId, assistantReferee1Id, 'assistant_referee');
+    await matchOfficialService.assignOfficialToMatch(matchId, assistantReferee1Id, 'assistant_referee', assigner);
   }
   if (assistantReferee2Id) {
-    await matchOfficialService.assignOfficialToMatch(matchId, assistantReferee2Id, 'assistant_referee');
+    await matchOfficialService.assignOfficialToMatch(matchId, assistantReferee2Id, 'assistant_referee', assigner);
   }
   if (fourthOfficialId) {
-    await matchOfficialService.assignOfficialToMatch(matchId, fourthOfficialId, 'fourth_official');
+    await matchOfficialService.assignOfficialToMatch(matchId, fourthOfficialId, 'fourth_official', assigner);
   }
+  // Note: Supervisor is stored directly in matches table, not in match_official_assignments
   if (supervisorId) {
-    await matchOfficialService.assignOfficialToMatch(matchId, supervisorId, 'supervisor');
+    await query(
+      `UPDATE matches SET supervisor_id = @supervisorId WHERE match_id = @matchId`,
+      { matchId, supervisorId }
+    );
   }
 
   // Update officials_assigned_at timestamp

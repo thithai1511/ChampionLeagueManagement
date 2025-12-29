@@ -12,7 +12,7 @@
  */
 
 import { query } from "../db/sqlServer";
-import * as notificationService from "./notificationService";
+import { NotificationService } from "./notificationService";
 
 // Registration workflow statuses
 export type RegistrationStatus = 
@@ -111,6 +111,89 @@ function isValidTransition(fromStatus: RegistrationStatus, toStatus: Registratio
 }
 
 /**
+ * BTC Requirements - Quy định của Ban tổ chức
+ */
+export const BTC_REQUIREMENTS = {
+  MIN_PLAYERS: 16,
+  MAX_PLAYERS: 22,
+  MAX_FOREIGN_PLAYERS_REGISTRATION: 5,  // Khi đăng ký
+  MAX_FOREIGN_PLAYERS_MATCH: 3,         // Khi thi đấu trên sân
+  MIN_PLAYER_AGE: 16,
+  MIN_STADIUM_CAPACITY: 10000,
+  MIN_STADIUM_RATING: 2,                // Tối thiểu 2 sao FIFA
+  REGISTRATION_FEE: 1000000000,         // 1 tỷ VND
+  COUNTRY_REQUIRED: "Vietnam",          // CLB phải thuộc Việt Nam
+  RESPONSE_DEADLINE_DAYS: 14,           // Hạn phản hồi 2 tuần
+};
+
+/**
+ * Validate submission data against BTC requirements
+ * Kiểm tra hồ sơ đăng ký theo quy định BTC
+ */
+export function validateSubmissionData(data: SubmissionData): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  // 1. Stadium validation - Kiểm tra sân nhà
+  if (!data.stadium) {
+    errors.push('Thông tin sân nhà là bắt buộc');
+  } else {
+    if (!data.stadium.name || data.stadium.name.trim() === '') {
+      errors.push('Tên sân nhà là bắt buộc');
+    }
+    if (!data.stadium.capacity || data.stadium.capacity < BTC_REQUIREMENTS.MIN_STADIUM_CAPACITY) {
+      errors.push(`Sức chứa sân nhà tối thiểu ${BTC_REQUIREMENTS.MIN_STADIUM_CAPACITY.toLocaleString()} chỗ (hiện tại: ${data.stadium?.capacity?.toLocaleString() || 0})`);
+    }
+    if (!data.stadium.rating || data.stadium.rating < BTC_REQUIREMENTS.MIN_STADIUM_RATING) {
+      errors.push(`Sân nhà phải đạt chuẩn tối thiểu ${BTC_REQUIREMENTS.MIN_STADIUM_RATING} sao FIFA`);
+    }
+    if (!data.stadium.city || data.stadium.city.trim() === '') {
+      errors.push('Thành phố của sân nhà là bắt buộc');
+    }
+    // CLB phải thuộc Việt Nam
+    if (data.stadium.country && data.stadium.country.toLowerCase() !== 'vietnam' && data.stadium.country.toLowerCase() !== 'việt nam') {
+      errors.push('Sân nhà phải nằm tại Việt Nam');
+    }
+  }
+  
+  // 2. Kit validation - Kiểm tra áo đấu
+  if (!data.kits) {
+    errors.push('Thông tin áo đấu là bắt buộc');
+  } else {
+    if (!data.kits.home || !data.kits.home.shirt_color) {
+      errors.push('Áo đấu sân nhà là bắt buộc');
+    }
+    if (!data.kits.away || !data.kits.away.shirt_color) {
+      errors.push('Áo đấu sân khách là bắt buộc');
+    }
+    // Check if home and away kits are different
+    if (data.kits.home && data.kits.away && 
+        data.kits.home.shirt_color === data.kits.away.shirt_color) {
+      errors.push('Áo đấu sân nhà và sân khách phải khác màu');
+    }
+  }
+  
+  // 3. Players validation - Kiểm tra cầu thủ
+  if (!data.players) {
+    errors.push('Thông tin cầu thủ là bắt buộc');
+  } else {
+    if (data.players.total_count < BTC_REQUIREMENTS.MIN_PLAYERS) {
+      errors.push(`Số cầu thủ tối thiểu ${BTC_REQUIREMENTS.MIN_PLAYERS} (hiện tại: ${data.players.total_count})`);
+    }
+    if (data.players.total_count > BTC_REQUIREMENTS.MAX_PLAYERS) {
+      errors.push(`Số cầu thủ tối đa ${BTC_REQUIREMENTS.MAX_PLAYERS} (hiện tại: ${data.players.total_count})`);
+    }
+    if (data.players.foreign_count > BTC_REQUIREMENTS.MAX_FOREIGN_PLAYERS_REGISTRATION) {
+      errors.push(`Số cầu thủ ngoại tối đa ${BTC_REQUIREMENTS.MAX_FOREIGN_PLAYERS_REGISTRATION} (hiện tại: ${data.players.foreign_count})`);
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+/**
  * Main API: Change team registration status
  * This is the "one-stop" function that handles all state changes
  * 
@@ -139,6 +222,14 @@ export async function changeTeamStatus(
     throw new Error(
       `Invalid state transition from ${registration.registration_status} to ${newStatus}`
     );
+  }
+
+  // 2.5. Validate submission data when transitioning to SUBMITTED
+  if (newStatus === "SUBMITTED" && payload?.submissionData) {
+    const validation = validateSubmissionData(payload.submissionData);
+    if (!validation.valid) {
+      throw new Error(`Hồ sơ không hợp lệ:\n- ${validation.errors.join('\n- ')}`);
+    }
   }
 
   // 3. Build update query based on new status
@@ -394,7 +485,7 @@ async function triggerNotification(
   switch (newStatus) {
     case "INVITED":
       // Yêu cầu 1: Gửi giấy mời + Quy định
-      await notificationService.createNotification({
+      await NotificationService.createNotification({
         userId: teamAdminId,
         type: "season_invitation",
         title: `Lời mời tham gia ${seasonName}`,
@@ -407,7 +498,7 @@ async function triggerNotification(
 
     case "ACCEPTED":
       // Team accepted - notify to submit documents
-      await notificationService.createNotification({
+      await NotificationService.createNotification({
         userId: teamAdminId,
         type: "registration_pending",
         title: `Vui lòng hoàn tất hồ sơ đăng ký`,
@@ -431,7 +522,7 @@ async function triggerNotification(
       );
       
       for (const admin of btcAdmins.recordset) {
-        await notificationService.createNotification({
+        await NotificationService.createNotification({
           userId: admin.user_id,
           type: "registration_review",
           title: `Hồ sơ mới cần duyệt`,
@@ -445,7 +536,7 @@ async function triggerNotification(
 
     case "REQUEST_CHANGE":
       // Yêu cầu 2: BTC yêu cầu sửa đổi
-      await notificationService.createNotification({
+      await NotificationService.createNotification({
         userId: teamAdminId,
         type: "registration_change_request",
         title: `Yêu cầu bổ sung hồ sơ`,
@@ -458,7 +549,7 @@ async function triggerNotification(
 
     case "APPROVED":
       // Yêu cầu 2: Đã duyệt xong
-      await notificationService.createNotification({
+      await NotificationService.createNotification({
         userId: teamAdminId,
         type: "registration_approved",
         title: `Hồ sơ đã được duyệt`,
@@ -471,7 +562,7 @@ async function triggerNotification(
 
     case "REJECTED":
       // Đội bị loại
-      await notificationService.createNotification({
+      await NotificationService.createNotification({
         userId: teamAdminId,
         type: "registration_rejected",
         title: `Hồ sơ không được duyệt`,

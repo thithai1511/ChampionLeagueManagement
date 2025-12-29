@@ -1,21 +1,30 @@
+/**
+ * Player Service
+ * 
+ * Manages players in the internal `players` table.
+ * No longer syncs from external API - all data is managed internally.
+ */
+
 import { query } from "../db/sqlServer";
-import { PlayerSummary, TeamDetail, getCompetitionTeams, getTeamDetail } from "./footballDataService";
 
 export interface PlayerRecord {
   id: number;
-  externalId: number | null;
-  externalKey: string;
-  name: string;
-  position: string | null;
-  nationality: string | null;
+  fullName: string;
+  displayName: string | null;
   dateOfBirth: string | null;
-  shirtNumber: number | null;
-  teamExternalId: number;
-  teamName: string;
-  teamShortName: string | null;
-  teamTla: string | null;
-  season: string | null;
-  updatedAt: string;
+  placeOfBirth: string | null;
+  nationality: string | null;
+  preferredPosition: string | null;
+  secondaryPosition: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  biography: string | null;
+  dominantFoot: string | null;
+  currentTeamId: number | null;
+  currentTeamName: string | null;
+  avatarUrl: string | null;
+  createdAt: string;
+  updatedAt: string | null;
 }
 
 export interface PlayerFilters {
@@ -23,7 +32,6 @@ export interface PlayerFilters {
   teamId?: number;
   position?: string;
   nationality?: string;
-  season?: string;
   page?: number;
   limit?: number;
 }
@@ -36,119 +44,69 @@ export interface PaginatedPlayers {
   totalPages: number;
 }
 
-type UpsertPlayerInput = {
-  player: PlayerSummary;
-  team: TeamDetail;
-  season?: string | null;
-};
+export interface CreatePlayerInput {
+  fullName: string;
+  displayName?: string;
+  dateOfBirth: string;
+  placeOfBirth?: string;
+  nationality: string;
+  preferredPosition?: string;
+  secondaryPosition?: string;
+  heightCm?: number;
+  weightKg?: number;
+  biography?: string;
+  dominantFoot?: 'left' | 'right' | 'both';
+  currentTeamId?: number;
+  avatarUrl?: string;
+  createdBy?: number;
+}
+
+export interface UpdatePlayerInput {
+  fullName?: string;
+  displayName?: string;
+  dateOfBirth?: string;
+  placeOfBirth?: string;
+  nationality?: string;
+  preferredPosition?: string;
+  secondaryPosition?: string;
+  heightCm?: number;
+  weightKg?: number;
+  biography?: string;
+  dominantFoot?: 'left' | 'right' | 'both';
+  currentTeamId?: number;
+  avatarUrl?: string;
+  updatedBy?: number;
+}
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
 
-const buildPlayerExternalKey = (payload: UpsertPlayerInput["player"], teamId: number): string => {
-  if (payload.id) {
-    return String(payload.id);
-  }
-  const normalizedName = payload.name.trim().toLowerCase();
-  const dob = payload.dateOfBirth ?? "unknown";
-  return `${teamId}:${normalizedName}:${dob}`;
-};
+const basePlayerSelect = `
+  SELECT
+    p.player_id AS id,
+    p.full_name AS fullName,
+    p.display_name AS displayName,
+    CONVERT(VARCHAR(10), p.date_of_birth, 23) AS dateOfBirth,
+    p.place_of_birth AS placeOfBirth,
+    p.nationality,
+    p.preferred_position AS preferredPosition,
+    p.secondary_position AS secondaryPosition,
+    p.height_cm AS heightCm,
+    p.weight_kg AS weightKg,
+    p.biography,
+    p.dominant_foot AS dominantFoot,
+    p.current_team_id AS currentTeamId,
+    t.name AS currentTeamName,
+    p.avatar_url AS avatarUrl,
+    CONVERT(VARCHAR(23), p.created_at, 126) AS createdAt,
+    CONVERT(VARCHAR(23), p.updated_at, 126) AS updatedAt
+  FROM players p
+  LEFT JOIN teams t ON p.current_team_id = t.team_id
+`;
 
-const upsertPlayer = async ({ player, team, season }: UpsertPlayerInput): Promise<void> => {
-  const externalKey = buildPlayerExternalKey(player, team.id);
-  await query(
-    `
-      MERGE dbo.FootballPlayers AS target
-      USING (VALUES (@externalKey)) AS source(external_key)
-      ON target.external_key = source.external_key
-      WHEN MATCHED THEN
-        UPDATE SET
-          target.external_id = @externalId,
-          target.name = @name,
-          target.position = @position,
-          target.nationality = @nationality,
-          target.date_of_birth = @dateOfBirth,
-          target.shirt_number = @shirtNumber,
-          target.team_external_id = @teamExternalId,
-          target.team_name = @teamName,
-          target.team_short_name = @teamShortName,
-          target.team_tla = @teamTla,
-          target.season = @season,
-          target.updated_at = SYSUTCDATETIME()
-      WHEN NOT MATCHED THEN
-        INSERT (
-          external_id,
-          external_key,
-          name,
-          position,
-          nationality,
-          date_of_birth,
-          shirt_number,
-          team_external_id,
-          team_name,
-          team_short_name,
-          team_tla,
-          season
-        )
-        VALUES (
-          @externalId,
-          @externalKey,
-          @name,
-          @position,
-          @nationality,
-          @dateOfBirth,
-          @shirtNumber,
-          @teamExternalId,
-          @teamName,
-          @teamShortName,
-          @teamTla,
-          @season
-        );
-    `,
-    {
-      externalId: player.id ?? null,
-      externalKey,
-      name: player.name,
-      position: player.position ?? null,
-      nationality: player.nationality ?? null,
-      dateOfBirth: player.dateOfBirth ?? null,
-      shirtNumber: player.shirtNumber ?? null,
-      teamExternalId: team.id,
-      teamName: team.name,
-      teamShortName: team.shortName ?? null,
-      teamTla: team.tla ?? null,
-      season: season ?? team.season ?? null,
-    },
-  );
-};
-
-export const syncPlayersFromUpstream = async (season?: string): Promise<{
-  season: string | undefined;
-  totalTeams: number;
-  totalPlayers: number;
-}> => {
-  const teams = await getCompetitionTeams(season);
-  let totalPlayers = 0;
-
-  for (const teamSummary of teams) {
-    const teamDetail = await getTeamDetail(teamSummary.id, season);
-    for (const player of teamDetail.squad) {
-      await upsertPlayer({
-        player,
-        team: teamDetail,
-        season,
-      });
-    }
-    totalPlayers += teamDetail.squad.length;
-  }
-
-  return {
-    season,
-    totalTeams: teams.length,
-    totalPlayers,
-  };
-};
-
+/**
+ * List players with filters and pagination
+ */
 export const listPlayers = async (filters: PlayerFilters = {}): Promise<PaginatedPlayers> => {
   const page = filters.page && filters.page > 0 ? filters.page : 1;
   const limit = filters.limit
@@ -157,72 +115,50 @@ export const listPlayers = async (filters: PlayerFilters = {}): Promise<Paginate
   const offset = (page - 1) * limit;
 
   const conditions: string[] = [];
-  const parameters: Record<string, unknown> = {
-    offset,
-    limit,
-  };
+  const parameters: Record<string, unknown> = { offset, limit };
 
   if (filters.search) {
     conditions.push(
-      "(LOWER(name) LIKE LOWER(@search) OR LOWER(team_name) LIKE LOWER(@search) OR LOWER(team_tla) LIKE LOWER(@search))",
+      "(LOWER(p.full_name) LIKE LOWER(@search) OR LOWER(p.display_name) LIKE LOWER(@search) OR LOWER(t.name) LIKE LOWER(@search))"
     );
     parameters.search = `%${filters.search.trim()}%`;
   }
 
   if (filters.teamId) {
-    conditions.push("team_external_id = @teamId");
+    conditions.push("p.current_team_id = @teamId");
     parameters.teamId = filters.teamId;
   }
 
   if (filters.position) {
-    conditions.push("LOWER(position) = LOWER(@position)");
+    conditions.push("(LOWER(p.preferred_position) = LOWER(@position) OR LOWER(p.secondary_position) = LOWER(@position))");
     parameters.position = filters.position.trim();
   }
 
   if (filters.nationality) {
-    conditions.push("LOWER(nationality) = LOWER(@nationality)");
+    conditions.push("LOWER(p.nationality) = LOWER(@nationality)");
     parameters.nationality = filters.nationality.trim();
-  }
-
-  if (filters.season) {
-    conditions.push("season = @season");
-    parameters.season = filters.season.trim();
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const dataResult = await query<PlayerRecord>(
     `
-      SELECT
-        id,
-        external_id AS externalId,
-        external_key AS externalKey,
-        name,
-        position,
-        nationality,
-        CONVERT(VARCHAR(10), date_of_birth, 23) AS dateOfBirth,
-        shirt_number AS shirtNumber,
-        team_external_id AS teamExternalId,
-        team_name AS teamName,
-        team_short_name AS teamShortName,
-        team_tla AS teamTla,
-        season,
-        COALESCE(CONVERT(VARCHAR(33), updated_at, 127), CONVERT(VARCHAR(33), created_at, 127)) AS updatedAt
-      FROM dbo.FootballPlayers
+      ${basePlayerSelect}
       ${whereClause}
-      ORDER BY name ASC
+      ORDER BY p.full_name ASC
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
     `,
-    parameters,
+    parameters
   );
 
   const countResult = await query<{ total: number }>(
     `
       SELECT COUNT(1) AS total
-      FROM dbo.FootballPlayers
+      FROM players p
+      LEFT JOIN teams t ON p.current_team_id = t.team_id
       ${whereClause};
     `,
-    parameters,
+    parameters
   );
 
   const total = countResult.recordset[0]?.total ?? 0;
@@ -237,59 +173,126 @@ export const listPlayers = async (filters: PlayerFilters = {}): Promise<Paginate
   };
 };
 
+/**
+ * Get player by ID
+ */
 export const getPlayerById = async (id: number): Promise<PlayerRecord | null> => {
   const result = await query<PlayerRecord>(
     `
-      SELECT
-        id,
-        external_id AS externalId,
-        external_key AS externalKey,
-        name,
-        position,
-        nationality,
-        CONVERT(VARCHAR(10), date_of_birth, 23) AS dateOfBirth,
-        shirt_number AS shirtNumber,
-        team_external_id AS teamExternalId,
-        team_name AS teamName,
-        team_short_name AS teamShortName,
-        team_tla AS teamTla,
-        season,
-        COALESCE(CONVERT(VARCHAR(33), updated_at, 127), CONVERT(VARCHAR(33), created_at, 127)) AS updatedAt
-      FROM dbo.FootballPlayers
-      WHERE id = @id;
+      ${basePlayerSelect}
+      WHERE p.player_id = @id;
     `,
-    { id },
+    { id }
   );
 
   return result.recordset[0] ?? null;
 };
 
+/**
+ * Create a new player
+ */
+export const createPlayer = async (input: CreatePlayerInput): Promise<PlayerRecord> => {
+  const result = await query<{ player_id: number }>(
+    `
+      INSERT INTO players (
+        full_name, display_name, date_of_birth, place_of_birth, nationality,
+        preferred_position, secondary_position, height_cm, weight_kg,
+        biography, dominant_foot, current_team_id, avatar_url, created_by, created_at
+      )
+      OUTPUT INSERTED.player_id
+      VALUES (
+        @fullName, @displayName, @dateOfBirth, @placeOfBirth, @nationality,
+        @preferredPosition, @secondaryPosition, @heightCm, @weightKg,
+        @biography, @dominantFoot, @currentTeamId, @avatarUrl, @createdBy, SYSUTCDATETIME()
+      );
+    `,
+    {
+      fullName: input.fullName,
+      displayName: input.displayName || input.fullName,
+      dateOfBirth: input.dateOfBirth,
+      placeOfBirth: input.placeOfBirth || null,
+      nationality: input.nationality,
+      preferredPosition: input.preferredPosition || null,
+      secondaryPosition: input.secondaryPosition || null,
+      heightCm: input.heightCm || null,
+      weightKg: input.weightKg || null,
+      biography: input.biography || null,
+      dominantFoot: input.dominantFoot || null,
+      currentTeamId: input.currentTeamId || null,
+      avatarUrl: input.avatarUrl || null,
+      createdBy: input.createdBy || null,
+    }
+  );
+
+  const playerId = result.recordset[0].player_id;
+  return (await getPlayerById(playerId))!;
+};
+
+/**
+ * Update a player
+ */
 export const updatePlayer = async (
   id: number,
-  payload: Partial<Pick<PlayerRecord, "position" | "shirtNumber" | "nationality" | "season" | "name">>,
+  input: UpdatePlayerInput
 ): Promise<PlayerRecord | null> => {
   const fields: string[] = [];
   const params: Record<string, unknown> = { id };
 
-  if (payload.name) {
-    fields.push("name = @name");
-    params.name = payload.name.trim();
+  if (input.fullName !== undefined) {
+    fields.push("full_name = @fullName");
+    params.fullName = input.fullName;
   }
-  if (payload.position !== undefined) {
-    fields.push("position = @position");
-    params.position = payload.position ? payload.position.trim() : null;
+  if (input.displayName !== undefined) {
+    fields.push("display_name = @displayName");
+    params.displayName = input.displayName;
   }
-  if (payload.nationality !== undefined) {
+  if (input.dateOfBirth !== undefined) {
+    fields.push("date_of_birth = @dateOfBirth");
+    params.dateOfBirth = input.dateOfBirth;
+  }
+  if (input.placeOfBirth !== undefined) {
+    fields.push("place_of_birth = @placeOfBirth");
+    params.placeOfBirth = input.placeOfBirth;
+  }
+  if (input.nationality !== undefined) {
     fields.push("nationality = @nationality");
-    params.nationality = payload.nationality ? payload.nationality.trim() : null;
+    params.nationality = input.nationality;
   }
-  if (payload.shirtNumber !== undefined) {
-    fields.push("shirt_number = @shirtNumber");
-    params.shirtNumber = payload.shirtNumber ?? null;
+  if (input.preferredPosition !== undefined) {
+    fields.push("preferred_position = @preferredPosition");
+    params.preferredPosition = input.preferredPosition;
   }
-  if (payload.season !== undefined) {
-    fields.push("season = @season");
-    params.season = payload.season ?? null;
+  if (input.secondaryPosition !== undefined) {
+    fields.push("secondary_position = @secondaryPosition");
+    params.secondaryPosition = input.secondaryPosition;
+  }
+  if (input.heightCm !== undefined) {
+    fields.push("height_cm = @heightCm");
+    params.heightCm = input.heightCm;
+  }
+  if (input.weightKg !== undefined) {
+    fields.push("weight_kg = @weightKg");
+    params.weightKg = input.weightKg;
+  }
+  if (input.biography !== undefined) {
+    fields.push("biography = @biography");
+    params.biography = input.biography;
+  }
+  if (input.dominantFoot !== undefined) {
+    fields.push("dominant_foot = @dominantFoot");
+    params.dominantFoot = input.dominantFoot;
+  }
+  if (input.currentTeamId !== undefined) {
+    fields.push("current_team_id = @currentTeamId");
+    params.currentTeamId = input.currentTeamId;
+  }
+  if (input.avatarUrl !== undefined) {
+    fields.push("avatar_url = @avatarUrl");
+    params.avatarUrl = input.avatarUrl;
+  }
+  if (input.updatedBy !== undefined) {
+    fields.push("updated_by = @updatedBy");
+    params.updatedBy = input.updatedBy;
   }
 
   if (fields.length === 0) {
@@ -300,23 +303,63 @@ export const updatePlayer = async (
 
   await query(
     `
-      UPDATE dbo.FootballPlayers
+      UPDATE players
       SET ${fields.join(", ")}
-      WHERE id = @id;
+      WHERE player_id = @id;
     `,
-    params,
+    params
   );
 
   return getPlayerById(id);
 };
 
+/**
+ * Delete a player
+ */
 export const deletePlayer = async (id: number): Promise<boolean> => {
   const result = await query<{ rowsAffected: number }>(
-    "DELETE FROM dbo.FootballPlayers WHERE id = @id;",
-    { id },
+    "DELETE FROM players WHERE player_id = @id;",
+    { id }
   );
   const rowsAffected = result.rowsAffected?.[0] ?? 0;
   return rowsAffected > 0;
 };
 
+/**
+ * Get players by team
+ */
+export const getPlayersByTeam = async (teamId: number): Promise<PlayerRecord[]> => {
+  const result = await query<PlayerRecord>(
+    `
+      ${basePlayerSelect}
+      WHERE p.current_team_id = @teamId
+      ORDER BY p.full_name ASC;
+    `,
+    { teamId }
+  );
 
+  return result.recordset;
+};
+
+/**
+ * Search players by name
+ */
+export const searchPlayers = async (searchTerm: string, limit: number = 20): Promise<PlayerRecord[]> => {
+  const result = await query<PlayerRecord>(
+    `
+      ${basePlayerSelect}
+      WHERE LOWER(p.full_name) LIKE LOWER(@search) OR LOWER(p.display_name) LIKE LOWER(@search)
+      ORDER BY p.full_name ASC
+      OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY;
+    `,
+    { search: `%${searchTerm.trim()}%`, limit }
+  );
+
+  return result.recordset;
+};
+
+// Legacy export for backward compatibility - returns empty result
+export const syncPlayersFromUpstream = async (): Promise<{ season: undefined; totalTeams: number; totalPlayers: number }> => {
+  console.warn('[playerService] syncPlayersFromUpstream is deprecated - external API sync disabled');
+  return { season: undefined, totalTeams: 0, totalPlayers: 0 };
+};

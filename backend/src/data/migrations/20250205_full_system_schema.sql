@@ -24,10 +24,13 @@ CREATE TABLE ruleset_player_constraints (
     constraint_id       INT             IDENTITY(1,1) PRIMARY KEY,
     ruleset_id          INT             NOT NULL REFERENCES rulesets(ruleset_id) ON DELETE CASCADE,
     min_age             TINYINT         NOT NULL CHECK (min_age >= 12),
-    max_age             TINYINT         NOT NULL CHECK (max_age > min_age),
+    max_age             TINYINT         NOT NULL CHECK (max_age >= 16 AND max_age <= 99),
     max_players         TINYINT         NOT NULL CHECK (max_players BETWEEN 11 AND 40),
-    max_foreign_players TINYINT         NOT NULL CHECK (max_foreign_players <= max_players),
-    squad_registration_deadline DATE    NULL
+    max_foreign_players TINYINT         NOT NULL CHECK (max_foreign_players >= 0 AND max_foreign_players <= 22),
+    squad_registration_deadline DATE    NULL,
+    -- Table-level constraint for cross-column check
+    CONSTRAINT CK_ruleset_player_age_range CHECK (max_age > min_age),
+    CONSTRAINT CK_ruleset_foreign_limit CHECK (max_foreign_players <= max_players)
 );
 
 CREATE TABLE ruleset_scoring_rules (

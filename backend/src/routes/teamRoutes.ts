@@ -21,23 +21,20 @@ router.get("/", async (req, res, next) => {
   try {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : undefined;
     const country = typeof req.query.country === "string" ? req.query.country.trim() : undefined;
-    const season = parseSeason(req.query.season);
+    const city = typeof req.query.city === "string" ? req.query.city.trim() : undefined;
     const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : 1;
     const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 25;
 
     const result = await listTeams({
       search,
       country,
-      season,
+      city,
       page,
       limit,
     });
 
     res.json({
       data: result.data,
-      meta: {
-        season: season ?? result.data[0]?.season ?? null,
-      },
       total: result.total,
       pagination: {
         page: result.page,
@@ -111,13 +108,10 @@ router.get("/:teamId/players", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid team ID" });
     }
 
-    const season = parseSeason(req.query.season);
-
     // Import player service to get players by team
     const { listPlayers } = await import("../services/playerService");
     const players = await listPlayers({
       teamId,
-      season,
       limit: 100
     });
 

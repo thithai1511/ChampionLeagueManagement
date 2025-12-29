@@ -50,19 +50,19 @@ export async function getSeasonPlayers(
             spr.season_player_id, -- Required for Remove action
             spr.season_id,
             spr.player_id,
-            p.name AS player_name,
+            p.full_name AS player_name,
             p.date_of_birth,
-            p.position AS detailed_position, -- Source of Truth
+            p.preferred_position AS detailed_position, -- Source of Truth
             spr.position_code, -- Functional Group
             spr.shirt_number,
             spr.player_type,
             stp.team_id,
             t.name AS team_name,
-            t.logo_url AS team_logo_url,
+            NULL AS team_logo_url,
             spr.file_path,
             spr.registered_at
         FROM season_player_registrations spr
-        JOIN FootballPlayers p ON spr.player_id = p.id
+        JOIN players p ON spr.player_id = p.player_id
         JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
         JOIN teams t ON stp.team_id = t.team_id
         WHERE spr.season_id = @season_id
@@ -135,18 +135,18 @@ export async function getApprovedSeasonPlayersForAdminTeam(
             spr.season_player_id,
             spr.season_id,
             spr.player_id,
-            p.name AS player_name,
+            p.full_name AS player_name,
             p.date_of_birth,
             spr.position_code,
             spr.shirt_number,
             spr.player_type,
             stp.team_id,
             t.name AS team_name,
-            t.logo_url AS team_logo_url,
+            NULL AS team_logo_url,
             spr.file_path,
             spr.registered_at
         FROM season_player_registrations spr
-        JOIN FootballPlayers p ON spr.player_id = p.id
+        JOIN players p ON spr.player_id = p.player_id
         JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
         JOIN teams t ON stp.team_id = t.team_id
         WHERE spr.season_id = @season_id

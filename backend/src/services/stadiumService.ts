@@ -17,6 +17,9 @@ export interface StadiumData {
   updated_at: string | null;
 }
 
+// Input type for creating stadium (without auto-generated fields)
+export type CreateStadiumInput = Omit<StadiumData, "stadium_id" | "created_at" | "updated_at" | "team_name">;
+
 const baseStadiumSelect = `
   SELECT
     st.stadium_id,
@@ -41,7 +44,7 @@ const baseStadiumSelect = `
  * Create a new stadium
  */
 export async function createStadium(
-  stadiumData: Omit<StadiumData, "stadium_id" | "created_at" | "updated_at">
+  stadiumData: CreateStadiumInput
 ): Promise<StadiumData> {
   const result = await query<StadiumData>(
     `

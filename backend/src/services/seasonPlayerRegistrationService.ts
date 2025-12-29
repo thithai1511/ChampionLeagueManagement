@@ -367,11 +367,11 @@ export async function getPendingRegistrations(): Promise<any[]> {
             spr.season_team_id,
             spr.registered_at,
             spr.file_path,
-            p.name AS player_name,
+            p.full_name AS player_name,
             t.name AS team_name,
             s.name AS season_name
         FROM season_player_registrations spr
-        JOIN FootballPlayers p ON spr.player_id = p.id
+        JOIN players p ON spr.player_id = p.player_id
         JOIN season_team_participants stp 
             ON spr.season_team_id = stp.season_team_id
         JOIN teams t 
@@ -409,9 +409,9 @@ async function validateRegistrationRulesForApproval(
         SELECT 
             p.date_of_birth,
             s.start_date
-        FROM FootballPlayers p
+        FROM players p
         JOIN seasons s ON s.season_id = ${season_id}
-        WHERE p.id = ${player_id}
+        WHERE p.player_id = ${player_id}
     `);
 
     const info = ageInfo.recordset[0];
@@ -690,9 +690,9 @@ export async function approveAllPendingRegistrations(userId?: number): Promise<v
                 spr.season_team_id,
                 spr.player_id,
                 spr.is_foreign,
-                p.name AS full_name
+                p.full_name
             FROM season_player_registrations spr
-            JOIN FootballPlayers p ON spr.player_id = p.id
+            JOIN players p ON spr.player_id = p.player_id
             WHERE spr.registration_status = 'pending'
             ORDER BY spr.registered_at ASC
         `);
@@ -845,9 +845,9 @@ export async function importSeasonPlayersFromCSV(
 
             // --- find player ---
             const playerRes = await query(`
-                SELECT TOP 1 id AS player_id
-                FROM FootballPlayers
-                WHERE LOWER(LTRIM(RTRIM(name))) = LOWER(@full_name)
+                SELECT TOP 1 player_id
+                FROM players
+                WHERE LOWER(LTRIM(RTRIM(full_name))) = LOWER(@full_name)
                   AND CONVERT(date, date_of_birth) = CONVERT(date, @dob)
             `,
                 {

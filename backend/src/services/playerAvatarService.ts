@@ -127,9 +127,9 @@ export async function getPlayerAvatar(
   teamName?: string | null
 ): Promise<string | null> {
   try {
-    // First, check if avatar_url exists in database (FootballPlayers table)
+    // First, check if avatar_url exists in database (players table)
     const dbResult = await query<{ avatar_url: string | null }>(
-      `SELECT avatar_url FROM dbo.FootballPlayers WHERE id = @playerId;`,
+      `SELECT avatar_url FROM players WHERE player_id = @playerId;`,
       { playerId }
     );
 
@@ -146,7 +146,7 @@ export async function getPlayerAvatar(
       // Save to database if found
       if (avatarUrl) {
         await query(
-          `UPDATE dbo.FootballPlayers SET avatar_url = @avatarUrl WHERE id = @playerId;`,
+          `UPDATE players SET avatar_url = @avatarUrl WHERE player_id = @playerId;`,
           { avatarUrl, playerId }
         );
       }
@@ -163,7 +163,7 @@ export async function getPlayerAvatar(
 
 /**
  * Get player info for avatar lookup
- * Uses FootballPlayers table (single source of truth)
+ * Uses players table (single source of truth)
  */
 async function getPlayerInfo(playerId: number): Promise<{
   full_name: string;
@@ -175,11 +175,11 @@ async function getPlayerInfo(playerId: number): Promise<{
       team_name: string | null;
     }>(
       `SELECT 
-        fp.name as full_name,
+        p.full_name,
         t.name as team_name
-      FROM dbo.FootballPlayers fp
-      LEFT JOIN dbo.teams t ON fp.internal_team_id = t.team_id
-      WHERE fp.id = @playerId;`,
+      FROM players p
+      LEFT JOIN teams t ON p.current_team_id = t.team_id
+      WHERE p.player_id = @playerId;`,
       { playerId }
     );
 
@@ -235,13 +235,13 @@ export async function batchFetchPlayerAvatars(
     avatar_url: string | null;
   }>(
     `SELECT 
-      fp.id as player_id,
-      fp.name as full_name,
+      p.player_id,
+      p.full_name,
       t.name as team_name,
-      fp.avatar_url
-    FROM dbo.FootballPlayers fp
-    LEFT JOIN dbo.teams t ON fp.internal_team_id = t.team_id
-    WHERE fp.id IN (${placeholders});`,
+      p.avatar_url
+    FROM players p
+    LEFT JOIN teams t ON p.current_team_id = t.team_id
+    WHERE p.player_id IN (${placeholders});`,
     params
   );
 
@@ -271,7 +271,7 @@ export async function batchFetchPlayerAvatars(
       if (avatarUrl) {
         console.log(`[batchFetchPlayerAvatars] Found avatar for ${player.player_id}: ${avatarUrl.substring(0, 50)}...`);
         await query(
-          `UPDATE dbo.FootballPlayers SET avatar_url = @avatarUrl WHERE id = @playerId;`,
+          `UPDATE players SET avatar_url = @avatarUrl WHERE player_id = @playerId;`,
           { avatarUrl, playerId: player.player_id }
         );
         result[player.player_id] = avatarUrl;

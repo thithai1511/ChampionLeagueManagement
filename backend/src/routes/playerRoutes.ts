@@ -59,10 +59,10 @@ const syncQuerySchema = z.object({
 
 router.post("/sync", async (req, res, next) => {
   try {
-    const { season } = syncQuerySchema.parse(req.body ?? {});
-    const summary = await syncPlayersFromUpstream(season);
+    // syncPlayersFromUpstream is deprecated - Football* tables removed
+    const summary = await syncPlayersFromUpstream();
     res.status(202).json({
-      message: "Players synced successfully",
+      message: "Sync feature is deprecated - Football* tables removed",
       meta: summary,
     });
   } catch (error) {
@@ -101,7 +101,14 @@ router.put("/:id", async (req, res, next) => {
       return res.status(400).json({ message: "Invalid player id" });
     }
     const updatePayload = updateSchema.parse(req.body ?? {});
-    const updated = await updatePlayer(id, updatePayload);
+    
+    // Map old field names to new UpdatePlayerInput properties
+    const updateInput: Parameters<typeof updatePlayer>[1] = {};
+    if (updatePayload.name) updateInput.fullName = updatePayload.name;
+    if (updatePayload.position) updateInput.preferredPosition = updatePayload.position;
+    if (updatePayload.nationality) updateInput.nationality = updatePayload.nationality;
+    
+    const updated = await updatePlayer(id, updateInput);
     if (!updated) {
       return res.status(404).json({ message: "Player not found" });
     }

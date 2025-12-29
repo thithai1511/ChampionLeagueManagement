@@ -65,10 +65,10 @@ export const syncAllData = async (options: SyncOptions = {}): Promise<SyncResult
     errors: [],
   };
 
-  // Sync Teams
+  // Sync Teams (deprecated - external API sync disabled)
   if (syncTeams) {
     try {
-      const teamsResult = await syncTeamsFromUpstream(season);
+      const teamsResult = await syncTeamsFromUpstream();
       result.results.teams = {
         success: true,
         totalTeams: teamsResult.totalTeams,
@@ -85,10 +85,10 @@ export const syncAllData = async (options: SyncOptions = {}): Promise<SyncResult
     }
   }
 
-  // Sync Players (depends on teams, so we run it after)
+  // Sync Players (deprecated - external API sync disabled)
   if (syncPlayers) {
     try {
-      const playersResult = await syncPlayersFromUpstream(season);
+      const playersResult = await syncPlayersFromUpstream();
       result.results.players = {
         success: true,
         totalPlayers: playersResult.totalPlayers,

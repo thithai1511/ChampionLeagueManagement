@@ -80,8 +80,7 @@ export async function validateTeamEligibility(
   // Get team data if not provided
   if (governingBodyInVietnam === undefined) {
     const teamData = await getTeamEligibilityData(input.teamId, input.seasonId);
-    governingBodyInVietnam = await checkGoverningBodyInVietnam(
-      input.teamId,
+    governingBodyInVietnam = checkGoverningBodyInVietnam(
       teamData.governingBody,
       teamData.country
     );
@@ -380,8 +379,8 @@ export function checkGoverningBodyInVietnam(
     checkString.includes("vietnam") ||
     checkString.includes("việt nam") ||
     checkString.includes("vn") ||
-    country?.toLowerCase().includes("vietnam") ||
-    country?.toLowerCase().includes("việt nam")
+    (country?.toLowerCase().includes("vietnam") ?? false) ||
+    (country?.toLowerCase().includes("việt nam") ?? false)
   );
 }
 

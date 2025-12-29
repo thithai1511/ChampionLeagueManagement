@@ -861,8 +861,16 @@ export const generateRandomMatches = async (options: {
   };
 };
 
-// Sync matches from Football-Data.org API to FootballMatches table
-const upsertFootballMatch = async (match: MatchSummary): Promise<void> => {
+/**
+ * @deprecated Football* tables have been removed. This function is now a no-op.
+ */
+const upsertFootballMatch = async (_match: MatchSummary): Promise<void> => {
+  console.warn('[matchService] upsertFootballMatch is deprecated - Football* tables removed');
+  return;
+};
+
+// Original upsertFootballMatch implementation (DEPRECATED - commented out)
+const _upsertFootballMatch_DEPRECATED = async (match: MatchSummary): Promise<void> => {
   // Skip matches without required team data
   if (!match.homeTeam?.id || !match.homeTeam?.name || !match.awayTeam?.id || !match.awayTeam?.name) {
     console.warn(`Skipping match ${match.id}: missing required team data`);
@@ -990,7 +998,10 @@ const upsertFootballMatch = async (match: MatchSummary): Promise<void> => {
   );
 };
 
-// Get matches from FootballMatches (external API data)
+/**
+ * @deprecated Football* tables have been removed. Returns empty data.
+ * Use listMatches() for internal matches instead.
+ */
 export const listFootballMatches = async (filters: {
   status?: string;
   season?: string;
@@ -1032,100 +1043,22 @@ export const listFootballMatches = async (filters: {
   limit: number;
   totalPages: number;
 }> => {
+  console.warn('[matchService] listFootballMatches is deprecated - Football* tables removed. Use listMatches() instead.');
   const page = filters.page && filters.page > 0 ? filters.page : 1;
   const limit = filters.limit ? Math.min(Math.max(filters.limit, 1), 100) : 20;
-  const offset = (page - 1) * limit;
-
-  const conditions: string[] = [];
-  const params: Record<string, unknown> = { offset, limit };
-
-  // By default, hide matches with unknown teams (teamId = 0)
-  if (!filters.showUnknown) {
-    conditions.push("home_team_id > 0 AND away_team_id > 0");
-  }
-
-  if (filters.status) {
-    conditions.push("status = @status");
-    params.status = filters.status;
-  }
-  if (filters.season) {
-    conditions.push("season = @season");
-    params.season = filters.season;
-  }
-  if (filters.dateFrom) {
-    conditions.push("utc_date >= @dateFrom");
-    params.dateFrom = filters.dateFrom;
-  }
-  if (filters.dateTo) {
-    conditions.push("utc_date <= @dateTo");
-    params.dateTo = filters.dateTo;
-  }
-  if (filters.teamId) {
-    conditions.push("(home_team_id = @teamId OR away_team_id = @teamId)");
-    params.teamId = filters.teamId;
-  }
-  if (filters.search) {
-    conditions.push("(home_team_name LIKE @search OR away_team_name LIKE @search)");
-    params.search = `%${filters.search.trim()}%`;
-  }
-
-  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  const dataResult = await query(
-    `
-      SELECT
-        id,
-        external_id AS externalId,
-        CONVERT(VARCHAR(33), utc_date, 127) AS utcDate,
-        status,
-        stage,
-        group_name AS groupName,
-        matchday,
-        season,
-        competition_code AS competitionCode,
-        competition_name AS competitionName,
-        home_team_id AS homeTeamId,
-        home_team_name AS homeTeamName,
-        home_team_tla AS homeTeamTla,
-        away_team_id AS awayTeamId,
-        away_team_name AS awayTeamName,
-        away_team_tla AS awayTeamTla,
-        score_home AS scoreHome,
-        score_away AS scoreAway,
-        score_half_home AS scoreHalfHome,
-        score_half_away AS scoreHalfAway,
-        venue,
-        referee,
-        CONVERT(VARCHAR(33), last_updated, 127) AS lastUpdated
-      FROM FootballMatches
-      ${whereClause}
-      ORDER BY utc_date DESC
-      OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
-    `,
-    params
-  );
-
-  const countResult = await query<{ total: number }>(
-    `
-      SELECT COUNT(1) AS total
-      FROM FootballMatches
-      ${whereClause};
-    `,
-    params
-  );
-
-  const total = countResult.recordset[0]?.total ?? 0;
-  const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
-
+  
   return {
-    data: dataResult.recordset,
-    total,
+    data: [],
+    total: 0,
     page,
     limit,
-    totalPages
+    totalPages: 0
   };
 };
 
+/**
+ * @deprecated Football* tables have been removed. External API sync is disabled.
+ */
 export const syncMatchesFromUpstream = async (options: {
   season?: string;
   status?: string;
@@ -1137,54 +1070,13 @@ export const syncMatchesFromUpstream = async (options: {
   syncedMatches: number;
   skippedMatches: number;
 }> => {
-  let matches: MatchSummary[] = [];
+  console.warn('[matchService] syncMatchesFromUpstream is deprecated - Football* tables removed');
   
-  try {
-    matches = await getCompetitionMatches(options);
-  } catch (error: any) {
-    const errorMessage = error?.message || String(error);
-    console.error('Failed to fetch matches from Football-Data API:', errorMessage);
-    
-    // Provide more specific error messages
-    if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-      throw new Error('API key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra FOOTBALL_DATA_API_TOKEN trong cấu hình.');
-    } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
-      throw new Error('Đã vượt quá giới hạn API. Vui lòng thử lại sau vài phút.');
-    } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
-      throw new Error('Không tìm thấy giải đấu. Vui lòng kiểm tra FOOTBALL_DATA_COMPETITION_CODE trong cấu hình.');
-    } else if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
-      throw new Error('Lỗi kết nối với API. Vui lòng kiểm tra kết nối mạng và thử lại.');
-    } else {
-      throw new Error(`Lỗi khi lấy dữ liệu từ API: ${errorMessage}`);
-    }
-  }
-  
-  let syncedCount = 0;
-  let skippedCount = 0;
-
-  for (const match of matches) {
-    // Check if match has required data before attempting to upsert
-    if (!match.homeTeam?.id || !match.homeTeam?.name || !match.awayTeam?.id || !match.awayTeam?.name || !match.utcDate || !match.status) {
-      skippedCount++;
-      continue;
-    }
-
-    try {
-      await upsertFootballMatch(match);
-      syncedCount++;
-    } catch (error) {
-      console.error(`Failed to sync match ${match.id}:`, error);
-      skippedCount++;
-    }
-  }
-
-  console.log(`Synced ${syncedCount} matches, skipped ${skippedCount} matches out of ${matches.length} total`);
-
   return {
     season: options.season,
-    totalMatches: syncedCount,
-    syncedMatches: syncedCount,
-    skippedMatches: skippedCount,
+    totalMatches: 0,
+    syncedMatches: 0,
+    skippedMatches: 0,
   };
 };
 

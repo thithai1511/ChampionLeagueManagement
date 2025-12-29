@@ -1,6 +1,23 @@
 -- Migration: Match Lifecycle Integration (Fixed - No Conflicts)
 -- This migration integrates match lifecycle workflow with existing schema
 -- DOES NOT create duplicate tables
+-- REQUIRES: 20250205_full_system_schema.sql to be run first
+
+-- ============================================================
+-- PRE-CHECK: Verify required tables exist
+-- ============================================================
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'matches')
+BEGIN
+    PRINT 'ERROR: Table [matches] does not exist!';
+    PRINT 'Please run 20250205_full_system_schema.sql first from backend/src/data/migrations/';
+    RAISERROR('Required table [matches] not found. Aborting migration.', 16, 1);
+    RETURN;
+END
+GO
+
+PRINT 'Pre-check passed: Required tables exist';
+GO
 
 -- ============================================================
 -- PART 1: UPDATE MATCHES TABLE

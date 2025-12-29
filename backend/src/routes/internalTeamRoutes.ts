@@ -335,23 +335,21 @@ router.get("/:id/players", async (req: AuthenticatedRequest, res, next) => {
     }>(
       `
         SELECT 
-          fp.id as player_id,
-      fp.name as full_name,
-      fp.name as display_name,
-      CONVERT(VARCHAR(10), fp.date_of_birth, 23) as date_of_birth,
-      NULL as place_of_birth,
-      fp.nationality,
-      fp.position as preferred_position,
-      NULL as secondary_position,
-      NULL as height_cm,
-      NULL as weight_kg,
-      NULL as dominant_foot,
-      fp.internal_team_id as current_team_id
-        FROM FootballPlayers fp
-        JOIN teams t ON t.team_id = @teamId
-        WHERE fp.internal_team_id = @teamId
-           OR fp.team_name = t.name
-        ORDER BY fp.name;
+          p.player_id,
+          p.full_name,
+          p.display_name,
+          CONVERT(VARCHAR(10), p.date_of_birth, 23) as date_of_birth,
+          p.place_of_birth,
+          p.nationality,
+          p.preferred_position,
+          p.secondary_position,
+          p.height_cm,
+          p.weight_kg,
+          p.dominant_foot,
+          p.current_team_id
+        FROM players p
+        WHERE p.current_team_id = @teamId
+        ORDER BY p.full_name;
     `,
       { teamId },
     );

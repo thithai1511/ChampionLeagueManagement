@@ -272,7 +272,7 @@ router.post("/:id/events", ...requireMatchManagement, async (req: any, res, next
     let playerName: string | null = payload.playerName ? payload.playerName.trim() : null;
     if (!playerName && payload.playerId) {
       const player = await query<{ full_name: string }>(
-        `SELECT TOP 1 name as full_name FROM FootballPlayers WHERE id = @playerId;`,
+        `SELECT TOP 1 full_name FROM players WHERE player_id = @playerId;`,
         { playerId: payload.playerId },
       );
       playerName = player.recordset[0]?.full_name ?? null;

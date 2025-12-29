@@ -18,44 +18,42 @@ export interface Player {
 }
 
 /**
- * Create a new player in FootballPlayers table
+ * Create a new player in players table
  */
 export const createPlayer = async (data: CreatePlayerDto): Promise<Player> => {
     const { name, date_of_birth, nationality, position, internal_team_id } = data;
 
-    // Insert into FootballPlayers (Single Source)
+    // Insert into players table (Single Source of Truth)
     const result = await query<{
-        id: number;
-        name: string;
+        player_id: number;
+        full_name: string;
         nationality: string;
-        position: string;
+        preferred_position: string;
         date_of_birth: string;
     }>(`
-        INSERT INTO dbo.FootballPlayers (
-            name,
+        INSERT INTO players (
+            full_name,
+            display_name,
             date_of_birth,
             nationality,
-            position,
-            internal_team_id,
-            is_manual,
-            external_key,
-            updated_at
+            preferred_position,
+            current_team_id,
+            created_at
         )
         OUTPUT 
-            INSERTED.id, 
-            INSERTED.name, 
+            INSERTED.player_id, 
+            INSERTED.full_name, 
             INSERTED.nationality, 
-            INSERTED.position, 
+            INSERTED.preferred_position, 
             CONVERT(VARCHAR(10), INSERTED.date_of_birth, 23) as date_of_birth
         VALUES (
+            @name,
             @name,
             @dob,
             @nationality,
             @position,
             @teamId,
-            1, -- is_manual
-            'MANUAL:' + CAST(NEWID() AS VARCHAR(50)),
-            GETDATE()
+            SYSUTCDATETIME()
         );
     `, {
         name: name.trim(),
@@ -65,7 +63,7 @@ export const createPlayer = async (data: CreatePlayerDto): Promise<Player> => {
         teamId: internal_team_id ?? null
     });
 
-    const newId = result.recordset[0]?.id;
+    const newId = result.recordset[0]?.player_id;
 
     if (!newId) {
         throw new Error("Failed to create player");
@@ -73,9 +71,9 @@ export const createPlayer = async (data: CreatePlayerDto): Promise<Player> => {
 
     return {
         player_id: newId,
-        name: result.recordset[0].name,
+        name: result.recordset[0].full_name,
         date_of_birth: result.recordset[0].date_of_birth,
         nationality: result.recordset[0].nationality,
-        position: result.recordset[0].position
+        position: result.recordset[0].preferred_position
     };
 };

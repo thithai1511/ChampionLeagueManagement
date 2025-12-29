@@ -40,48 +40,47 @@ async function getOrCreatePlayerByNameDob(
   findReq.input("full_name", sql.NVarChar, input.fullName);
   findReq.input("dob", sql.Date, input.dateOfBirth);
 
-  // Check FootballPlayers
+  // Check players table
   const existing = await findReq.query(`
-    SELECT TOP 1 id
-    FROM FootballPlayers
-    WHERE LOWER(LTRIM(RTRIM(name))) = LOWER(@full_name)
+    SELECT TOP 1 player_id
+    FROM players
+    WHERE LOWER(LTRIM(RTRIM(full_name))) = LOWER(@full_name)
       AND CONVERT(date, date_of_birth) = CONVERT(date, @dob)
   `);
 
   if (existing.recordset[0]) {
-    return Number(existing.recordset[0].id);
+    return Number(existing.recordset[0].player_id);
   }
 
   const createReq = new sql.Request(tx);
-  createReq.input("name", sql.NVarChar, input.fullName);
+  createReq.input("full_name", sql.NVarChar, input.fullName);
   createReq.input("date_of_birth", sql.Date, input.dateOfBirth);
   createReq.input("nationality", sql.NVarChar, input.nationality ?? null);
-  createReq.input("position", sql.NVarChar, input.preferredPosition ?? null);
-  // internal_team_id? created_by? FootballPlayers doesn't have created_by usually, 
-  // but if it's there we can use it. Logic: insert basic.
+  createReq.input("preferred_position", sql.NVarChar, input.preferredPosition ?? null);
+  createReq.input("created_by", sql.Int, input.createdBy ?? null);
 
   const res = await createReq.query(`
-      INSERT INTO FootballPlayers (
-        name,
+      INSERT INTO players (
+        full_name,
+        display_name,
         date_of_birth,
         nationality,
-        position,
-        is_manual,
-        external_key,
-        updated_at
+        preferred_position,
+        created_by,
+        created_at
       )
-      OUTPUT INSERTED.id
+      OUTPUT INSERTED.player_id
       VALUES (
-        @name,
+        @full_name,
+        @full_name,
         @date_of_birth,
         @nationality,
-        @position,
-        1,
-        'MANUAL:' + CAST(NEWID() AS VARCHAR(50)),
-        GETDATE()
+        @preferred_position,
+        @created_by,
+        SYSUTCDATETIME()
       )
     `);
-  return Number(res.recordset[0].id);
+  return Number(res.recordset[0].player_id);
 }
 
 /**
@@ -139,15 +138,15 @@ export async function listPlayerRegistrations(
         spr.position_code,
         spr.shirt_number,
         spr.player_type,
-        p.name AS player_name,
+        p.full_name AS player_name,
         p.date_of_birth,
         p.nationality,
         t.team_id,
         t.name AS team_name,
-        t.logo_url,
+        NULL AS logo_url,
         s.name AS season_name
       FROM season_player_registrations spr
-      JOIN FootballPlayers p ON spr.player_id = p.id
+      JOIN players p ON spr.player_id = p.player_id
       JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
       JOIN teams t ON stp.team_id = t.team_id
       JOIN seasons s ON spr.season_id = s.season_id

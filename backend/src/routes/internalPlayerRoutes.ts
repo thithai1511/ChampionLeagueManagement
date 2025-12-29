@@ -80,7 +80,7 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res, next) => {
     if (!canSeeAll && userTeamIds.length > 0) {
       // Team admin can only see their teams' players
       const teamIdPlaceholders = userTeamIds.map((_, i) => `@userTeamId${i}`).join(',');
-      conditions.push(`internal_team_id IN (${teamIdPlaceholders})`);
+      conditions.push(`current_team_id IN (${teamIdPlaceholders})`);
       userTeamIds.forEach((id, i) => {
         params[`userTeamId${i}`] = id;
       });
@@ -99,13 +99,13 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res, next) => {
     
     // Optional filter by team (for super admin and admin with manage_teams)
     if (canSeeAll && teamId && !isNaN(teamId)) {
-      conditions.push("internal_team_id = @teamId");
+      conditions.push("current_team_id = @teamId");
       params.teamId = teamId;
       console.log('[GET /api/players] Filter by teamId:', teamId);
     }
 
     if (search) {
-      conditions.push("(LOWER(name) LIKE LOWER(@search))");
+      conditions.push("(LOWER(full_name) LIKE LOWER(@search))");
       params.search = `%${search}%`;
     }
 
@@ -123,23 +123,23 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res, next) => {
     }>(
       `
         SELECT 
-          id as player_id,
-          name as full_name,
-          name as display_name,
+          player_id,
+          full_name,
+          display_name,
           CONVERT(VARCHAR(10), date_of_birth, 23) as date_of_birth,
           nationality,
-          position as preferred_position,
-          internal_team_id as current_team_id
-        FROM FootballPlayers
+          preferred_position,
+          current_team_id
+        FROM players
         ${whereClause}
-        ORDER BY name
+        ORDER BY full_name
         OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
       `,
       params,
     );
 
     const countResult = await query<{ total: number }>(
-      `SELECT COUNT(*) as total FROM FootballPlayers ${whereClause}`,
+      `SELECT COUNT(*) as total FROM players ${whereClause}`,
       params,
     );
 
@@ -241,15 +241,15 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
     const result = await query(
       `
         SELECT 
-          id as player_id,
-          name as full_name,
-          name as display_name,
+          player_id,
+          full_name,
+          display_name,
           CONVERT(VARCHAR(10), date_of_birth, 23) as date_of_birth,
           nationality,
-          position as preferred_position,
-          internal_team_id as current_team_id
-        FROM FootballPlayers
-        WHERE id = @playerId;
+          preferred_position,
+          current_team_id
+        FROM players
+        WHERE player_id = @playerId;
       `,
       { playerId },
     );
@@ -292,13 +292,13 @@ router.put("/:id", requireAuth, requireTeamOwnership, checkPlayerTeamOwnership, 
 
     await query(
       `
-        UPDATE FootballPlayers
+        UPDATE players
         SET 
-          name = COALESCE(@name, name),
-          position = COALESCE(@position, position),
+          full_name = COALESCE(@name, full_name),
+          preferred_position = COALESCE(@position, preferred_position),
           nationality = COALESCE(@nationality, nationality),
-          updated_at = GETDATE()
-        WHERE id = @playerId;
+          updated_at = SYSUTCDATETIME()
+        WHERE player_id = @playerId;
       `,
       {
         playerId,
@@ -311,9 +311,9 @@ router.put("/:id", requireAuth, requireTeamOwnership, checkPlayerTeamOwnership, 
     // Return updated player
     const result = await query(
       `
-        SELECT id as player_id, name as full_name, position as preferred_position, nationality
-        FROM FootballPlayers
-        WHERE id = @playerId;
+        SELECT player_id, full_name, preferred_position, nationality
+        FROM players
+        WHERE player_id = @playerId;
       `,
       { playerId },
     );
@@ -341,8 +341,8 @@ router.delete("/:id", requireAuth, requireTeamOwnership, checkPlayerTeamOwnershi
 
     await query(
       `
-        DELETE FROM FootballPlayers
-        WHERE id = @playerId;
+        DELETE FROM players
+        WHERE player_id = @playerId;
       `,
       { playerId },
     );
