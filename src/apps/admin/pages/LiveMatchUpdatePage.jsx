@@ -7,6 +7,7 @@ import {
 import MatchesService from '../../../layers/application/services/MatchesService';
 import TeamsService from '../../../layers/application/services/TeamsService';
 import toast from 'react-hot-toast';
+import TeamLineupEditor from '../components/TeamLineupEditor';
 
 const LiveMatchUpdatePage = () => {
     const { matchId } = useParams();
@@ -64,11 +65,84 @@ const LiveMatchUpdatePage = () => {
                 const awayPlayers = await TeamsService.getTeamPlayers(data.awayTeamId);
                 setAwaySquad(awayPlayers);
             }
+
+            // Fetch Lineups
+            const lineups = await MatchesService.getMatchLineups(matchId);
+            console.log('[FETCH] getMatchLineups returned:', lineups, 'length:', lineups?.length);
+
+            // Transform lineups for editor
+            const processLineup = (type, seasonTeamId) => {
+                console.log(`[DEBUG] Processing ${type}, looking for seasonTeamId=${seasonTeamId} (type: ${typeof seasonTeamId})`);
+                console.log(`[DEBUG] First lineup item:`, lineups[0]);
+
+                const teamLineups = lineups.filter(l => {
+                    const match = Number(l.seasonTeamId) === Number(seasonTeamId);
+                    if (!match && lineups.indexOf(l) === 0) {
+                        console.log(`[DEBUG] No match: ${l.seasonTeamId} (${typeof l.seasonTeamId}) !== ${seasonTeamId} (${typeof seasonTeamId})`);
+                    }
+                    return match;
+                });
+
+                console.log(`[DEBUG] ${type} team lineups (seasonTeamId=${seasonTeamId}):`, teamLineups);
+
+                const starters = teamLineups.filter(l => Boolean(l.isStarting)).map(l => l.playerId);
+                const substitutes = teamLineups.filter(l => !Boolean(l.isStarting)).map(l => l.playerId);
+
+                return {
+                    formation: '4-4-2', // Default or stored if implemented
+                    starters,
+                    substitutes
+                };
+            };
+
+            setHomeLineup(processLineup('home', data.homeSeasonTeamId));
+            setAwayLineup(processLineup('away', data.awaySeasonTeamId));
+
         } catch (error) {
             console.error('Error fetching match:', error);
             toast.error('Could not load match data');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Save Lineup
+    const handleLineupSave = async (teamId, lineupData) => {
+        if (!match) return;
+
+        try {
+            const isHome = teamId === match.homeTeamId;
+            const seasonTeamId = isHome ? match.homeSeasonTeamId : match.awaySeasonTeamId;
+
+            if (!seasonTeamId) {
+                toast.error("Season Team ID not found. Cannot save.");
+                return;
+            }
+
+            const payload = {
+                seasonId: match.seasonId,
+                seasonTeamId: seasonTeamId,
+                startingPlayerIds: lineupData.starters,
+                substitutePlayerIds: lineupData.substitutes
+            };
+
+            await MatchesService.updateMatchLineups(matchId, payload);
+            toast.success(`${isHome ? 'Home' : 'Away'} lineup saved successfully!`);
+
+            // Update local state instead of refetching
+            if (isHome) {
+                setHomeLineup(lineupData);
+            } else {
+                setAwayLineup(lineupData);
+            }
+        } catch (error) {
+            console.error("Failed to save lineup", error);
+            const msg = error.response?.data?.message || error.message;
+            if (error.response?.data?.errors) {
+                toast.error(error.response.data.errors[0]);
+            } else {
+                toast.error(`Failed to save: ${msg}`);
+            }
         }
     };
 
@@ -344,40 +418,20 @@ const LiveMatchUpdatePage = () => {
 
                 {activeTab === 'lineups' && (
                     <div className="grid grid-cols-2 gap-8">
-                        <div className="bg-white p-6 rounded-lg shadow-sm border">
-                            <h3 className="font-bold text-lg mb-4">{match.homeTeamName} Squad</h3>
-                            <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                                {homeSquad.map(player => (
-                                    <div key={player.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 cursor-pointer">
-                                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center font-bold text-xs text-gray-600">
-                                            {player.shirtNumber || '#'}
-                                        </div>
-                                        <div>
-                                            <div className="font-medium">{player.name}</div>
-                                            <div className="text-xs text-gray-500">{player.position}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {homeSquad.length === 0 && <div className="text-gray-400 italic">No players found</div>}
-                            </div>
-                        </div>
-                        <div className="bg-white p-6 rounded-lg shadow-sm border">
-                            <h3 className="font-bold text-lg mb-4">{match.awayTeamName} Squad</h3>
-                            <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                                {awaySquad.map(player => (
-                                    <div key={player.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded border border-transparent hover:border-gray-200 cursor-pointer">
-                                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center font-bold text-xs text-gray-600">
-                                            {player.shirtNumber || '#'}
-                                        </div>
-                                        <div>
-                                            <div className="font-medium">{player.name}</div>
-                                            <div className="text-xs text-gray-500">{player.position}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {awaySquad.length === 0 && <div className="text-gray-400 italic">No players found</div>}
-                            </div>
-                        </div>
+                        <TeamLineupEditor
+                            teamId={match.homeTeamId}
+                            teamName={match.homeTeamName}
+                            squad={homeSquad}
+                            initialLineup={homeLineup}
+                            onSave={handleLineupSave}
+                        />
+                        <TeamLineupEditor
+                            teamId={match.awayTeamId}
+                            teamName={match.awayTeamName}
+                            squad={awaySquad}
+                            initialLineup={awayLineup}
+                            onSave={handleLineupSave}
+                        />
                     </div>
                 )}
 

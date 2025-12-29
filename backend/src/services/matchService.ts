@@ -454,6 +454,8 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
       SELECT
         m.match_id AS matchId,
         m.season_id AS seasonId,
+        m.home_season_team_id AS homeSeasonTeamId,
+        m.away_season_team_id AS awaySeasonTeamId,
         m.round_id AS roundId,
         m.matchday_number AS matchdayNumber,
         hstp.team_id AS homeTeamId,
@@ -1046,7 +1048,7 @@ export const listFootballMatches = async (filters: {
   console.warn('[matchService] listFootballMatches is deprecated - Football* tables removed. Use listMatches() instead.');
   const page = filters.page && filters.page > 0 ? filters.page : 1;
   const limit = filters.limit ? Math.min(Math.max(filters.limit, 1), 100) : 20;
-  
+
   return {
     data: [],
     total: 0,
@@ -1071,7 +1073,7 @@ export const syncMatchesFromUpstream = async (options: {
   skippedMatches: number;
 }> => {
   console.warn('[matchService] syncMatchesFromUpstream is deprecated - Football* tables removed');
-  
+
   return {
     season: options.season,
     totalMatches: 0,

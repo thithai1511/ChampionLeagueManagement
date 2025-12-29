@@ -350,7 +350,8 @@ class MatchesService {
   async getMatchLineups(matchId) {
     try {
       const response = await ApiService.get(`/matches/${matchId}/lineups`)
-      return response?.data?.data || []
+      // Backend returns { data: [...] }, axios unwraps to response.data = [...]
+      return response?.data || []
     } catch (error) {
       logger.error('Failed to fetch match lineups:', error)
       return []
