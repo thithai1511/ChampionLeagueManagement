@@ -9,6 +9,7 @@ BEGIN
     ALTER TABLE [dbo].[season_player_registrations]
     ADD [status] NVARCHAR(20) NOT NULL DEFAULT 'PENDING';
 END
+GO
 
 IF NOT EXISTS (
   SELECT * FROM sys.columns 
@@ -19,6 +20,7 @@ BEGIN
     ALTER TABLE [dbo].[season_player_registrations]
     ADD [approved_at] DATETIME NULL;
 END
+GO
 
 IF NOT EXISTS (
   SELECT * FROM sys.columns 
@@ -29,8 +31,7 @@ BEGIN
     ALTER TABLE [dbo].[season_player_registrations]
     ADD [reject_reason] NVARCHAR(255) NULL;
 END
-ALTER TABLE season_player_registrations
-ADD
-    status NVARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    approved_at DATETIME NULL,
-    reject_reason NVARCHAR(255) NULL;
+GO
+
+PRINT 'Migration 001: Added status columns to season_player_registrations';
+

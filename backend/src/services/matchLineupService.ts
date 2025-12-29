@@ -1,4 +1,5 @@
 import { query } from "../db/sqlServer";
+import * as matchLifecycleService from "./matchLifecycleService";
 
 export interface MatchLineup {
     matchLineupId: number;
@@ -86,4 +87,95 @@ export const upsertMatchLineup = async (input: Partial<MatchLineup>): Promise<vo
             status: input.status
         });
     }
+};
+
+/**
+ * Approve lineup for a team
+ * Part of match lifecycle workflow
+ */
+export const approveLineup = async (
+    matchId: number,
+    teamType: 'home' | 'away',
+    approvedBy: number
+): Promise<void> => {
+    await query(`
+        UPDATE match_lineups
+        SET approval_status = 'APPROVED',
+            approved_by = @approvedBy,
+            approved_at = GETDATE()
+        WHERE match_id = @matchId
+        AND team_type = @teamType
+    `, { matchId, teamType, approvedBy });
+
+    // Check if both lineups are approved
+    const bothApproved = await checkBothLineupsApproved(matchId);
+    if (bothApproved) {
+        // Dynamically import to avoid circular dependency
+        const lifecycleService = await import('./matchLifecycleService');
+        await lifecycleService.changeMatchStatus(matchId, 'READY', { 
+            note: 'Both lineups approved',
+            changedBy: approvedBy 
+        });
+    }
+};
+
+/**
+ * Reject lineup for a team
+ */
+export const rejectLineup = async (
+    matchId: number,
+    teamType: 'home' | 'away',
+    reason: string,
+    rejectedBy: number
+): Promise<void> => {
+    await query(`
+        UPDATE match_lineups
+        SET approval_status = 'REJECTED',
+            rejection_reason = @reason,
+            approved_by = @rejectedBy,
+            approved_at = GETDATE()
+        WHERE match_id = @matchId
+        AND team_type = @teamType
+    `, { matchId, teamType, reason, rejectedBy });
+};
+
+/**
+ * Check if both home and away lineups are approved
+ */
+const checkBothLineupsApproved = async (matchId: number): Promise<boolean> => {
+    const result = await query(`
+        SELECT COUNT(DISTINCT team_type) as approved_teams
+        FROM match_lineups
+        WHERE match_id = @matchId
+        AND approval_status = 'APPROVED'
+        AND team_type IN ('home', 'away')
+    `, { matchId });
+
+    return result.recordset[0]?.approved_teams === 2;
+};
+
+/**
+ * Get lineup approval status for a match
+ */
+export const getLineupApprovalStatus = async (matchId: number): Promise<{
+    homeStatus: string;
+    awayStatus: string;
+}> => {
+    const result = await query(`
+        SELECT 
+            team_type,
+            approval_status
+        FROM match_lineups
+        WHERE match_id = @matchId
+        AND team_type IN ('home', 'away')
+        GROUP BY team_type, approval_status
+    `, { matchId });
+
+    const statuses = result.recordset.reduce((acc: any, row: any) => {
+        if (row.team_type === 'home') acc.homeStatus = row.approval_status;
+        if (row.team_type === 'away') acc.awayStatus = row.approval_status;
+        return acc;
+    }, { homeStatus: 'PENDING', awayStatus: 'PENDING' });
+
+    return statuses;
 };
