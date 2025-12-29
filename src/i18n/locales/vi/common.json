@@ -34,7 +34,7 @@
     "cookies": "Cài đặt Cookie"
   },
   "standings": {
-    "title": "Bảng xếp hạng UEFA Champions League",
+    "title": "Bảng xếp hạng Giải Bóng Đá Việt Nam",
     "subtitle": "Bảng xếp hạng vòng phân hạng mùa giải 2024/25",
     "heroTitle": "Bảng xếp hạng vòng phân hạng",
     "heroSubtitle": "Theo dõi suất đi tiếp, nhóm tranh vé và phong độ gần đây dựa trên dữ liệu giải đấu",
@@ -73,7 +73,7 @@
     }
   },
   "matches": {
-    "title": "Lịch trận đấu UEFA Champions League",
+    "title": "Lịch trận đấu Giải Bóng Đá Việt Nam",
     "subtitle": "Lịch thi đấu và kết quả mùa giải 2024/25",
     "heroTitle": "Lịch trận đấu",
     "heroSubtitle": "Lên kế hoạch theo dõi các trận đấu với bộ lọc nhanh, trực quan",
@@ -101,7 +101,7 @@
     "vs": "vs"
   },
   "teams": {
-    "title": "Đội bóng UEFA Champions League",
+    "title": "Đội bóng Giải Bóng Đá Việt Nam",
     "subtitle": "Tất cả đội tham dự mùa giải 2024/25",
     "heroTitle": "Các đội bóng",
     "heroSubtitle": "Khám phá đội hình, thống kê và lịch sử của các câu lạc bộ",
@@ -136,7 +136,7 @@
     }
   },
   "stats": {
-    "title": "Thống kê UEFA Champions League",
+    "title": "Thống kê Giải Bóng Đá Việt Nam",
     "subtitle": "Thống kê cầu thủ và đội bóng mùa giải 2024/25",
     "heroTitle": "Thống kê",
     "heroSubtitle": "Số liệu chi tiết về cầu thủ và đội bóng",
@@ -169,8 +169,8 @@
     }
   },
   "news": {
-    "title": "Tin tức UEFA Champions League",
-    "subtitle": "Tin tức mới nhất, báo cáo trận đấu và cập nhật từ Champions League",
+    "title": "Tin tức Giải Bóng Đá Việt Nam",
+    "subtitle": "Tin tức mới nhất, báo cáo trận đấu và cập nhật từ Giải Bóng Đá Việt Nam",
     "allCategories": "Tất cả danh mục",
     "matches": "Trận đấu",
     "teams": "Đội bóng",
@@ -187,7 +187,7 @@
   },
   "playerLookup": {
     "title": "TRA CỨU CẦU THỦ",
-    "subtitle": "Xem nhanh thông tin và đội hình thực tế của UEFA Champions League",
+    "subtitle": "Xem nhanh thông tin và đội hình thực tế của Giải Bóng Đá Việt Nam",
     "searchTitle": "Tìm kiếm cầu thủ",
     "searchPlaceholder": "Tìm theo tên cầu thủ, đội, vị trí...",
     "syncPlayers": "Đồng bộ cầu thủ",

@@ -297,7 +297,7 @@ const Standings = () => {
       <nav className="flex items-center space-x-2 text-sm mb-6">
         <a href="#" className="text-white/60 hover:text-cyan-400 transition-colors">Trang chủ</a>
         <span className="text-white/40">/</span>
-        <a href="#" className="text-white/60 hover:text-cyan-400 transition-colors">Cúp C1 châu Âu</a>
+        <a href="#" className="text-white/60 hover:text-cyan-400 transition-colors">Cúp C1 Việt Nam</a>
         <span className="text-white/40">/</span>
         <span className="text-white font-semibold">Bảng xếp hạng</span>
       </nav>
@@ -308,7 +308,7 @@ const Standings = () => {
           <div>
             <h1 className="text-3xl lg:text-4xl font-bold text-white flex items-center">
               <Trophy className="mr-4 text-[#00d4ff]" size={36} />
-              Bảng xếp hạng Cúp C1 châu Âu
+              Bảng xếp hạng Cúp C1 Việt Nam
             </h1>
             <p className="text-white/70 mt-2">
               Bảng xếp hạng vòng bảng mùa giải {seasonInfo?.label || '2024/25'} • Cập nhật lần cuối: {lastUpdated ? new Date(lastUpdated).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN')}
@@ -599,7 +599,7 @@ const Standings = () => {
 
           {/* Format Explanation */}
           <div className="mt-6 p-6 bg-gradient-to-br from-[#003B73] to-[#00924A] text-white rounded-2xl shadow-xl border border-white/10">
-            <h3 className="font-bold mb-3">Cơ chế mới của Cúp C1 châu Âu</h3>
+            <h3 className="font-bold mb-3">Cơ chế mới của Cúp C1 Việt Nam</h3>
             <div className="grid md:grid-cols-2 gap-4 text-sm">
               <div>
                 <h4 className="font-semibold mb-2">Vòng bảng</h4>

@@ -140,7 +140,7 @@ const TeamProfilePage = () => {
           <p className="text-xs uppercase tracking-[0.35em] text-white/60">Hồ sơ đội bóng</p>
           <h1 className="text-4xl font-display text-white mt-2">{team.name}</h1>
           <p className="text-white/70 text-sm mt-1">
-            {team.country && String(team.country).trim().toLowerCase() !== 'europe' ? toCountryLabel(team.country) : 'Châu Âu'}
+            {team.country && String(team.country).trim().toLowerCase() !== 'europe' ? toCountryLabel(team.country) : 'Việt Nam'}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">

@@ -59,7 +59,7 @@ const PublicHeader = () => {
             <div className="flex items-center gap-6">
               <span className="text-white/70 font-medium hidden md:flex items-center gap-2">
                 <Globe size={13} />
-                Trang chính thức của UEFA Champions League
+                Trang chính thức của Giải Bóng Đá Việt Nam
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -126,13 +126,13 @@ const PublicHeader = () => {
               <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden hover:border-[#00d4ff]/50 transition-all">
                 <img
                   src={uefaPrimaryMark}
-                  alt="Cúp C1 châu Âu"
+                  alt="Cúp C1 Việt Nam"
                   className="h-10 w-10 object-contain"
                 />
               </div>
               <div className="hidden md:block">
                 <div className="text-white font-bold text-lg leading-tight">UEFA</div>
-                <div className="text-[#00d4ff] text-[10px] font-semibold uppercase tracking-wider">Cúp C1 châu Âu</div>
+                <div className="text-[#00d4ff] text-[10px] font-semibold uppercase tracking-wider">Cúp C1 Việt Nam</div>
               </div>
             </Link>
 
@@ -142,7 +142,7 @@ const PublicHeader = () => {
               <div className="px-4 py-2">
                 <span className="text-[#00d4ff] font-semibold text-sm flex items-center gap-2">
                   <span className="w-1.5 h-1.5 bg-[#00d4ff] rounded-full"></span>
-                  Cúp C1 châu Âu
+                  Cúp C1 Việt Nam
                 </span>
               </div>
 

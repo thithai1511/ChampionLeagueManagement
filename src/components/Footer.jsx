@@ -6,10 +6,10 @@ const Footer = () => {
     {
       title: 'Giải đấu',
       links: [
-        'Cúp C1 châu Âu',
-        'Cúp C2 châu Âu',
+        'Cúp C1 Việt Nam',
+        'Cúp C2 Việt Nam',
         'Cúp Conference',
-        'Siêu cúp châu Âu',
+        'Siêu cúp Việt Nam',
         'Giải trẻ',
         'Cúp C1 nữ',
         'Cúp C1 Futsal'
@@ -18,12 +18,12 @@ const Footer = () => {
     {
       title: 'Đội tuyển quốc gia',
       links: [
-        'Vô địch châu Âu',
+        'Vô địch Việt Nam',
         'UEFA Nations League',
         'Vòng loại World Cup',
-        'Giải trẻ châu Âu',
+        'Giải trẻ Việt Nam',
         'Euro nữ',
-        'Futsal châu Âu'
+        'Futsal Việt Nam'
       ]
     },
     {
@@ -75,11 +75,11 @@ const Footer = () => {
               </div>
               <div>
                 <div className="text-white font-bold text-xl">UEFA</div>
-                <div className="text-uefa-gray text-sm">Liên đoàn bóng đá châu Âu</div>
+                <div className="text-uefa-gray text-sm">Liên đoàn bóng đá Việt Nam</div>
               </div>
             </div>
             <p className="text-uefa-gray text-sm leading-relaxed mb-6">
-              UEFA là cơ quan quản lý bóng đá châu Âu và tổ chức một số giải đấu bóng đá nổi tiếng và danh giá nhất châu lục châu Âu.
+              VFF là cơ quan quản lý bóng đá Việt Nam và tổ chức một số giải đấu bóng đá nổi tiếng và danh giá nhất Việt Nam.
             </p>
             
             {/* Contact Info */}

@@ -32,10 +32,10 @@ const Header = () => {
   ]
 
   const competitions = [
-    { name: 'Cúp C1 châu Âu', path: '/champions-league', active: true },
-    { name: 'Cúp C2 châu Âu', path: '/europa-league' },
+    { name: 'Cúp C1 Việt Nam', path: '/champions-league', active: true },
+    { name: 'Cúp C2 Việt Nam', path: '/europa-league' },
     { name: 'Cúp Conference', path: '/conference-league' },
-    { name: 'Siêu cúp châu Âu', path: '/super-cup' },
+    { name: 'Siêu cúp Việt Nam', path: '/super-cup' },
     { name: 'Giải trẻ', path: '/youth-league' },
     { name: 'Cúp C1 nữ', path: '/womens-champions-league' },
     { name: 'Cúp C1 Futsal', path: '/futsal-champions-league' },
@@ -124,7 +124,7 @@ const Header = () => {
               </div>
               <div className="hidden md:block">
                 <div className="text-uefa-blue font-bold text-xl">UEFA</div>
-                <div className="text-uefa-gray text-sm font-medium">Cúp C1 châu Âu</div>
+                <div className="text-uefa-gray text-sm font-medium">Cúp C1 Việt Nam</div>
               </div>
             </Link>
 

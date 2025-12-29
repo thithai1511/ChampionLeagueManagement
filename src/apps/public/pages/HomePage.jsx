@@ -250,19 +250,19 @@ const HomePage = () => {
               <div className="flex items-center gap-4">
                 <img
                   src={uefaWordmark}
-                  alt="Logo chữ Cúp C1 châu Âu"
+                  alt="Logo chữ Giải Bóng Đá Việt Nam"
                   className="h-12 md:h-14 w-auto drop-shadow-2xl opacity-90"
                   loading="lazy"
                 />
                 <span className="text-[10px] uppercase tracking-[0.4em] text-cyan-300/60 font-semibold bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                  Official digital experience
+                  Trải nghiệm kỹ thuật số chính thức
                 </span>
               </div>
               
               <div className="space-y-4">
                 <p className="text-xs uppercase tracking-[0.5em] text-cyan-300 font-bold flex items-center gap-2 animate-pulse">
                   <span className="w-8 h-[2px] bg-gradient-to-r from-cyan-300 via-blue-400 to-transparent animate-shimmer"></span>
-                  European Nights
+                  Đêm Bóng Đá Việt Nam
                   <span className="w-2 h-2 rounded-full bg-cyan-300 animate-ping"></span>
                 </p>
                 
@@ -276,7 +276,7 @@ const HomePage = () => {
                         letterSpacing: '0.2em'
                       }}
                     >
-                      Liên đoàn bóng đá châu Âu
+                      Liên đoàn bóng đá Việt Nam
                     </span>
                   </span>
 
@@ -458,7 +458,7 @@ const HomePage = () => {
             <div className="absolute inset-0">
               <img 
                 src={trophyImage} 
-                alt="UEFA Champions League Trophy" 
+                alt="Cúp Giải Bóng Đá Việt Nam" 
                 className="w-full h-full object-cover object-center scale-105 group-hover:scale-110 transition-transform duration-700"
               />
               {/* Overlay gradient for text readability */}
@@ -1015,7 +1015,7 @@ const HomePage = () => {
 
             {/* Description */}
             <p className="text-white/70 text-lg leading-relaxed max-w-lg">
-              Quả bóng chính thức của UEFA Champions League mùa giải 2024/25. 
+              Quả bóng chính thức của Giải Bóng Đá Việt Nam mùa giải 2024/25. 
               Thiết kế độc đáo với họa tiết <span className="text-rose-400 font-semibold">ngôi sao</span> biểu tượng 
               và công nghệ <span className="text-cyan-400 font-semibold">Connected Ball</span>.
             </p>
@@ -1054,7 +1054,7 @@ const HomePage = () => {
         {[
           {
             title: 'Đội Bóng',
-            description: 'Khám phá 36 CLB hàng đầu châu Âu với thông tin chi tiết',
+            description: 'Khám phá 36 CLB hàng đầu Việt Nam với thông tin chi tiết',
             to: '/teams',
             icon: Users,
             gradient: 'from-blue-500/20 to-cyan-500/10',
@@ -1072,7 +1072,7 @@ const HomePage = () => {
           },
           {
             title: 'Tin Tức',
-            description: 'Cập nhật mới nhất từ giải đấu danh giá nhất châu Âu',
+            description: 'Cập nhật mới nhất từ giải đấu danh giá nhất Việt Nam',
             to: '/news',
             icon: Star,
             gradient: 'from-amber-500/20 to-orange-500/10',

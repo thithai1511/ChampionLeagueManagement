@@ -98,14 +98,14 @@ export const COMPETITION_STAGE_LABELS = {
 }
 
 export const COMPETITION_NAME_LABELS = {
-  'uefa champions league': 'Cúp C1 châu Âu',
-  'champions league': 'Cúp C1 châu Âu',
-  'uefa europa league': 'Cúp C2 châu Âu',
-  'europa league': 'Cúp C2 châu Âu',
-  'uefa europa conference league': 'Cúp C3 châu Âu',
-  'europa conference league': 'Cúp C3 châu Âu',
-  'uefa super cup': 'Siêu cúp châu Âu',
-  'super cup': 'Siêu cúp châu Âu'
+  'uefa champions league': 'Cúp C1 Việt Nam',
+  'champions league': 'Cúp C1 Việt Nam',
+  'uefa europa league': 'Cúp C2 Việt Nam',
+  'europa league': 'Cúp C2 Việt Nam',
+  'uefa europa conference league': 'Cúp C3 Việt Nam',
+  'europa conference league': 'Cúp C3 Việt Nam',
+  'uefa super cup': 'Siêu cúp Việt Nam',
+  'super cup': 'Siêu cúp Việt Nam'
 }
 
 export const PLAYER_POSITION_LABELS = {

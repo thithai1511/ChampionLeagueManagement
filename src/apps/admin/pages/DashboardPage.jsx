@@ -502,7 +502,7 @@ const DashboardPage = () => {
             </div>
             
             <p className="text-blue-200/60 text-lg max-w-md">
-              Quản lý toàn diện giải đấu danh giá nhất châu Âu. Theo dõi trận đấu, đội bóng và cầu thủ.
+              Quản lý toàn diện giải đấu danh giá nhất Việt Nam. Theo dõi trận đấu, đội bóng và cầu thủ.
             </p>
             
             <div className="flex items-center gap-4 mt-6">

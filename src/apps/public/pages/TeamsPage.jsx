@@ -168,7 +168,7 @@ const TeamsPage = () => {
           <div className="flex items-center gap-2 mb-4">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/20 border border-blue-400/30 backdrop-blur-sm">
               <Star size={14} className="text-blue-400" />
-              <span className="text-blue-300 text-xs uppercase tracking-[0.2em] font-bold">36 CLB hàng đầu châu Âu</span>
+              <span className="text-blue-300 text-xs uppercase tracking-[0.2em] font-bold">36 CLB hàng đầu Việt Nam</span>
             </div>
           </div>
 

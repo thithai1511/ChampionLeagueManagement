@@ -90,7 +90,7 @@ const PublicFooter = () => {
               </div>
               
               <p className="text-white/70 text-sm leading-relaxed max-w-md">
-                Nơi những ngôi sao sáng nhất châu Âu cùng tranh tài. Theo dõi lịch thi đấu, 
+                Nơi những ngôi sao sáng nhất Việt Nam cùng tranh tài. Theo dõi lịch thi đấu, 
                 kết quả trực tiếp và thống kê chi tiết từ giải đấu danh giá nhất thế giới.
               </p>
 

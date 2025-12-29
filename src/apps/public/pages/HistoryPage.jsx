@@ -16,7 +16,7 @@ const timelineEvents = [
   {
     year: '1955',
     title: 'Khởi đầu huyền thoại',
-    description: 'Giải đấu European Cup ra đời với 16 đội tham dự. Real Madrid vô địch mùa giải đầu tiên.',
+    description: 'Giải đấu bóng đá quốc gia ra đời với 16 đội tham dự. Câu lạc bộ vô địch mùa giải đầu tiên.',
     highlight: true,
     image: null
   },
@@ -180,8 +180,8 @@ const HistoryPage = () => {
               <span className="block text-amber-400">Bóng đá câu lạc bộ</span>
             </h2>
             <p className="text-white/70 leading-relaxed">
-              UEFA Champions League, tiền thân là European Cup, được thành lập năm 1955 bởi nhà báo thể thao người Pháp Gabriel Hanot. 
-              Từ một giải đấu với 16 đội, nay đã phát triển thành sân chơi của 36 câu lạc bộ hàng đầu châu Âu.
+              Giải Bóng Đá Việt Nam, tiền thân là Giải Đấu Quốc Gia, được thành lập năm 1955 bởi nhà báo thể thao người Pháp Gabriel Hanot. 
+              Từ một giải đấu với 16 đội, nay đã phát triển thành sân chơi của 36 câu lạc bộ hàng đầu Việt Nam.
             </p>
             <p className="text-white/70 leading-relaxed">
               Chiếc cúp "Big Ears" cao 73.5cm, nặng 7.5kg bạc nguyên chất, là biểu tượng cho đỉnh cao vinh quang 

@@ -1,6 +1,6 @@
-﻿# Champion League Management System
+﻿# Hệ Thống Quản Lý Giải Bóng Đá Việt Nam
 
-Hệ thống quản lý giải đấu Champions League - Full-stack application với Node.js + React
+Hệ thống quản lý Giải Bóng Đá Việt Nam - Full-stack application với Node.js + React
 
 ##  Documentation
 

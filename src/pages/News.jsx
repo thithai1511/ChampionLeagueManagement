@@ -140,9 +140,9 @@ const News = () => {
 
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="uefa-section-title">Tin tức UEFA Champions League</h1>
+        <h1 className="uefa-section-title">Tin tức Giải Bóng Đá Việt Nam</h1>
         <p className="uefa-section-subtitle">
-          Tin tức mới nhất, báo cáo trận đấu và cập nhật từ Champions League
+          Tin tức mới nhất, báo cáo trận đấu và cập nhật từ Giải Bóng Đá Việt Nam
         </p>
       </div>
 

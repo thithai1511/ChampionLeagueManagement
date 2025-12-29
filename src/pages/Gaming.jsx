@@ -179,9 +179,9 @@ const Gaming = () => {
 
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="uefa-section-title">UEFA Champions League Gaming</h1>
+        <h1 className="uefa-section-title">Giải Bóng Đá Việt Nam Gaming</h1>
         <p className="uefa-section-subtitle">
-          Play official UEFA games and compete with fans worldwide
+          Chơi các trò chơi chính thức và thi đấu với người hâm mộ toàn cầu
         </p>
       </div>
 

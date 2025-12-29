@@ -232,7 +232,7 @@ const PlayerLookup = () => {
           >
             <h1 className="text-5xl font-bold text-white mb-6">TRA CỨU CẦU THỦ</h1>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Xem nhanh thông tin và đội hình thực tế của UEFA Champions League
+              Xem nhanh thông tin và đội hình thực tế của Giải Bóng Đá Việt Nam
             </p>
           </motion.div>
 

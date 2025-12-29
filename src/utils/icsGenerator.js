@@ -30,7 +30,7 @@ export const generateICS = (matches) => {
         icsContent.push(`DTSTART:${formatDate(startDateTime)}`);
         icsContent.push(`DTEND:${formatDate(endDateTime)}`);
         icsContent.push(`SUMMARY:${match.homeTeam.name} vs ${match.awayTeam.name}`);
-        icsContent.push(`DESCRIPTION:UEFA Champions League - ${match.matchday ? 'Matchday ' + match.matchday : 'Fixture'}\\nVenue: ${match.venue}`);
+        icsContent.push(`DESCRIPTION:Giải Bóng Đá Việt Nam - ${match.matchday ? 'Matchday ' + match.matchday : 'Fixture'}\\nVenue: ${match.venue}`);
         icsContent.push(`LOCATION:${match.venue}`);
         icsContent.push('STATUS:CONFIRMED');
         icsContent.push('END:VEVENT');
