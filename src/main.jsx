@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import './utils/timezone-init' // Must be first to override Date prototype
 import App from './App.jsx'
 import './index.css'
 import './i18n' // Import cấu hình i18n
