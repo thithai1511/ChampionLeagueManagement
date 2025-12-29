@@ -1,23 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Target, TrendingUp, RefreshCw, AlertCircle } from 'lucide-react';
-import PlayersService from '../../../layers/application/services/PlayersService';
+import StatsService from '../../../layers/application/services/StatsService';
+import TeamsService from '../../../layers/application/services/TeamsService';
+import logger from '../../../shared/utils/logger';
 
 const TopScorers = () => {
   const [topScorers, setTopScorers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedSeasonId, setSelectedSeasonId] = useState(null);
+
+  // Load seasons and get latest season
+  useEffect(() => {
+    const loadSeasons = async () => {
+      try {
+        const response = await TeamsService.getCompetitionSeasons();
+        const seasons = Array.isArray(response) ? response : (response?.data || []);
+        if (seasons.length > 0) {
+          // Get season ID from the first season (latest)
+          const latestSeason = seasons[0];
+          setSelectedSeasonId(latestSeason.id || latestSeason.season_id);
+        }
+      } catch (err) {
+        logger.error('Failed to load seasons for top scorers:', err);
+      }
+    };
+    loadSeasons();
+  }, []);
 
   const fetchTopScorers = async () => {
+    if (!selectedSeasonId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      const response = await PlayersService.listPlayers({
-        sortBy: 'goals',
-        sortOrder: 'desc',
-        limit: 5
-      });
-      setTopScorers(response?.players || []);
+      const data = await StatsService.getTopScorers(selectedSeasonId, 5);
+      
+      // Map backend data to frontend format
+      const mappedScorers = (data || []).map((scorer) => ({
+        id: scorer.playerId || scorer.seasonPlayerId,
+        name: scorer.playerName || scorer.name,
+        displayName: scorer.playerName || scorer.name,
+        teamName: scorer.teamName || scorer.team_name,
+        nationality: scorer.nationality || '',
+        goals: scorer.goals || 0,
+        matchesPlayed: scorer.matchesPlayed || scorer.matches_played || 0
+      }));
+      
+      setTopScorers(mappedScorers);
     } catch (err) {
       console.error('Failed to fetch top scorers:', err);
       setError('Không thể tải dữ liệu vua phá lưới');
@@ -28,7 +62,7 @@ const TopScorers = () => {
 
   useEffect(() => {
     fetchTopScorers();
-  }, []);
+  }, [selectedSeasonId]);
 
   const getTrendIcon = (trend) => {
     if (trend === 'up') {
