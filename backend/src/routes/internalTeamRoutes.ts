@@ -47,7 +47,7 @@ router.get("/", async (req: AuthenticatedRequest, res, next) => {
     // ClubManager: only see their managed team
     const managedTeamId = (req.user as any)?.managed_team_id;
     const isAdmin = req.user?.permissions?.includes("manage_teams");
-    
+
     if (!isAdmin && managedTeamId) {
       whereClause = "WHERE team_id = @managedTeamId";
       params.managedTeamId = managedTeamId;
@@ -225,7 +225,7 @@ router.post("/", ...requireTeamManagement, async (req: AuthenticatedRequest, res
  * GET /internal/teams/:id - Get team by internal ID
  * ClubManager: only see their own team
  */
-router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
+router.get("/:id", requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const teamId = parseInt(req.params.id, 10);
     if (isNaN(teamId)) {
@@ -235,7 +235,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
     // ClubManager: check if this team is their managed team
     const managedTeamId = (req.user as any)?.managed_team_id;
     const isAdmin = req.user?.permissions?.includes("manage_teams");
-    
+
     if (!isAdmin && managedTeamId && teamId !== managedTeamId) {
       return res.status(403).json({ error: "You can only view your assigned team" });
     }
@@ -312,7 +312,7 @@ router.get("/:id/players", requireAuth, async (req: AuthenticatedRequest, res, n
     const hasManageOwnTeam = req.user?.permissions?.includes("manage_own_team");
     const hasViewOwnTeam = req.user?.permissions?.includes("view_own_team");
     const canSeeAll = isSuperAdmin || hasManageTeams;
-    
+
     if (!canSeeAll) {
       // Get user's team IDs - from token or fallback to database lookup
       let userTeamIds = (req.user?.teamIds || []).map((id: any) => Number(id));

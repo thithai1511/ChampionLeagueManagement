@@ -19,6 +19,7 @@ import {
 } from "../services/matchService";
 import { syncMatchesOnly } from "../services/syncService";
 import { createMatchEvent, deleteMatchEvent, disallowMatchEvent } from "../services/matchEventService";
+import { getMatchLineups, submitLineup } from "../services/matchLineupService";
 import * as lineupService from "../services/matchLineupService";
 import { isPlayerSuspendedForMatch } from "../services/disciplinaryService";
 
@@ -217,6 +218,58 @@ router.get("/:id/events", async (req, res, next) => {
     );
 
     res.json({ data: eventsResult.recordset });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/:id/lineups", async (req, res, next) => {
+  try {
+    const matchId = Number(req.params.id);
+    if (!Number.isInteger(matchId) || matchId <= 0) {
+      return res.status(400).json({ message: "Invalid match id" });
+    }
+    const lineups = await getMatchLineups(matchId);
+    console.log(`[GET Lineups] Match ${matchId}: Retrieved ${lineups.length} lineups`);
+    console.log(`[GET Lineups] First item:`, lineups[0]);
+    res.json({ data: lineups });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/:id/lineups", ...requireMatchManagement, async (req: any, res, next) => {
+  try {
+    const matchId = Number(req.params.id);
+    if (!Number.isInteger(matchId) || matchId <= 0) {
+      return res.status(400).json({ message: "Invalid match id" });
+    }
+
+    console.log('[Lineup Save] Received payload:', JSON.stringify(req.body, null, 2));
+
+    // Expected body: { seasonTeamId, seasonId, startingPlayerIds, substitutePlayerIds }
+    const { seasonTeamId, seasonId, startingPlayerIds, substitutePlayerIds } = req.body;
+
+    if (!seasonTeamId || !seasonId || !Array.isArray(startingPlayerIds) || !Array.isArray(substitutePlayerIds)) {
+      return res.status(400).json({ message: "Invalid payload. Required: seasonTeamId, seasonId, startingPlayerIds[], substitutePlayerIds[]" });
+    }
+
+    const result = await submitLineup({
+      matchId,
+      seasonId,
+      seasonTeamId,
+      startingPlayerIds,
+      substitutePlayerIds
+    }, req.user?.sub);
+
+    console.log('[Lineup Save] Validation result:', result);
+
+    if (!result.success) {
+      console.log('[Lineup Save] Validation failed:', result.errors);
+      return res.status(400).json({ message: "Lineup validation failed", errors: result.errors });
+    }
+
+    res.json({ message: "Lineup submitted successfully" });
   } catch (error) {
     next(error);
   }
@@ -635,7 +688,7 @@ router.post("/:matchId/lineups", requireAuth, async (req, res, next) => {
         suspendedPlayers: suspendedPlayers.map(sp => ({
           seasonPlayerId: sp.seasonPlayerId,
           reason: sp.reason,
-          message: sp.reason === 'RED_CARD' 
+          message: sp.reason === 'RED_CARD'
             ? 'Player suspended due to red card'
             : 'Player suspended due to accumulation of yellow cards'
         }))
