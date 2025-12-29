@@ -43,14 +43,16 @@ export const getMatchEvents = async (matchId: number): Promise<MatchEvent[]> => 
 
 export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: number; playerId: number }>): Promise<MatchEvent> => {
   // 1. Fetch RulesetID and SeasonID from Match
-  const matchData = await query<{ ruleset_id: number; season_id: number }>(
-    "SELECT ruleset_id, season_id FROM matches WHERE match_id = @matchId",
+  const matchData = await query<{ ruleset_id: number; season_id: number; status: string }>(
+    "SELECT ruleset_id, season_id, status FROM matches WHERE match_id = @matchId",
     { matchId: input.matchId }
   );
   const rulesetId = matchData.recordset[0]?.ruleset_id;
   const seasonId = matchData.recordset[0]?.season_id;
+  const status = matchData.recordset[0]?.status;
 
   if (!rulesetId || !seasonId) throw new Error("Match or Ruleset not found");
+  if (status === 'completed') throw new Error("Cannot add events to a completed match");
 
   // 2. Resolve SeasonTeamID from TeamID + SeasonID
   const teamData = await query<{ season_team_id: number }>(
@@ -97,7 +99,8 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
       match_id, season_id, season_team_id, ruleset_id,
       event_type, event_minute, description, 
       season_player_id, player_name, 
-      goal_type_code, card_type, -- Added
+      goal_type_code, card_type,
+      player_id, assist_player_id,
       created_at
     )
     OUTPUT INSERTED.match_event_id
@@ -105,7 +108,8 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
       @matchId, @seasonId, @seasonTeamId, @rulesetId,
       @type, @minute, @description,
       @seasonPlayerId, @playerName, 
-      @goalTypeCode, @cardType, -- Added
+      @goalTypeCode, @cardType,
+      @playerId, @assistPlayerId,
       SYSUTCDATETIME()
     );
   `;
@@ -121,7 +125,9 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     seasonPlayerId: seasonPlayerId ?? null,
     playerName: playerName ?? null,
     goalTypeCode: goalTypeCode,
-    cardType: cardType
+    cardType: cardType,
+    playerId: input.playerId ?? null,
+    assistPlayerId: input.assistPlayerId ?? null
   });
 
   // 5. Update Match Score (if Goal or Own Goal)
@@ -163,19 +169,22 @@ export const deleteMatchEvent = async (eventId: number): Promise<MatchEvent | nu
   // 1. Get event details before deleting
   const eventResult = await query<MatchEvent>(
     `SELECT 
-            match_event_id as matchEventId,
-            match_id as matchId,
-            season_id as seasonId,
-            season_team_id as seasonTeamId,
-            event_type as type,
-            card_type as cardType
-         FROM match_events 
-         WHERE match_event_id = @eventId`,
+            me.match_event_id as matchEventId,
+            me.match_id as matchId,
+            me.season_id as seasonId,
+            me.season_team_id as seasonTeamId,
+            me.event_type as type,
+            me.card_type as cardType,
+            m.status as matchStatus
+         FROM match_events me
+         JOIN matches m ON me.match_id = m.match_id
+         WHERE me.match_event_id = @eventId`,
     { eventId }
   );
   const event = eventResult.recordset[0];
 
   if (!event) return null;
+  if ((event as any).matchStatus === 'completed') throw new Error("Cannot delete events from a completed match");
 
   // 2. Revert Score if Goal
   if (event.type === 'GOAL' || event.type === 'OWN_GOAL') {
@@ -217,16 +226,19 @@ export const disallowMatchEvent = async (eventId: number, reason: string): Promi
   // 1. Get event
   const eventResult = await query<MatchEvent>(
     `SELECT 
-            match_event_id as matchEventId,
-            match_id as matchId,
-            season_team_id as seasonTeamId,
-            event_type as type
-         FROM match_events 
-         WHERE match_event_id = @eventId`,
+            me.match_event_id as matchEventId,
+            me.match_id as matchId,
+            me.season_team_id as seasonTeamId,
+            me.event_type as type,
+            m.status as matchStatus
+         FROM match_events me
+         JOIN matches m ON me.match_id = m.match_id
+         WHERE me.match_event_id = @eventId`,
     { eventId }
   );
   const event = eventResult.recordset[0];
   if (!event) return null;
+  if ((event as any).matchStatus === 'completed') throw new Error("Cannot modify events in a completed match");
 
   // 2. Revert Score if Goal (Before changing type to OTHER)
   if (event.type === 'GOAL' || event.type === 'OWN_GOAL') {

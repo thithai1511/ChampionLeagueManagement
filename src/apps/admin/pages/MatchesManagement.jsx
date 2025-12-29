@@ -93,10 +93,10 @@ const formatTime = (isoString) => {
 
 const MatchesManagement = () => {
   const navigate = useNavigate()
-  
+
   // Tab state
   const [activeTab, setActiveTab] = useState('all') // 'all' | 'today'
-  
+
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -113,12 +113,13 @@ const MatchesManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showOfficialModal, setShowOfficialModal] = useState(false)
   const [selectedMatchForOfficials, setSelectedMatchForOfficials] = useState(null)
-  
+
   // Today matches state
   const [todayMatches, setTodayMatches] = useState([])
   const [todayLoading, setTodayLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
-  
+  const [refreshKey, setRefreshKey] = useState(0)
+
   const getTodayRange = () => {
     const start = new Date()
     start.setHours(0, 0, 0, 0)
@@ -129,7 +130,7 @@ const MatchesManagement = () => {
       dateTo: end.toISOString()
     }
   }
-  
+
   const fetchTodayMatches = async () => {
     setTodayLoading(true)
     try {
@@ -147,7 +148,7 @@ const MatchesManagement = () => {
       setTodayLoading(false)
     }
   }
-  
+
   // Auto-refresh today matches when tab is active
   useEffect(() => {
     if (activeTab === 'today') {
@@ -156,7 +157,7 @@ const MatchesManagement = () => {
       return () => clearInterval(interval)
     }
   }, [activeTab])
-  
+
   const getTodayStatusColor = (status) => {
     const s = status?.toUpperCase()
     if (s === 'IN_PROGRESS' || s === 'LIVE' || s === 'IN_PLAY') return 'bg-red-500 text-white animate-pulse'
@@ -235,7 +236,7 @@ const MatchesManagement = () => {
     return () => {
       isMounted = false
     }
-  }, [filters, pagination.page, pagination.limit])
+  }, [filters, pagination.page, pagination.limit, refreshKey])
 
   const totals = useMemo(() => {
     const counters = {
@@ -431,22 +432,20 @@ const MatchesManagement = () => {
       <div className="mb-6 flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
         <button
           onClick={() => setActiveTab('all')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'all'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'all'
+            ? 'bg-white text-blue-600 shadow-sm'
+            : 'text-gray-600 hover:text-gray-900'
+            }`}
         >
           <Calendar size={18} />
           <span>Tất cả trận đấu</span>
         </button>
         <button
           onClick={() => setActiveTab('today')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'today'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'today'
+            ? 'bg-white text-blue-600 shadow-sm'
+            : 'text-gray-600 hover:text-gray-900'
+            }`}
         >
           <Play size={18} />
           <span>Trận trong ngày</span>
@@ -460,246 +459,249 @@ const MatchesManagement = () => {
       {activeTab === 'all' && (
         <>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="flex items-center space-x-3">
-            <Calendar size={18} className="text-gray-400" />
-            <input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
-              placeholder="From"
-            />
-          </div>
-          <div className="flex items-center space-x-3">
-            <Calendar size={18} className="text-gray-400" />
-            <input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
-              placeholder="To"
-            />
-          </div>
-          <div className="flex items-center space-x-3">
-            <Filter size={18} className="text-gray-400" />
-            <select
-              value={filters.seasonId}
-              onChange={(e) => setFilters(prev => ({ ...prev, seasonId: e.target.value }))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
-            >
-              <option value="">Tất cả mùa giải</option>
-              {seasons.map(season => (
-                <option key={season.seasonId || season.id} value={season.seasonId || season.id}>
-                  {season.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Filter size={18} className="text-gray-400" />
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
-            >
-              {statusOptions.map(option => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Matches ({pagination.total})</h2>
-            <div className="text-sm text-gray-600">
-              Page {pagination.page} of {pagination.totalPages}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="flex items-center space-x-3">
+                <Calendar size={18} className="text-gray-400" />
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                  placeholder="From"
+                />
+              </div>
+              <div className="flex items-center space-x-3">
+                <Calendar size={18} className="text-gray-400" />
+                <input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                  placeholder="To"
+                />
+              </div>
+              <div className="flex items-center space-x-3">
+                <Filter size={18} className="text-gray-400" />
+                <select
+                  value={filters.seasonId}
+                  onChange={(e) => setFilters(prev => ({ ...prev, seasonId: e.target.value }))}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                >
+                  <option value="">Tất cả mùa giải</option>
+                  {seasons.map(season => (
+                    <option key={season.seasonId || season.id} value={season.seasonId || season.id}>
+                      {season.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Filter size={18} className="text-gray-400" />
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                >
+                  {statusOptions.map(option => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
-        </div>
 
-        {error && (
-          <div className="p-6 text-red-600 bg-red-50 border-b border-red-100">
-            {error}
-          </div>
-        )}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Matches ({pagination.total})</h2>
+                <div className="text-sm text-gray-600">
+                  Page {pagination.page} of {pagination.totalPages}
+                </div>
+              </div>
+            </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Match</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Venue</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Officials</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
-                    <div className="flex items-center justify-center space-x-2">
-                      <Loader2 className="animate-spin" size={20} />
-                      <span>Loading matches...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : matches.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
-                    No matches found for the selected filters.
-                  </td>
-                </tr>
-              ) : (
-                matches.map(match => (
-                  <tr key={match.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {statusIcon(match.status)}
-                        <div className="ml-3">
-                          <div className="font-medium text-gray-900">
-                            {match.homeTeamName} vs {match.awayTeamName}
-                          </div>
-                          <div className="text-gray-500 text-sm">
-                            Matchday {match.matchday ?? '—'}
-                          </div>
-                          {typeof match.scoreHome === 'number' && typeof match.scoreAway === 'number' && (
-                            <div className="text-blue-600 font-bold text-sm">
-                              {match.scoreHome} - {match.scoreAway}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatDate(match.utcDate)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {formatTime(match.utcDate)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-900 space-x-2">
-                        <MapPin size={14} className="text-gray-400" />
-                        <span>{match.venue || 'TBC'}</span>
-                      </div>
-                      <div className="text-sm text-gray-500">{match.stage || match.groupName || 'League Phase'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => openOfficialModal(match)}
-                        className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
-                      >
-                        <Shield size={14} />
-                        <span>{match.referee || 'Phân công'}</span>
-                      </button>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {match.referee ? 'Nhấn để chỉnh sửa' : 'Chưa phân công'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {statusBadge(match.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => setEditingMatch(match)}
-                          className="text-blue-600 hover:text-blue-900 transition-colors"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(match)}
-                          className="text-gray-600 hover:text-gray-900 transition-colors"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(match.id)}
-                          className="text-red-600 hover:text-red-900 transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+            {error && (
+              <div className="p-6 text-red-600 bg-red-50 border-b border-red-100">
+                {error}
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Match</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Venue</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Officials</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-500">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Loader2 className="animate-spin" size={20} />
+                          <span>Loading matches...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : matches.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-500">
+                        No matches found for the selected filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    matches.map(match => (
+                      <tr key={match.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {statusIcon(match.status)}
+                            <div className="ml-3">
+                              <div className="font-medium text-gray-900">
+                                {match.homeTeamName} vs {match.awayTeamName}
+                              </div>
+                              <div className="text-gray-500 text-sm">
+                                Matchday {match.matchday ?? '—'}
+                              </div>
+                              {typeof match.scoreHome === 'number' && typeof match.scoreAway === 'number' && (
+                                <div className="text-blue-600 font-bold text-sm">
+                                  {match.scoreHome} - {match.scoreAway}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {formatDate(match.utcDate)}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {formatTime(match.utcDate)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900 space-x-2">
+                            <MapPin size={14} className="text-gray-400" />
+                            <span>{match.venue || 'TBC'}</span>
+                          </div>
+                          <div className="text-sm text-gray-500">{match.stage || match.groupName || 'League Phase'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => openOfficialModal(match)}
+                            className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
+                          >
+                            <Shield size={14} />
+                            <span>{match.referee || 'Phân công'}</span>
+                          </button>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {match.referee ? 'Nhấn để chỉnh sửa' : 'Chưa phân công'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {statusBadge(match.status)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setEditingMatch(match)}
+                              className="text-blue-600 hover:text-blue-900 transition-colors"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            {!['FINISHED', 'COMPLETED'].includes(match.status?.toUpperCase()) && (
+                              <button
+                                onClick={() => openEditModal(match)}
+                                className="text-gray-600 hover:text-gray-900 transition-colors"
+                                title="Chỉnh sửa thông tin"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDelete(match.id)}
+                              className="text-red-600 hover:text-red-900 transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-        {/* Pagination Footer */}
-        <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200 bg-gray-50">
-          <div className="text-sm text-gray-500">
-            Showing <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> to <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="font-medium">{pagination.total}</span> results
+            {/* Pagination Footer */}
+            <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200 bg-gray-50">
+              <div className="text-sm text-gray-500">
+                Showing <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> to <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="font-medium">{pagination.total}</span> results
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                  disabled={pagination.page === 1}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, page: Math.min(pagination.totalPages, prev.page + 1) }))}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
-              disabled={pagination.page === 1}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setPagination(prev => ({ ...prev, page: Math.min(pagination.totalPages, prev.page + 1) }))}
-              disabled={pagination.page === pagination.totalPages}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <Calendar size={24} className="text-blue-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{pagination.total}</div>
-                <div className="text-gray-600 text-sm">Tổng trận đấu</div>
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <Calendar size={24} className="text-blue-500 mr-3" />
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{pagination.total}</div>
+                  <div className="text-gray-600 text-sm">Tổng trận đấu</div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <CheckCircle size={24} className="text-green-500 mr-3" />
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{totals.finished}</div>
+                  <div className="text-gray-600 text-sm">Đã hoàn thành</div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <Clock size={24} className="text-blue-500 mr-3" />
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{totals.scheduled}</div>
+                  <div className="text-gray-600 text-sm">Đã lên lịch</div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <Play size={24} className="text-red-500 mr-3" />
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{totals.live}</div>
+                  <div className="text-gray-600 text-sm">Đang diễn ra</div>
+                </div>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <CheckCircle size={24} className="text-green-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{totals.finished}</div>
-                <div className="text-gray-600 text-sm">Đã hoàn thành</div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <Clock size={24} className="text-blue-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{totals.scheduled}</div>
-                <div className="text-gray-600 text-sm">Đã lên lịch</div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <Play size={24} className="text-red-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{totals.live}</div>
-                <div className="text-gray-600 text-sm">Đang diễn ra</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
+        </>
       )}
 
       {/* Today Matches Tab */}
@@ -716,7 +718,7 @@ const MatchesManagement = () => {
               </div>
             </div>
           </div>
-          
+
           {todayLoading && todayMatches.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <Loader2 className="animate-spin mx-auto mb-2" size={24} />
@@ -908,7 +910,7 @@ const MatchesManagement = () => {
         }}
         match={selectedMatchForOfficials}
         onSuccess={() => {
-          // Optionally refresh matches list after successful assignment
+          setRefreshKey(prev => prev + 1)
         }}
       />
     </div>
