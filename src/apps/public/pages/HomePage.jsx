@@ -4,9 +4,9 @@ import { Play, ArrowRight, Trophy, Users, Activity, CalendarDays, Shield, Star, 
 import uefaWordmark from '@/assets/images/UEFA_CHAMPIONS_LEAGUE.png';
 import trophyImage from '@/assets/images/cup.avif';
 import footballImage from '@/assets/images/trai_bong.jpg';
-import PlayersService from '../../../layers/application/services/PlayersService';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import TeamsService from '../../../layers/application/services/TeamsService';
+import StatsService from '../../../layers/application/services/StatsService';
 import { toCompetitionStageLabel, toCountryLabel, toMatchStatusLabel, toPlayerPositionLabel } from '../../../shared/utils/vi';
 import BestXI from '../../../components/BestXI';
 
@@ -103,14 +103,28 @@ const HomePage = () => {
         const teamsResponse = await TeamsService.getAllTeams({ limit: 100 });
         setTeams(teamsResponse?.teams || []);
 
-        // Fetch top scorer
-        const playersResponse = await PlayersService.listPlayers({ 
-          sortBy: 'goals', 
-          sortOrder: 'desc', 
-          limit: 1 
-        });
-        if (playersResponse?.players?.length > 0) {
-          setTopScorer(playersResponse.players[0]);
+        // Fetch top scorer from public stats API
+        try {
+          const seasons = await TeamsService.getCompetitionSeasons();
+          const latestSeason = seasons?.[0];
+          if (latestSeason?.season_id || latestSeason?.id) {
+            const seasonId = latestSeason.season_id ?? latestSeason.id;
+            const topScorers = await StatsService.getTopScorers(seasonId, 1);
+            if (topScorers?.length > 0) {
+              const scorer = topScorers[0];
+              setTopScorer({
+                id: scorer.playerId,
+                name: scorer.playerName,
+                fullName: scorer.playerName,
+                goals: scorer.goals,
+                assists: scorer.assists,
+                teamName: scorer.teamName,
+                position: scorer.position
+              });
+            }
+          }
+        } catch (scorerError) {
+          console.warn('Failed to fetch top scorer:', scorerError);
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -140,19 +154,14 @@ const HomePage = () => {
     setHasSearched(true);
     
     try {
-      // Search players, matches, and teams in parallel
-      const [playersResponse, matchesResponse, teamsResponse] = await Promise.allSettled([
-        PlayersService.listPlayers({ search: query, limit: 5 }),
+      // Search matches and teams in parallel (players API requires auth)
+      const [matchesResponse, teamsResponse] = await Promise.allSettled([
         MatchesService.getAllMatches({ search: query, limit: 5 }),
         TeamsService.getAllTeams({ search: query, limit: 5 })
       ]);
 
-      // Handle players response
-      if (playersResponse.status === 'fulfilled') {
-        setPlayerResults(playersResponse.value?.players || []);
-      } else {
-        setPlayerResults([]);
-      }
+      // Players search not available in public mode - skip
+      setPlayerResults([]);
 
       // Handle matches response
       if (matchesResponse.status === 'fulfilled') {

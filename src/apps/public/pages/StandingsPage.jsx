@@ -32,10 +32,13 @@ const StandingsPage = () => {
     const loadSeasons = async () => {
       setIsLoadingSeasons(true);
       try {
-        const data = await TeamsService.getCompetitionSeasons(2020);
+        const response = await TeamsService.getCompetitionSeasons();
+        // Handle both direct array and wrapped response
+        const data = Array.isArray(response) ? response : (response?.data || []);
         setSeasons(data);
         if (data.length) {
-          setSelectedSeason(String(data[0].year));
+          // Use year from season object
+          setSelectedSeason(String(data[0].year || data[0].id));
         }
       } catch (err) {
         logger.error('Không thể tải danh sách mùa giải', err);
@@ -54,12 +57,15 @@ const StandingsPage = () => {
     const loadStandings = async () => {
       setIsLoadingStandings(true);
       try {
-        const data = await TeamsService.getCompetitionStandings({ season: selectedSeason });
+        const response = await TeamsService.getCompetitionStandings({ season: selectedSeason });
+        // Handle both direct object and wrapped response
+        const data = response?.data || response || null;
         setStandings(data);
         setError(null);
       } catch (err) {
         console.error('Không thể tải bảng xếp hạng', err);
         setError('Không thể tải bảng xếp hạng.');
+        setStandings(null);
       } finally {
         setIsLoadingStandings(false);
       }
@@ -151,16 +157,20 @@ const StandingsPage = () => {
                 Theo dõi suất đi tiếp, nhóm tranh vé và phong độ gần đây dựa trên dữ liệu giải đấu.
               </p>
               
-              {selectedSeason && standings?.updated && (
+              {selectedSeason && standings && (
                 <div className="flex flex-wrap gap-4 text-sm text-white/60">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/60"></div>
-                    <span>Mùa {selectedSeason}/{Number(selectedSeason) + 1}</span>
+                    <span>
+                      {standings.season?.label || `Mùa ${selectedSeason}/${Number(selectedSeason) + 1}`}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp size={16} className="text-cyan-400" />
-                    <span>Cập nhật {new Date(standings.updated).toLocaleString('vi-VN')}</span>
-                  </div>
+                  {standings.updated && (
+                    <div className="flex items-center gap-2">
+                      <TrendingUp size={16} className="text-cyan-400" />
+                      <span>Cập nhật {new Date(standings.updated).toLocaleString('vi-VN')}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -173,10 +183,13 @@ const StandingsPage = () => {
                 disabled={isLoadingSeasons || seasons.length === 0}
               >
                 {isLoadingSeasons && <option className="text-slate-900">Đang tải...</option>}
+                {!isLoadingSeasons && seasons.length === 0 && (
+                  <option className="text-slate-900">Không có mùa giải</option>
+                )}
                 {!isLoadingSeasons &&
                   seasons.map((season) => (
-                    <option key={season.id} value={season.year} className="text-slate-900">
-                      {season.year}/{season.year + 1}
+                    <option key={season.id || season.year} value={String(season.year || season.id)} className="text-slate-900">
+                      {season.label || `${season.year}/${season.year + 1}`}
                     </option>
                   ))}
               </select>

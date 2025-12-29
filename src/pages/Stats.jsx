@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Trophy, Target, Users, TrendingUp, Award, Zap, Shield, Clock, X } from 'lucide-react'
 import StatsService from '../layers/application/services/StatsService'
+import TeamsService from '../layers/application/services/TeamsService'
 import logger from '../shared/utils/logger'
 import PlayerAvatar from '../shared/components/PlayerAvatar'
 
 const Stats = () => {
   const [selectedCategory, setSelectedCategory] = useState('goals')
-  const [seasonFilter, setSeasonFilter] = useState('2025-2026')
+  const [seasonFilter, setSeasonFilter] = useState('')
+  const [seasons, setSeasons] = useState([])
+  const [loadingSeasons, setLoadingSeasons] = useState(true)
   const [playerStats, setPlayerStats] = useState({
     goals: [],
     assists: [],
@@ -20,7 +23,32 @@ const Stats = () => {
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailData, setDetailData] = useState(null)
 
+  // Load seasons
   useEffect(() => {
+    const loadSeasons = async () => {
+      setLoadingSeasons(true)
+      try {
+        const response = await TeamsService.getCompetitionSeasons()
+        const seasonsList = Array.isArray(response) ? response : (response?.data || [])
+        setSeasons(seasonsList)
+        if (seasonsList.length > 0) {
+          // Set default to latest season (first in list)
+          const latestSeason = seasonsList[0]
+          const seasonLabel = latestSeason.label || `${latestSeason.year}/${latestSeason.year + 1}`
+          setSeasonFilter(seasonLabel)
+        }
+      } catch (error) {
+        logger.error('Failed to load seasons:', error)
+      } finally {
+        setLoadingSeasons(false)
+      }
+    }
+    loadSeasons()
+  }, [])
+
+  useEffect(() => {
+    if (!seasonFilter) return
+
     let isMounted = true
 
     const loadStats = async () => {
@@ -29,11 +57,19 @@ const Stats = () => {
       try {
         const data = await StatsService.getPlayerStats({ season: seasonFilter })
         if (isMounted) {
-          setPlayerStats(data)
+          // Handle both wrapped and unwrapped response
+          const stats = data?.data || data || {
+            goals: [],
+            assists: [],
+            'clean-sheets': [],
+            minutes: []
+          }
+          setPlayerStats(stats)
         }
       } catch (error) {
         if (isMounted) {
           setStatsError('Unable to load player statistics right now.')
+          logger.error('Failed to load player stats:', error)
         }
       } finally {
         if (isMounted) {
@@ -55,7 +91,9 @@ const Stats = () => {
     { id: 'minutes', name: 'Minutes Played', icon: Clock }
   ]
 
-  const seasonOptions = ['2025-2026', '2024-2025', '2023-2024']
+  const seasonOptions = seasons.length > 0 
+    ? seasons.map(s => s.label || `${s.year}/${s.year + 1}`)
+    : ['2025-2026', '2024-2025', '2023-2024'] // Fallback
   const statsForCategory = useMemo(() => playerStats[selectedCategory] ?? [], [playerStats, selectedCategory])
   const filteredStatsForCategory = useMemo(() => {
     if (!playerSearch.trim()) {
@@ -212,9 +250,13 @@ const Stats = () => {
               className="h-11 px-4 rounded-full bg-[#020617]/85 border border-white/15 text-slate-50 focus:outline-none focus:ring-2 focus:ring-cyan-400/70 focus:border-cyan-400/70 transition w-48 appearance-none cursor-pointer"
               value={seasonFilter}
               onChange={(event) => setSeasonFilter(event.target.value)}
+              disabled={loadingSeasons}
               style={{backgroundImage: "url('data:image/svg+xml;utf8,<svg fill=\'%23cbd5e1\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '20px'}}
             >
-              {seasonOptions.map((season) => (
+              {loadingSeasons && (
+                <option value="" className="bg-[#0a1929] text-white">Đang tải...</option>
+              )}
+              {!loadingSeasons && seasonOptions.map((season) => (
                 <option key={season} value={season} className="bg-[#0a1929] text-white">
                   {season}
                 </option>

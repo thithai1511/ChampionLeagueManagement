@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Trophy, Star, Zap, Award, TrendingUp, ChevronDown } from 'lucide-react';
-import PlayersService from '../layers/application/services/PlayersService';
+import StatsService from '../layers/application/services/StatsService';
+import TeamsService from '../layers/application/services/TeamsService';
 import { getAvatarWithFallback } from '../shared/utils/playerAvatar';
 
 // Player Card Component - FIFA Style
@@ -193,17 +194,41 @@ const BestXI = () => {
   const [allPlayers, setAllPlayers] = useState([]);
   const [playerAvatars, setPlayerAvatars] = useState({});
 
-  // Fetch players from API
+  // Fetch players from public API (StatsService)
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
         setLoading(true);
-        const response = await PlayersService.listPlayers({ 
-          limit: 200,
-          sortBy: 'goals',
-          sortOrder: 'desc'
-        });
-        const players = response?.players || [];
+        
+        // First get latest season from public endpoint
+        const seasons = await TeamsService.getCompetitionSeasons();
+        const latestSeason = seasons?.[0];
+        
+        if (!latestSeason?.season_id && !latestSeason?.id) {
+          console.warn('No seasons found for BestXI');
+          setAllPlayers([]);
+          setLoading(false);
+          return;
+        }
+        
+        const seasonId = latestSeason.season_id ?? latestSeason.id;
+        
+        // Fetch top scorers from public stats endpoint
+        const topScorers = await StatsService.getTopScorers(seasonId, 100);
+        
+        // Map to player format expected by BestXI
+        const players = (topScorers || []).map(scorer => ({
+          id: scorer.playerId || scorer.seasonPlayerId,
+          name: scorer.playerName || scorer.name,
+          fullName: scorer.playerName || scorer.name,
+          position: scorer.position || 'Midfielder',
+          nationality: scorer.nationality || '',
+          teamName: scorer.teamName || scorer.team_name,
+          goals: scorer.goals || 0,
+          assists: scorer.assists || 0,
+          avatar: scorer.avatar || null
+        }));
+        
         setAllPlayers(players);
       } catch (error) {
         console.error('Failed to fetch players:', error);
