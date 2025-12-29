@@ -1,5 +1,6 @@
 import React from 'react'
 import { Clock, MapPin, Calendar, Users } from 'lucide-react'
+import { formatDateGMT7, formatTimeGMT7 } from '../utils/timezone'
 
 const MatchCard = ({ match }) => {
   const getStatusBadge = (status) => {
@@ -29,7 +30,7 @@ const MatchCard = ({ match }) => {
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2 text-uefa-gray text-sm">
             <Calendar size={14} />
-            <span>{new Date(match.date).toLocaleDateString('en-GB')}</span>
+            <span>{formatDateGMT7(match.date)}</span>
             <Clock size={14} />
             <span>{formatTime(match.time)}</span>
           </div>
@@ -44,8 +45,8 @@ const MatchCard = ({ match }) => {
       <div className="flex items-center justify-between mb-4">
         {/* Home Team */}
         <div className="flex items-center space-x-3 flex-1">
-          <img 
-            src={match.homeTeam.logo} 
+          <img
+            src={match.homeTeam.logo}
             alt={match.homeTeam.name}
             className="w-10 h-10 object-contain"
             onError={(e) => {
@@ -90,8 +91,8 @@ const MatchCard = ({ match }) => {
             <div className="uefa-team-name text-lg font-semibold">{match.awayTeam.name}</div>
             <div className="text-uefa-gray text-sm">{match.awayTeam.shortName}</div>
           </div>
-          <img 
-            src={match.awayTeam.logo} 
+          <img
+            src={match.awayTeam.logo}
             alt={match.awayTeam.name}
             className="w-10 h-10 object-contain"
             onError={(e) => {
@@ -113,19 +114,19 @@ const MatchCard = ({ match }) => {
             <span>{match.city}</span>
           </div>
         </div>
-        
+
         {match.status === 'upcoming' && (
           <button className="text-uefa-blue hover:text-uefa-dark text-sm font-medium transition-colors">
             Xem trước →
           </button>
         )}
-        
+
         {match.status === 'finished' && (
           <button className="text-uefa-blue hover:text-uefa-dark text-sm font-medium transition-colors">
             Báo cáo trận đấu →
           </button>
         )}
-        
+
         {match.status === 'live' && (
           <button className="text-uefa-red hover:text-uefa-dark text-sm font-medium transition-colors animate-pulse">
             Xem trực tiếp →

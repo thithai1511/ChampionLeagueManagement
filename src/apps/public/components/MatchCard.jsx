@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Users, ChevronDown, ChevronUp, Trophy, Activity, Flag } from 'lucide-react';
 import { getLogoByTeamName } from '../data/teamLogos';
+import { formatDateGMT7, formatTimeGMT7 } from '../../../utils/timezone';
 
 // Smarter Image Component with Fallback
 const TeamLogo = ({ src, alt, className }) => {
@@ -63,7 +64,7 @@ const MatchCard = ({ match }) => {
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1">
             <Calendar size={14} />
-            {new Date(match.date).toLocaleDateString('vi-VN')}
+            {formatDateGMT7(match.date)}
           </span>
           <span className="flex items-center gap-1">
             <Clock size={14} />
