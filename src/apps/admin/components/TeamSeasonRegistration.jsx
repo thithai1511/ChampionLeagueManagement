@@ -13,6 +13,13 @@ import toast, { Toaster } from 'react-hot-toast'
 import ApiService from '../../../layers/application/services/ApiService'
 
 const STATUS_CONFIG = {
+  DRAFT_INVITE: {
+    label: 'Nháp (chưa gửi)',
+    color: 'bg-slate-100 text-slate-600 border-slate-300',
+    icon: AlertCircle,
+    canAccept: false,
+    canDecline: false
+  },
   INVITED: {
     label: 'Đã nhận lời mời',
     color: 'bg-blue-100 text-blue-700 border-blue-300',
@@ -272,7 +279,7 @@ const TeamSeasonRegistration = ({ teamId }) => {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">
-                    Mùa giải: Season {reg.season_id}
+                    Mùa giải: {reg.season_name || `Season ${reg.season_id}`}
                   </h3>
                   {renderStatusBadge(reg.registration_status)}
                 </div>

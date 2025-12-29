@@ -299,7 +299,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
  * GET /internal/teams/:id/players - Get players of a team
  * ClubManager: only see players of their managed team
  */
-router.get("/:id/players", async (req: AuthenticatedRequest, res, next) => {
+router.get("/:id/players", requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const teamId = parseInt(req.params.id, 10);
     if (isNaN(teamId)) {
@@ -309,11 +309,27 @@ router.get("/:id/players", async (req: AuthenticatedRequest, res, next) => {
     // Check permissions
     const isSuperAdmin = req.user?.roles?.includes('super_admin');
     const hasManageTeams = req.user?.permissions?.includes("manage_teams");
+    const hasManageOwnTeam = req.user?.permissions?.includes("manage_own_team");
+    const hasViewOwnTeam = req.user?.permissions?.includes("view_own_team");
     const canSeeAll = isSuperAdmin || hasManageTeams;
     
     if (!canSeeAll) {
-      // Team admin: check if this team is in their assigned teams
-      const userTeamIds = req.user?.teamIds || [];
+      // Get user's team IDs - from token or fallback to database lookup
+      let userTeamIds = (req.user?.teamIds || []).map((id: any) => Number(id));
+      
+      // Fallback: if teamIds is empty, lookup from DB (for old JWT tokens without teamIds)
+      if (userTeamIds.length === 0 && req.user?.sub) {
+        const dbTeams = await query<{ team_id: number }>(
+          `SELECT DISTINCT team_id FROM user_team_assignments WHERE user_id = @userId`,
+          { userId: req.user.sub }
+        );
+        userTeamIds = dbTeams.recordset.map(r => r.team_id);
+        console.log(`[GET /:id/players] Loaded teamIds from DB for user ${req.user.sub}: ${JSON.stringify(userTeamIds)}`);
+      }
+      
+      console.log(`[GET /:id/players] teamId=${teamId}, userTeamIds=${JSON.stringify(userTeamIds)}, hasManageOwnTeam=${hasManageOwnTeam}, hasViewOwnTeam=${hasViewOwnTeam}`);
+      
+      // Allow if user has team permission and the teamId is in their list
       if (!userTeamIds.includes(teamId)) {
         return res.status(403).json({ error: "You can only view players of your assigned team" });
       }

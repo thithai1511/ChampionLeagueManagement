@@ -57,6 +57,7 @@ const MENU_SECTIONS = [
     title: 'Quản lý giải đấu',
     items: [
       { name: 'Mùa giải & Quy tắc', path: '/admin/seasons', icon: Swords, permission: 'manage_teams' },
+      { name: 'Đăng ký đội', path: '/admin/season-registration-workflow', icon: UserCheck, permission: 'manage_teams' },
       { name: 'Đội bóng', path: '/admin/teams', icon: Users, permission: 'manage_teams' },
       { name: 'Cầu thủ', path: '/admin/players', icon: UserCheck, anyPermissions: ['manage_teams', 'approve_player_registrations'] },
       { name: 'Trận đấu', path: '/admin/matches', icon: Calendar, permission: 'manage_matches' },

@@ -103,6 +103,36 @@ export async function markFeeAsPaid(
 }
 
 /**
+ * Get all fees for a season (both paid and unpaid)
+ */
+export async function getAllFeesForSeason(seasonId: number): Promise<ParticipationFee[]> {
+  const result = await query<ParticipationFee>(
+    `
+    SELECT
+      pf.fee_id,
+      pf.season_id,
+      pf.team_id,
+      t.name AS team_name,
+      pf.fee_amount,
+      pf.currency,
+      CONVERT(VARCHAR(10), pf.due_date, 23) AS due_date,
+      CONVERT(VARCHAR(23), pf.paid_at, 126) AS paid_at,
+      pf.is_paid,
+      pf.payment_method,
+      pf.payment_reference,
+      CONVERT(VARCHAR(23), pf.created_at, 126) AS created_at
+    FROM participation_fees pf
+    INNER JOIN teams t ON pf.team_id = t.team_id
+    WHERE pf.season_id = @seasonId
+    ORDER BY pf.is_paid ASC, pf.due_date ASC
+  `,
+    { seasonId }
+  );
+
+  return result.recordset;
+}
+
+/**
  * Get unpaid fees for a season
  */
 export async function getUnpaidFees(seasonId: number): Promise<ParticipationFee[]> {

@@ -88,6 +88,7 @@ const TeamsManagement = () => {
   const [invitationSubTab, setInvitationSubTab] = useState('overview') // 'overview' | 'list'
   const [generatingInvitations, setGeneratingInvitations] = useState(false)
   const [sendingInvitations, setSendingInvitations] = useState(false)
+  const [selectedDraftIds, setSelectedDraftIds] = useState([]) // For checkbox selection
   
   // Add/Edit invitation modal
   const [showInvitationModal, setShowInvitationModal] = useState(false)
@@ -314,33 +315,157 @@ const TeamsManagement = () => {
   }
 
   // Generate suggested invitations (Phase 1)
+  // Logic: 8 đội top 8 BXH mùa trước + 2 đội thăng hạng = 10 đội
   const handleGenerateSuggested = async () => {
     if (!selectedSeasonId) return
     setGeneratingInvitations(true)
     try {
       const response = await ApiService.post(`/seasons/${selectedSeasonId}/invitations/generate-suggested`)
+      
+      // Show success message
       toast.success(response?.message || `Đã tạo ${response?.data?.created || 0} lời mời đề xuất`)
+      
+      // Show warnings if any
+      const warnings = response?.warnings || response?.data?.errors || []
+      if (warnings.length > 0) {
+        setTimeout(() => {
+          warnings.forEach((warning, index) => {
+            setTimeout(() => {
+              toast(warning, { icon: '⚠️', duration: 6000 })
+            }, index * 500)
+          })
+        }, 1000)
+      }
+      
       setReloadKey(prev => prev + 1)
     } catch (err) {
       logger.error('Failed to generate invitations', err)
-      toast.error(err?.message || 'Không thể tạo danh sách đề xuất')
+      const errorMsg = err?.response?.data?.error || err?.message || 'Không thể tạo danh sách đề xuất'
+      const details = err?.response?.data?.details
+      toast.error(details ? `${errorMsg}: ${details}` : errorMsg)
     } finally {
       setGeneratingInvitations(false)
     }
   }
 
-  // Send all pending invitations (Phase 2)
-  const handleSendAllInvitations = async () => {
-    if (!selectedSeasonId) return
-    const pendingCount = invitations.filter(i => i.status === 'pending' || i.status === 'draft').length
-    if (pendingCount === 0) {
-      toast.error('Không có lời mời nào cần gửi')
+  // Get draft invitations count
+  const draftInvitations = useMemo(() => {
+    return invitations.filter(i => i.status === 'draft')
+  }, [invitations])
+
+  // Toggle selection for a draft invitation
+  const handleToggleSelect = (invitationId) => {
+    setSelectedDraftIds(prev => 
+      prev.includes(invitationId) 
+        ? prev.filter(id => id !== invitationId)
+        : [...prev, invitationId]
+    )
+  }
+
+  // Toggle select all drafts
+  const handleToggleSelectAll = () => {
+    if (selectedDraftIds.length === draftInvitations.length) {
+      setSelectedDraftIds([])
+    } else {
+      setSelectedDraftIds(draftInvitations.map(i => i.invitationId))
+    }
+  }
+
+  // Send a single invitation (DRAFT_INVITE -> INVITED)
+  const handleSendSingleInvitation = async (invitationId) => {
+    setSendingInvitations(true)
+    try {
+      await ApiService.patch(`/seasons/${selectedSeasonId}/invitations/${invitationId}/status`, { 
+        status: 'INVITED' 
+      })
+      toast.success('Đã gửi lời mời')
+      setSelectedDraftIds(prev => prev.filter(id => id !== invitationId))
+      setReloadKey(prev => prev + 1)
+    } catch (err) {
+      logger.error('Failed to send invitation', err)
+      const errorMsg = err?.response?.data?.error || err?.message || 'Không thể gửi lời mời'
+      // If already sent, just reload to refresh status
+      if (errorMsg.includes('Invalid state transition') || errorMsg.includes('INVITED')) {
+        toast.error('Lời mời này đã được gửi trước đó. Đang tải lại...')
+        setReloadKey(prev => prev + 1)
+      } else {
+        toast.error(errorMsg)
+      }
+    } finally {
+      setSendingInvitations(false)
+    }
+  }
+
+  // Send selected invitations
+  const handleSendSelectedInvitations = async () => {
+    if (selectedDraftIds.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một lời mời')
       return
     }
+    
+    setSendingInvitations(true)
+    let sent = 0
+    let skipped = 0
+    let failed = 0
+    
+    try {
+      for (const invitationId of selectedDraftIds) {
+        try {
+          await ApiService.patch(`/seasons/${selectedSeasonId}/invitations/${invitationId}/status`, { 
+            status: 'INVITED' 
+          })
+          sent++
+        } catch (err) {
+          const errorMsg = err?.response?.data?.error || err?.message || ''
+          // Skip already-sent items
+          if (errorMsg.includes('Invalid state transition') || errorMsg.includes('INVITED')) {
+            skipped++
+          } else {
+            failed++
+            logger.error(`Failed to send invitation ${invitationId}`, err)
+          }
+        }
+      }
+      
+      if (sent > 0) {
+        let msg = `Đã gửi ${sent} lời mời`
+        if (skipped > 0) msg += `, ${skipped} đã gửi trước`
+        if (failed > 0) msg += `, ${failed} lỗi`
+        toast.success(msg)
+      } else if (skipped > 0) {
+        toast.info(`${skipped} lời mời đã được gửi trước đó`)
+      } else {
+        toast.error('Không thể gửi lời mời')
+      }
+      
+      setSelectedDraftIds([])
+      setReloadKey(prev => prev + 1)
+    } catch (err) {
+      logger.error('Failed to send invitations', err)
+      toast.error(err?.message || 'Không thể gửi lời mời')
+    } finally {
+      setSendingInvitations(false)
+    }
+  }
+
+  // Send all draft invitations (Phase 2)
+  const handleSendAllInvitations = async () => {
+    if (!selectedSeasonId) return
+    const draftCount = draftInvitations.length
+    if (draftCount === 0) {
+      toast.error('Không có lời mời nháp nào cần gửi')
+      return
+    }
+    
+    if (!window.confirm(`Bạn có chắc muốn gửi tất cả ${draftCount} lời mời?`)) {
+      return
+    }
+    
     setSendingInvitations(true)
     try {
       const response = await ApiService.post(`/seasons/${selectedSeasonId}/invitations/send-all`, { deadlineDays: 14 })
       toast.success(response?.message || `Đã gửi ${response?.data?.sent || 0} lời mời`)
+      setSelectedDraftIds([])
       setReloadKey(prev => prev + 1)
     } catch (err) {
       logger.error('Failed to send invitations', err)
@@ -412,7 +537,9 @@ const TeamsManagement = () => {
       setReloadKey(prev => prev + 1)
     } catch (err) {
       logger.error('Failed to save invitation', err)
-      toast.error(err?.message || 'Không thể lưu lời mời')
+      // Handle specific error cases
+      const errorMsg = err?.response?.data?.error || err?.message || 'Không thể lưu lời mời'
+      toast.error(errorMsg)
     } finally {
       setSavingInvitation(false)
     }
@@ -436,25 +563,34 @@ const TeamsManagement = () => {
     const labels = {
       'retained': 'Top 8 mùa trước',
       'promoted': 'Thăng hạng',
-      'replacement': 'Thay thế / Thủ công'
+      'promotion': 'Đề xuất',
+      'replacement': 'Thay thế',
+      'manual': 'Thủ công'
     }
-    return labels[type] || type
+    return labels[type] || type || 'Khác'
   }
 
   const getInviteTypeBadgeColor = (type) => {
     const colors = {
-      'retained': 'bg-blue-100 text-blue-700 border-blue-200',
-      'promoted': 'bg-green-100 text-green-700 border-green-200',
-      'replacement': 'bg-orange-100 text-orange-700 border-orange-200'
+      'retained': 'bg-blue-500 text-white border-blue-600',
+      'promoted': 'bg-green-500 text-white border-green-600',
+      'promotion': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+      'replacement': 'bg-orange-500 text-white border-orange-600',
+      'manual': 'bg-purple-100 text-purple-700 border-purple-300'
     }
-    return colors[type] || 'bg-gray-100 text-gray-700 border-gray-200'
+    return colors[type] || 'bg-gray-200 text-gray-700 border-gray-400'
   }
 
   const getStatusBadgeColor = (status) => {
     const colors = {
+      'draft': 'bg-gray-200 text-gray-700 border-gray-400',
       'pending': 'bg-yellow-100 text-yellow-700 border-yellow-200',
       'accepted': 'bg-green-100 text-green-700 border-green-200',
       'declined': 'bg-red-100 text-red-700 border-red-200',
+      'submitted': 'bg-blue-100 text-blue-700 border-blue-200',
+      'changes_requested': 'bg-orange-100 text-orange-700 border-orange-200',
+      'approved': 'bg-green-200 text-green-800 border-green-400',
+      'rejected': 'bg-red-200 text-red-800 border-red-400',
       'expired': 'bg-gray-100 text-gray-500 border-gray-200',
       'rescinded': 'bg-purple-100 text-purple-600 border-purple-200',
       'replaced': 'bg-purple-100 text-purple-600 border-purple-200'
@@ -464,9 +600,14 @@ const TeamsManagement = () => {
 
   const getStatusLabel = (status) => {
     const labels = {
-      'pending': 'Chờ phản hồi',
+      'draft': 'Nháp (chưa gửi)',
+      'pending': 'Đã gửi - Chờ phản hồi',
       'accepted': 'Đã chấp nhận',
       'declined': 'Đã từ chối',
+      'submitted': 'Đã nộp hồ sơ',
+      'changes_requested': 'Yêu cầu chỉnh sửa',
+      'approved': 'Đã duyệt',
+      'rejected': 'Không duyệt',
       'expired': 'Hết hạn',
       'rescinded': 'Đã thu hồi',
       'replaced': 'Đã thay thế'
@@ -856,7 +997,7 @@ const TeamsManagement = () => {
                 </select>
               </div>
               {selectedSeasonId && (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <button
                     onClick={handleOpenAddInvitationModal}
                     className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
@@ -872,13 +1013,23 @@ const TeamsManagement = () => {
                     {generatingInvitations ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                     <span>Tạo danh sách đề xuất</span>
                   </button>
+                  {selectedDraftIds.length > 0 && (
+                    <button
+                      onClick={handleSendSelectedInvitations}
+                      disabled={sendingInvitations}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      {sendingInvitations ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      <span>Gửi đã chọn ({selectedDraftIds.length})</span>
+                    </button>
+                  )}
                   <button
                     onClick={handleSendAllInvitations}
-                    disabled={sendingInvitations || invitations.filter(i => i.status === 'pending').length === 0}
+                    disabled={sendingInvitations || draftInvitations.length === 0}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
                     {sendingInvitations ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                    <span>Gửi tất cả lời mời</span>
+                    <span>Gửi tất cả ({draftInvitations.length})</span>
                   </button>
                 </div>
               )}
@@ -1016,10 +1167,36 @@ const TeamsManagement = () => {
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                  {/* Info banner for draft invitations */}
+                  {draftInvitations.length > 0 && (
+                    <div className="px-6 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-amber-800">
+                        <AlertCircle size={16} />
+                        <span className="text-sm">
+                          Có <strong>{draftInvitations.length}</strong> lời mời nháp chưa gửi. 
+                          Chọn lời mời và bấm "Gửi đã chọn" hoặc "Gửi tất cả" để gửi cho đội bóng.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
+                        {/* Checkbox column for draft items */}
+                        <th className="px-3 py-3 text-center w-12">
+                          {draftInvitations.length > 0 && (
+                            <input
+                              type="checkbox"
+                              checked={selectedDraftIds.length === draftInvitations.length && draftInvitations.length > 0}
+                              onChange={handleToggleSelectAll}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              title="Chọn tất cả nháp"
+                            />
+                          )}
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đội bóng</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nguồn</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
@@ -1029,7 +1206,18 @@ const TeamsManagement = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {invitations.map((inv) => (
-                        <tr key={inv.invitationId} className="hover:bg-gray-50 transition-colors">
+                        <tr key={inv.invitationId} className={`hover:bg-gray-50 transition-colors ${inv.status === 'draft' ? 'bg-amber-50/50' : ''}`}>
+                          {/* Checkbox for draft items */}
+                          <td className="px-3 py-4 text-center">
+                            {inv.status === 'draft' && (
+                              <input
+                                type="checkbox"
+                                checked={selectedDraftIds.includes(inv.invitationId)}
+                                onChange={() => handleToggleSelect(inv.invitationId)}
+                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                            )}
+                          </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               {inv.teamLogo ? (
@@ -1058,7 +1246,28 @@ const TeamsManagement = () => {
                           <td className="px-6 py-4 text-sm">{formatDeadline(inv.responseDeadline)}</td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              {/* Status indicators */}
+                              {/* Draft status - show send button */}
+                              {inv.status === 'draft' && (
+                                <>
+                                  <button
+                                    onClick={() => handleSendSingleInvitation(inv.invitationId)}
+                                    disabled={sendingInvitations}
+                                    className="text-xs px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                    title="Gửi lời mời này"
+                                  >
+                                    <Send size={12} />
+                                    <span>Gửi</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteInvitation(inv.invitationId)}
+                                    className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                    title="Xóa lời mời"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              )}
+                              {/* Pending status - waiting for team response */}
                               {inv.status === 'pending' && (
                                 <>
                                   <span className="text-xs text-yellow-600 italic">Chờ đội phản hồi...</span>
@@ -1073,7 +1282,7 @@ const TeamsManagement = () => {
                                   <button
                                     onClick={() => handleDeleteInvitation(inv.invitationId)}
                                     className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                                    title="Xóa lời mời"
+                                    title="Thu hồi lời mời"
                                   >
                                     <Trash2 size={14} />
                                   </button>
@@ -1084,6 +1293,12 @@ const TeamsManagement = () => {
                               )}
                               {inv.status === 'declined' && (
                                 <span className="text-xs text-red-600">✗ Đội đã từ chối</span>
+                              )}
+                              {inv.status === 'submitted' && (
+                                <span className="text-xs text-blue-600 font-medium">📋 Đã nộp hồ sơ</span>
+                              )}
+                              {inv.status === 'approved' && (
+                                <span className="text-xs text-emerald-600 font-medium">✓ Đã duyệt</span>
                               )}
                               {inv.status === 'expired' && (
                                 <span className="text-xs text-gray-400">⏱ Đã hết hạn</span>
@@ -1100,7 +1315,8 @@ const TeamsManagement = () => {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -1244,10 +1460,15 @@ const TeamsManagement = () => {
                       disabled={savingInvitation}
                     >
                       <option value="">-- Chọn đội --</option>
-                      {teams.map(team => (
-                        <option key={team.id} value={team.id}>{team.name}</option>
-                      ))}
+                      {teams
+                        .filter(team => !invitations.some(inv => inv.teamId === team.id))
+                        .map(team => (
+                          <option key={team.id} value={team.id}>{team.name}</option>
+                        ))}
                     </select>
+                    {teams.filter(team => !invitations.some(inv => inv.teamId === team.id)).length === 0 && (
+                      <p className="mt-1 text-xs text-amber-600">Tất cả đội đã có lời mời cho mùa giải này</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Loại lời mời</label>

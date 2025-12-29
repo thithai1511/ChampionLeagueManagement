@@ -49,6 +49,9 @@ const seasonBaseSchema = z.object({
 /**
  * GET /api/seasons/:id/teams
  * 👉 FE dropdown chọn đội
+ * Returns teams from both:
+ * - season_team_participants (approved teams)
+ * - season_team_registrations with ACCEPTED/SUBMITTED/APPROVED status (for teams in registration process)
  */
 router.get(
   "/:id/teams",
@@ -66,13 +69,13 @@ router.get(
     // Super admin and users with manage_teams permission see all teams
     const canSeeAllTeams = isSuperAdmin || hasManageTeams
     
-    let whereClause = 'WHERE stp.season_id = @seasonId'
     const params: Record<string, any> = { seasonId }
     
-    // If user is restricted to specific teams, filter results
+    // Build team filter for non-admin users
+    let teamFilter = ''
     if (!canSeeAllTeams && Array.isArray(userTeamIds) && userTeamIds.length > 0) {
       const teamIdPlaceholders = userTeamIds.map((_, i) => `@teamId${i}`).join(',')
-      whereClause += ` AND t.team_id IN (${teamIdPlaceholders})`
+      teamFilter = ` AND t.team_id IN (${teamIdPlaceholders})`
       userTeamIds.forEach((id, i) => {
         params[`teamId${i}`] = id
       })
@@ -81,21 +84,45 @@ router.get(
       return res.json([])
     }
 
+    // Query from both tables using UNION to get unique teams
     const result = await query(`
+      -- Teams from season_team_participants (fully approved)
       SELECT
-        stp.season_team_id,
+        stp.season_team_id AS id,
         stp.season_id,
         t.team_id,
-        t.name AS team_name
+        t.name AS team_name,
+        'approved' AS source
       FROM season_team_participants stp
       JOIN teams t ON stp.team_id = t.team_id
-      ${whereClause}
-      ORDER BY t.name
+      WHERE stp.season_id = @seasonId ${teamFilter}
+
+      UNION
+
+      -- Teams from season_team_registrations (accepted but may not be in participants yet)
+      SELECT
+        str.registration_id AS id,
+        str.season_id,
+        t.team_id,
+        t.name AS team_name,
+        'registration' AS source
+      FROM season_team_registrations str
+      JOIN teams t ON str.team_id = t.team_id
+      WHERE str.season_id = @seasonId 
+        AND str.registration_status IN ('ACCEPTED', 'SUBMITTED', 'APPROVED')
+        ${teamFilter}
+        -- Exclude teams already in participants to avoid duplicates
+        AND NOT EXISTS (
+          SELECT 1 FROM season_team_participants stp2 
+          WHERE stp2.season_id = str.season_id AND stp2.team_id = str.team_id
+        )
+
+      ORDER BY team_name
     `, params)
 
     res.json(
       result.recordset.map(r => ({
-        id: r.season_team_id,
+        id: r.id,
         name: r.team_name,
         team_id: r.team_id
       }))

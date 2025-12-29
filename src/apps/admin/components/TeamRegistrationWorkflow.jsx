@@ -10,7 +10,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   Loader2,
-  ChevronRight
+  ChevronRight,
+  Banknote,
+  CreditCard
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import ApiService from '../../../layers/application/services/ApiService'
@@ -71,11 +73,16 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
   const [loading, setLoading] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
+  
+  // Fee management
+  const [teamFees, setTeamFees] = useState({}) // { teamId: { paid, amount, due_date, ... } }
+  const [feeModalOpen, setFeeModalOpen] = useState(null) // registrationId of modal
 
   useEffect(() => {
     if (seasonId) {
       loadRegistrations()
       loadStatistics()
+      loadFees()
     }
   }, [seasonId, refreshTrigger])
 
@@ -99,6 +106,71 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
       setStatistics(response?.data || null)
     } catch (error) {
       console.error('Failed to load statistics:', error)
+    }
+  }
+
+  const loadFees = async () => {
+    try {
+      const response = await ApiService.get(`/participation-fees/season/${seasonId}`)
+      console.log('[TeamRegistrationWorkflow] Fees API response:', response)
+      // Convert array to map by team_id
+      const feesMap = {}
+      const feesArray = response?.data || response || []
+      if (Array.isArray(feesArray)) {
+        feesArray.forEach(fee => {
+          feesMap[fee.team_id] = fee
+        })
+      }
+      console.log('[TeamRegistrationWorkflow] Fees map:', feesMap)
+      setTeamFees(feesMap)
+    } catch (error) {
+      console.error('Failed to load fees:', error)
+      // Not critical, just won't show fee status
+      setTeamFees({})
+    }
+  }
+
+  const handleMarkFeePaid = async (registrationId, teamId) => {
+    const paymentRef = window.prompt('Nhập mã giao dịch/chứng từ thanh toán:')
+    if (!paymentRef) return
+    
+    setActionLoading(true)
+    try {
+      // First check if fee record exists
+      const feeRecord = teamFees[teamId]
+      
+      if (feeRecord && feeRecord.fee_id) {
+        // Mark existing fee as paid
+        await ApiService.post(`/participation-fees/${feeRecord.fee_id}/mark-paid`, {
+          paymentMethod: 'bank_transfer',
+          paymentReference: paymentRef
+        })
+      } else {
+        // Create fee record and mark as paid
+        const createResponse = await ApiService.post('/participation-fees', {
+          seasonId: seasonId,
+          teamId: teamId,
+          feeAmount: 1000000000, // 1 tỷ VND - default
+          dueDate: new Date().toISOString().split('T')[0],
+          currency: 'VND'
+        })
+        
+        const newFeeId = createResponse?.data?.fee_id || createResponse?.fee_id
+        if (newFeeId) {
+          await ApiService.post(`/participation-fees/${newFeeId}/mark-paid`, {
+            paymentMethod: 'bank_transfer',
+            paymentReference: paymentRef
+          })
+        }
+      }
+      
+      toast.success('Đã xác nhận thanh toán lệ phí')
+      await loadFees()
+    } catch (error) {
+      console.error('Mark fee paid error:', error)
+      toast.error(error?.response?.data?.error || 'Không thể xác nhận thanh toán')
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -402,6 +474,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Đội bóng</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Trạng thái</th>
+                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700">Lệ phí</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ghi chú</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ngày nộp</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Thao tác</th>
@@ -410,7 +483,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
             <tbody className="divide-y">
               {registrations.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
                     Chưa có đăng ký nào
                   </td>
                 </tr>
@@ -423,6 +496,45 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
                       </td>
                       <td className="px-4 py-3">
                         {renderStatusBadge(reg.registration_status)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {/* Fee Status - Only show for APPROVED teams */}
+                        {reg.registration_status === 'APPROVED' ? (
+                          (() => {
+                            // Get team_id from registration (could be team_id, teamId, or from season_team_id)
+                            const teamId = reg.team_id || reg.teamId || reg.team?.team_id || reg.team?.id
+                            console.log('[TeamRegistrationWorkflow] Registration:', reg, 'TeamId:', teamId, 'Fees:', teamFees)
+                            
+                            if (!teamId) {
+                              console.warn('[TeamRegistrationWorkflow] No team_id found for registration:', reg)
+                              return <span className="text-gray-400 text-xs">N/A</span>
+                            }
+                            
+                            const fee = teamFees[teamId]
+                            // Backend returns is_paid (boolean) or payment_status (string)
+                            const isPaid = fee?.is_paid === true || fee?.is_paid === 1 || fee?.payment_status === 'paid' || fee?.status === 'paid'
+                            
+                            console.log('[TeamRegistrationWorkflow] Fee for team', teamId, ':', fee, 'isPaid:', isPaid)
+                            
+                            return isPaid ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                <CheckCircle2 size={12} />
+                                Đã thanh toán
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleMarkFeePaid(reg.registration_id, teamId)}
+                                disabled={actionLoading}
+                                className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white rounded hover:bg-amber-600 disabled:opacity-50 text-xs font-medium"
+                              >
+                                <CreditCard size={12} />
+                                Xác nhận thanh toán
+                              </button>
+                            )
+                          })()
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
                         {reg.reviewer_note || '-'}
@@ -451,7 +563,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
                     {/* Expanded Details */}
                     {expandedId === reg.registration_id && (
                       <tr>
-                        <td colSpan="5" className="px-4 py-4 bg-gray-50">
+                        <td colSpan="6" className="px-4 py-4 bg-gray-50">
                           <div className="space-y-4">
                             <div>
                               <h4 className="font-semibold text-gray-700 mb-2">Thông tin hồ sơ:</h4>

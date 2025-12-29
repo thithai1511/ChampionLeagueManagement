@@ -120,7 +120,16 @@ const TeamAdminDashboard = ({ currentUser }) => {
   const playersCompletion = useMemo(() => {
     const issues = []
     const totalPlayers = players.length
-    const foreignPlayers = players.filter(p => p.nationality !== 'Việt Nam' && p.nationality !== 'Vietnam').length
+    // Use player_type field (from season_player_registrations) instead of nationality
+    // player_type: 'foreign' = ngoại binh, 'domestic' = nội binh
+    const foreignPlayers = players.filter(p => {
+      // Check player_type first (from registration data)
+      if (p.player_type) {
+        return p.player_type === 'foreign';
+      }
+      // Fallback to nationality check if player_type not available
+      return p.nationality !== 'Việt Nam' && p.nationality !== 'Vietnam';
+    }).length
     
     // Check player count
     if (totalPlayers < BTC_REQUIREMENTS.MIN_PLAYERS) {
@@ -186,7 +195,7 @@ const TeamAdminDashboard = ({ currentUser }) => {
     }
 
     // Step 2: Invitation pending - waiting for confirmation
-    if (activeInvitation.status === 'INVITED' || activeInvitation.status === 'DRAFT_INVITE') {
+    if (activeInvitation.status === 'INVITED') {
       return {
         current: 'invitation',
         label: 'Chờ xác nhận tham gia',
@@ -365,20 +374,28 @@ const TeamAdminDashboard = ({ currentUser }) => {
     loadPlayers()
   }, [selectedSeasonId, teamIds])
 
+  // Loading state for invitation response
+  const [respondingToInvitation, setRespondingToInvitation] = useState(null)
+
   // Handle invitation response
   const handleInvitationResponse = async (registrationId, accept) => {
+    // Prevent double clicks
+    if (respondingToInvitation === registrationId) return
+    
+    setRespondingToInvitation(registrationId)
     try {
+      let response
       if (accept) {
-        await ApiService.post(`/registrations/${registrationId}/accept`)
-        toast.success('Đã chấp nhận lời mời')
+        response = await ApiService.post(`/registrations/${registrationId}/accept`)
+        toast.success(response?.message || 'Đã chấp nhận lời mời! 🎉')
       } else {
-        await ApiService.post(`/registrations/${registrationId}/decline`)
-        toast.success('Đã từ chối lời mời')
+        response = await ApiService.post(`/registrations/${registrationId}/decline`)
+        toast.success(response?.message || 'Đã từ chối lời mời')
       }
       
       // Reload registrations
-      const response = await ApiService.get(`/teams/${teamIds[0]}/registrations`)
-      const allRegistrations = response?.data || []
+      const regResponse = await ApiService.get(`/teams/${teamIds[0]}/registrations`)
+      const allRegistrations = regResponse?.data || []
       const myRegistrations = allRegistrations.filter(reg => {
         const regSeasonId = reg.season_id ?? reg.seasonId
         return regSeasonId === selectedSeasonId
@@ -396,7 +413,33 @@ const TeamAdminDashboard = ({ currentUser }) => {
       
       setInvitations(mappedInvitations)
     } catch (err) {
-      toast.error(err?.message || 'Không thể cập nhật lời mời')
+      console.error('Invitation response error:', err)
+      const errorMsg = err?.response?.data?.error || err?.message || 'Không thể cập nhật lời mời'
+      toast.error(errorMsg)
+      
+      // Reload anyway to get fresh data
+      try {
+        const regResponse = await ApiService.get(`/teams/${teamIds[0]}/registrations`)
+        const allRegistrations = regResponse?.data || []
+        const myRegistrations = allRegistrations.filter(reg => {
+          const regSeasonId = reg.season_id ?? reg.seasonId
+          return regSeasonId === selectedSeasonId
+        })
+        const mappedInvitations = myRegistrations.map(reg => ({
+          ...reg,
+          invitation_id: reg.registration_id,
+          status: reg.registration_status,
+          team_id: reg.team_id,
+          teamId: reg.team_id,
+          season_id: reg.season_id,
+          seasonId: reg.season_id
+        }))
+        setInvitations(mappedInvitations)
+      } catch (e) {
+        // Ignore reload error
+      }
+    } finally {
+      setRespondingToInvitation(null)
     }
   }
 
@@ -792,66 +835,84 @@ const TeamAdminDashboard = ({ currentUser }) => {
       )}
 
       {activeTab === 'invitations' && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Lời mời tham dự giải</h3>
+        <div className="rounded-xl overflow-hidden">
+          <div className="p-6 border-b border-slate-500">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Mail size={24} className="text-blue-400" />
+              Lời mời tham dự giải đấu
+            </h3>
+            <p className="text-slate-400 mt-1">Xem và phản hồi các lời mời từ Ban tổ chức</p>
           </div>
           {invitationsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="animate-spin text-gray-400" size={32} />
+              <Loader2 className="animate-spin text-blue-400" size={32} />
             </div>
           ) : invitations.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Mail size={48} className="mx-auto mb-4 opacity-50" />
-              <p>Chưa có lời mời nào cho mùa giải này</p>
+            <div className="text-center py-12">
+              <Mail size={64} className="mx-auto mb-4 text-slate-500" />
+              <p className="text-slate-300 text-lg">Chưa có lời mời nào cho mùa giải này</p>
+              <p className="text-slate-400 text-sm mt-2">Vui lòng chờ BTC gửi lời mời tham gia</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
-              {invitations.map(inv => (
-                <div key={inv.invitationId} className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">
-                        {seasons.find(s => s.id === inv.seasonId)?.name || `Mùa giải ${inv.seasonId}`}
-                      </h4>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Gửi lúc: {inv.invitedAt ? new Date(inv.invitedAt).toLocaleDateString('vi-VN') : '—'}
-                      </p>
-                      {inv.responseDeadline && (
-                        <p className="text-sm text-gray-500">
-                          Hạn phản hồi: {new Date(inv.responseDeadline).toLocaleDateString('vi-VN')}
+            <div className="divide-y divide-slate-500 space-y-4 p-4">
+              {invitations.map(inv => {
+                // Map backend status to display values
+                const statusConfig = {
+                  'INVITED': { label: '📩 Chờ xác nhận tham gia', color: 'bg-amber-400 text-black', canRespond: true },
+                  'ACCEPTED': { label: '✅ Đã chấp nhận', color: 'bg-green-500 text-white', canRespond: false },
+                  'DECLINED': { label: '❌ Đã từ chối', color: 'bg-red-500 text-white', canRespond: false },
+                  'SUBMITTED': { label: '📋 Đã nộp hồ sơ', color: 'bg-blue-500 text-white', canRespond: false },
+                  'REQUEST_CHANGE': { label: '⚠️ Cần chỉnh sửa', color: 'bg-orange-400 text-black', canRespond: false },
+                  'APPROVED': { label: '🎉 Đã được duyệt', color: 'bg-emerald-500 text-white', canRespond: false },
+                  'REJECTED': { label: '🚫 Không đạt', color: 'bg-rose-500 text-white', canRespond: false },
+                }
+                const config = statusConfig[inv.status] || { label: inv.status, color: 'bg-slate-400 text-black', canRespond: false }
+                
+                return (
+                  <div 
+                    key={inv.invitation_id || inv.registration_id} 
+                    className="p-6 border-2 border-slate-500 rounded-xl hover:border-blue-400 hover:bg-slate-800/50 transition-all cursor-pointer"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <h4 className="font-bold text-2xl text-white mb-2">
+                          🏆 {seasons.find(s => s.id === inv.seasonId || s.id === inv.season_id)?.name || `Mùa giải ${inv.seasonId || inv.season_id}`}
+                        </h4>
+                        <p className="text-slate-300">
+                          📅 Ngày nhận lời mời: <span className="text-white font-medium">{inv.created_at ? new Date(inv.created_at).toLocaleDateString('vi-VN') : '—'}</span>
                         </p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        inv.status === 'accepted' || inv.status === 'qualified' ? 'bg-green-100 text-green-700' :
-                        inv.status === 'pending' || inv.status === 'sent' ? 'bg-yellow-100 text-yellow-700' :
-                        inv.status === 'declined' || inv.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {inv.statusLabel || inv.status}
-                      </span>
-                      {(inv.status === 'pending' || inv.status === 'sent') && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleInvitationResponse(inv.invitationId, true)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                          >
-                            Chấp nhận
-                          </button>
-                          <button
-                            onClick={() => handleInvitationResponse(inv.invitationId, false)}
-                            className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
-                          >
-                            Từ chối
-                          </button>
-                        </div>
-                      )}
+                      </div>
+                      <div className="flex flex-col items-start md:items-end gap-4">
+                        <span className={`px-5 py-2.5 rounded-lg text-base font-bold shadow-md ${config.color}`}>
+                          {config.label}
+                        </span>
+                        {config.canRespond && (
+                          <div className="flex gap-4">
+                            <button
+                              onClick={() => handleInvitationResponse(inv.registration_id, true)}
+                              disabled={respondingToInvitation === inv.registration_id}
+                              className="px-8 py-4 bg-green-500 text-white rounded-xl hover:bg-green-400 transition-all font-bold text-lg shadow-xl hover:shadow-green-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2"
+                            >
+                              {respondingToInvitation === inv.registration_id ? (
+                                <Loader2 size={20} className="animate-spin" />
+                              ) : '✓'} CHẤP NHẬN
+                            </button>
+                            <button
+                              onClick={() => handleInvitationResponse(inv.registration_id, false)}
+                              disabled={respondingToInvitation === inv.registration_id}
+                              className="px-8 py-4 bg-red-500 text-white rounded-xl hover:bg-red-400 transition-all font-bold text-lg shadow-xl hover:shadow-red-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2"
+                            >
+                              {respondingToInvitation === inv.registration_id ? (
+                                <Loader2 size={20} className="animate-spin" />
+                              ) : '✕'} TỪ CHỐI
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

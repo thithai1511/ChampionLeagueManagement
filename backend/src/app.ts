@@ -33,6 +33,14 @@ import settingsRoutes from "./routes/settingsRoutes";
 import officialRoutes from "./routes/officialRoutes";
 import awardsRoutes from "./routes/awardsRoutes";
 import disciplineRoutes from "./routes/disciplineRoutes";
+import scheduleRoutes from "./routes/scheduleRoutes";
+import lineupValidationRoutes from "./routes/lineupValidationRoutes";
+import matchReportRoutes from "./routes/matchReportRoutes";
+import matchDetailRoutes from "./routes/matchDetailRoutes";
+import matchOfficialRoutes from "./routes/matchOfficialRoutes";
+import participationFeeRoutes from "./routes/participationFeeRoutes";
+import playerOfMatchRoutes from "./routes/playerOfMatchRoutes";
+import stadiumRoutes from "./routes/stadiumRoutes";
 
 const app = express();
 
@@ -86,6 +94,16 @@ app.use("/api/settings", settingsRoutes);
 // Admin routes
 app.use("/api/admin/standings", adminStandingsRoutes);
 app.use("/api/officials", officialRoutes);
+
+// Match-related routes
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/lineup", lineupValidationRoutes);
+app.use("/api/match-reports", matchReportRoutes);
+app.use("/api/match-details", matchDetailRoutes);
+app.use("/api/match-officials", matchOfficialRoutes);
+app.use("/api/participation-fees", participationFeeRoutes);
+app.use("/api/player-of-match", playerOfMatchRoutes);
+app.use("/api/stadiums", stadiumRoutes);
 
 // Sync and Import utilities (keep for future use if needed)
 app.use("/api/sync", syncRoutes);
