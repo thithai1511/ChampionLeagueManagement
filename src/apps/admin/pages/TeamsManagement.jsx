@@ -13,19 +13,11 @@ import {
   Shield,
   Trash2,
   Trophy,
-  Upload,
   Users,
   X,
-  Mail,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertCircle,
-  Send
+  Mail
 } from 'lucide-react'
 import TeamsService from '../../../layers/application/services/TeamsService'
-import ApiService from '../../../layers/application/services/ApiService'
-import SeasonService from '../../../layers/application/services/SeasonService'
 
 const EMPTY_TEAM = {
   id: null,
@@ -37,25 +29,8 @@ const EMPTY_TEAM = {
   founded_year: ''
 }
 
-const STATUS_STYLES = {
-  pending: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-  accepted: 'bg-green-100 text-green-700 border-green-300',
-  declined: 'bg-red-100 text-red-700 border-red-300',
-  expired: 'bg-gray-100 text-gray-700 border-gray-300'
-}
-
-const STATUS_LABELS = {
-  pending: 'Chờ phản hồi',
-  accepted: 'Đã chấp nhận',
-  declined: 'Đã từ chối',
-  expired: 'Hết hạn'
-}
-
 const TeamsManagement = () => {
   const navigate = useNavigate()
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState('teams') // 'teams' | 'invitations'
 
   const [searchTerm, setSearchTerm] = useState('')
   const [teams, setTeams] = useState([])
@@ -79,71 +54,7 @@ const TeamsManagement = () => {
   })
   const [appliedFilters, setAppliedFilters] = useState({})
 
-  // Invitations state
-  const [seasons, setSeasons] = useState([])
-  const [selectedSeasonId, setSelectedSeasonId] = useState(null)
-  const [invitations, setInvitations] = useState([])
-  const [invitationsLoading, setInvitationsLoading] = useState(false)
-  const [invitationStats, setInvitationStats] = useState(null)
-  const [invitationSubTab, setInvitationSubTab] = useState('overview') // 'overview' | 'list'
-  const [generatingInvitations, setGeneratingInvitations] = useState(false)
-  const [sendingInvitations, setSendingInvitations] = useState(false)
-  
-  // Add/Edit invitation modal
-  const [showInvitationModal, setShowInvitationModal] = useState(false)
-  const [editingInvitation, setEditingInvitation] = useState(null)
-  const [invitationForm, setInvitationForm] = useState({
-    teamId: '',
-    inviteType: 'manual',
-    deadlineDays: 14
-  })
-  const [savingInvitation, setSavingInvitation] = useState(false)
-
-  // Load seasons for invitations
   useEffect(() => {
-    const loadSeasons = async () => {
-      try {
-        const data = await SeasonService.listSeasons()
-        setSeasons(data || [])
-        if (data && data.length > 0 && !selectedSeasonId) {
-          setSelectedSeasonId(data[0].id)
-        }
-      } catch (err) {
-        console.error('Failed to load seasons', err)
-      }
-    }
-    loadSeasons()
-  }, [])
-
-  // Load invitations when season changes
-  useEffect(() => {
-    if (!selectedSeasonId || activeTab !== 'invitations') return
-    
-    const loadInvitations = async () => {
-      setInvitationsLoading(true)
-      try {
-        const response = await ApiService.get(`/seasons/${selectedSeasonId}/invitations`)
-        setInvitations(response?.data || [])
-        
-        // Load stats
-        try {
-          const statsResponse = await ApiService.get(`/seasons/${selectedSeasonId}/invitations/stats`)
-          setInvitationStats(statsResponse?.data || null)
-        } catch (e) {
-          console.error('Failed to load invitation stats', e)
-        }
-      } catch (err) {
-        console.error('Failed to load invitations', err)
-        setInvitations([])
-      } finally {
-        setInvitationsLoading(false)
-      }
-    }
-    loadInvitations()
-  }, [selectedSeasonId, activeTab, reloadKey])
-
-  useEffect(() => {
-    if (activeTab !== 'teams') return
     
     let isMounted = true
     setLoading(true)
@@ -194,7 +105,7 @@ const TeamsManagement = () => {
       isMounted = false
       clearTimeout(delay)
     }
-  }, [searchTerm, pagination.page, pagination.limit, reloadKey, activeTab, appliedFilters])
+  }, [searchTerm, pagination.page, pagination.limit, reloadKey, appliedFilters])
 
   const totalPlayers = useMemo(
     () => teams.reduce((sum, team) => sum + (team.playerCount || 0), 0),
@@ -414,66 +325,6 @@ const TeamsManagement = () => {
       logger.error('Failed to save invitation', err)
       toast.error(err?.message || 'Không thể lưu lời mời')
     } finally {
-      setSavingInvitation(false)
-    }
-  }
-
-  // Delete invitation
-  const handleDeleteInvitation = async (invitationId) => {
-    if (!confirm('Bạn có chắc muốn xóa lời mời này?')) return
-
-    try {
-      await ApiService.delete(`/seasons/${selectedSeasonId}/invitations/${invitationId}`)
-      toast.success('Đã xóa lời mời')
-      setReloadKey(prev => prev + 1)
-    } catch (err) {
-      logger.error('Failed to delete invitation', err)
-      toast.error(err?.message || 'Không thể xóa lời mời')
-    }
-  }
-
-  const getInviteTypeLabel = (type) => {
-    const labels = {
-      'retained': 'Top 8 mùa trước',
-      'promoted': 'Thăng hạng',
-      'replacement': 'Thay thế / Thủ công'
-    }
-    return labels[type] || type
-  }
-
-  const getInviteTypeBadgeColor = (type) => {
-    const colors = {
-      'retained': 'bg-blue-100 text-blue-700 border-blue-200',
-      'promoted': 'bg-green-100 text-green-700 border-green-200',
-      'replacement': 'bg-orange-100 text-orange-700 border-orange-200'
-    }
-    return colors[type] || 'bg-gray-100 text-gray-700 border-gray-200'
-  }
-
-  const getStatusBadgeColor = (status) => {
-    const colors = {
-      'pending': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      'accepted': 'bg-green-100 text-green-700 border-green-200',
-      'declined': 'bg-red-100 text-red-700 border-red-200',
-      'expired': 'bg-gray-100 text-gray-500 border-gray-200',
-      'rescinded': 'bg-purple-100 text-purple-600 border-purple-200',
-      'replaced': 'bg-purple-100 text-purple-600 border-purple-200'
-    }
-    return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200'
-  }
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      'pending': 'Chờ phản hồi',
-      'accepted': 'Đã chấp nhận',
-      'declined': 'Đã từ chối',
-      'expired': 'Hết hạn',
-      'rescinded': 'Đã thu hồi',
-      'replaced': 'Đã thay thế'
-    }
-    return labels[status] || status
-  }
-
   return (
     <div>
       <Toaster position="top-right" />
@@ -484,34 +335,21 @@ const TeamsManagement = () => {
             <p className="text-gray-600 mt-2">Quản lý các đội bóng và lời mời tham gia giải đấu.</p>
           </div>
           <div className="flex space-x-3">
-            {activeTab === 'teams' && (
-              <>
-                <button
-                  onClick={openCreateModal}
-                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  <Plus size={16} />
-                  <span>Thêm đội</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toast('Xuất dữ liệu chưa được triển khai')}
-                  className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  <Download size={16} />
-                  <span>Xuất</span>
-                </button>
-              </>
-            )}
-            {activeTab === 'invitations' && selectedSeasonId && (
-              <button
-                onClick={() => setReloadKey(prev => prev + 1)}
-                className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                <Loader2 size={16} className={invitationsLoading ? 'animate-spin' : ''} />
-                <span>Làm mới</span>
-              </button>
-            )}
+            <button
+              onClick={openCreateModal}
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <Plus size={16} />
+              <span>Thêm đội</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => toast('Xuất dữ liệu chưa được triển khai')}
+              className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <Download size={16} />
+              <span>Xuất</span>
+            </button>
           </div>
         </div>
       </div>
@@ -519,33 +357,23 @@ const TeamsManagement = () => {
       {/* Tab Navigation */}
       <div className="mb-6 flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
         <button
-          onClick={() => setActiveTab('teams')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'teams'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
+          className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors bg-white text-blue-600 shadow-sm"
         >
           <Users size={18} />
           <span>Đội bóng</span>
         </button>
         <button
-          onClick={() => setActiveTab('invitations')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'invitations'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
+          onClick={() => navigate('/admin/season-registration-workflow')}
+          className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+          title="Chức năng đã chuyển sang trang Quy trình đăng ký đội"
         >
           <Mail size={18} />
-          <span>Lời mời đội bóng</span>
+          <span>Lời mời đội bóng →</span>
         </button>
       </div>
 
       {/* Teams Tab Content */}
-      {activeTab === 'teams' && (
-        <>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
@@ -831,289 +659,6 @@ const TeamsManagement = () => {
             </div>
           </div>
         </div>
-      </>
-      )}
-
-      {/* Invitations Tab Content */}
-      {activeTab === 'invitations' && (
-        <>
-          {/* Season Selector and Actions */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <label className="text-sm font-medium text-gray-700">Mùa giải:</label>
-                <select
-                  value={selectedSeasonId || ''}
-                  onChange={(e) => setSelectedSeasonId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Chọn mùa giải...</option>
-                  {seasons.map((season) => (
-                    <option key={season.id} value={season.id}>
-                      {season.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {selectedSeasonId && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleOpenAddInvitationModal}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    <Plus size={16} />
-                    <span>Thêm lời mời</span>
-                  </button>
-                  <button
-                    onClick={handleGenerateSuggested}
-                    disabled={generatingInvitations}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                  >
-                    {generatingInvitations ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                    <span>Tạo danh sách đề xuất</span>
-                  </button>
-                  <button
-                    onClick={handleSendAllInvitations}
-                    disabled={sendingInvitations || invitations.filter(i => i.status === 'pending').length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {sendingInvitations ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                    <span>Gửi tất cả lời mời</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Sub-tabs */}
-          {selectedSeasonId && (
-            <div className="mb-4 flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-              <button
-                onClick={() => setInvitationSubTab('overview')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  invitationSubTab === 'overview' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Tổng quan
-              </button>
-              <button
-                onClick={() => setInvitationSubTab('list')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  invitationSubTab === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Danh sách lời mời
-              </button>
-            </div>
-          )}
-
-          {/* Overview Sub-tab */}
-          {selectedSeasonId && invitationSubTab === 'overview' && invitationStats && (
-            <div className="space-y-6">
-              {/* Progress Card */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Tiến độ mời đội</h3>
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-600">Đội đủ điều kiện</span>
-                    <span className="font-semibold">{invitationStats.qualified || invitationStats.acceptedCount || 0} / 10</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div 
-                      className="bg-gradient-to-r from-green-500 to-emerald-500 h-4 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, ((invitationStats.qualified || invitationStats.acceptedCount || 0) / 10) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-                {(invitationStats.qualified || invitationStats.acceptedCount) >= 10 && (
-                  <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <CheckCircle2 size={20} className="text-green-600" />
-                    <span className="text-green-700 font-medium">Đã đủ 10 đội! Có thể sinh lịch thi đấu.</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <p className="text-sm text-gray-500">Tổng mời</p>
-                  <p className="text-2xl font-bold text-gray-900">{invitationStats.total || invitations.length}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <p className="text-sm text-gray-500">Chờ phản hồi</p>
-                  <p className="text-2xl font-bold text-yellow-600">{invitationStats.totalPending || invitationStats.sent || 0}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <p className="text-sm text-gray-500">Đã chấp nhận</p>
-                  <p className="text-2xl font-bold text-green-600">{invitationStats.acceptedCount || 0}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <p className="text-sm text-gray-500">Đã từ chối</p>
-                  <p className="text-2xl font-bold text-red-600">{invitationStats.totalDeclined || 0}</p>
-                </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <p className="text-sm text-gray-500">Hết hạn</p>
-                  <p className="text-2xl font-bold text-gray-500">{invitationStats.totalExpired || 0}</p>
-                </div>
-              </div>
-
-              {/* Quick Status Summary */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Tình trạng theo loại mời</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {['retained', 'promoted', 'replacement'].map(type => {
-                    const typeInvs = invitations.filter(i => i.inviteType === type)
-                    if (typeInvs.length === 0) return null
-                    return (
-                      <div key={type} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getInviteTypeBadgeColor(type)}`}>
-                            {getInviteTypeLabel(type)}
-                          </span>
-                          <span className="text-gray-600 text-sm">({typeInvs.length} đội)</span>
-                        </div>
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Chấp nhận:</span>
-                            <span className="font-medium text-green-600">{typeInvs.filter(i => i.status === 'accepted').length}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Chờ:</span>
-                            <span className="font-medium text-yellow-600">{typeInvs.filter(i => i.status === 'pending' || i.status === 'sent').length}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Từ chối:</span>
-                            <span className="font-medium text-red-600">{typeInvs.filter(i => i.status === 'declined' || i.status === 'rejected').length}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* List Sub-tab */}
-          {selectedSeasonId && invitationSubTab === 'list' && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              {invitationsLoading ? (
-                <div className="text-center py-12">
-                  <Loader2 size={32} className="animate-spin mx-auto text-blue-500" />
-                  <p className="mt-4 text-gray-500">Đang tải...</p>
-                </div>
-              ) : invitations.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Mail size={48} className="mx-auto mb-4 opacity-50" />
-                  <p className="mb-4">Chưa có lời mời nào cho mùa giải này</p>
-                  <button
-                    onClick={handleGenerateSuggested}
-                    disabled={generatingInvitations}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                  >
-                    {generatingInvitations ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                    <span>Tạo danh sách đề xuất</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đội bóng</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nguồn</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hạn</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {invitations.map((inv) => (
-                        <tr key={inv.invitationId} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              {inv.teamLogo ? (
-                                <img src={inv.teamLogo} alt="" className="w-8 h-8 object-contain" />
-                              ) : (
-                                <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
-                                  <Shield size={16} className="text-gray-400" />
-                                </div>
-                              )}
-                              <div>
-                                <div className="font-semibold text-gray-900">{inv.teamName}</div>
-                                {inv.shortName && <div className="text-sm text-gray-500">{inv.shortName}</div>}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full border ${getInviteTypeBadgeColor(inv.inviteType)}`}>
-                              {getInviteTypeLabel(inv.inviteType)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(inv.status)}`}>
-                              {getStatusLabel(inv.status)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm">{formatDeadline(inv.responseDeadline)}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              {/* Status indicators */}
-                              {inv.status === 'pending' && (
-                                <>
-                                  <span className="text-xs text-yellow-600 italic">Chờ đội phản hồi...</span>
-                                  {/* Edit & Delete buttons */}
-                                  <button
-                                    onClick={() => handleOpenEditInvitationModal(inv)}
-                                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                                    title="Sửa hạn trả lời"
-                                  >
-                                    <Edit size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteInvitation(inv.invitationId)}
-                                    className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                                    title="Xóa lời mời"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </>
-                              )}
-                              {inv.status === 'accepted' && (
-                                <span className="text-xs text-green-600 font-medium">✓ Đội đã chấp nhận</span>
-                              )}
-                              {inv.status === 'declined' && (
-                                <span className="text-xs text-red-600">✗ Đội đã từ chối</span>
-                              )}
-                              {inv.status === 'expired' && (
-                                <span className="text-xs text-gray-400">⏱ Đã hết hạn</span>
-                              )}
-                              {inv.status === 'rescinded' && (
-                                <span className="text-xs text-purple-600">↩ Đã thu hồi</span>
-                              )}
-                              {inv.status === 'replaced' && (
-                                <span className="text-xs text-purple-600">🔄 Đã thay thế</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* No Season Selected */}
-          {!selectedSeasonId && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center text-gray-500">
-              <Mail size={48} className="mx-auto mb-4 opacity-50" />
-              <p>Vui lòng chọn mùa giải để xem và quản lý lời mời</p>
-            </div>
-          )}
-        </>
-      )}
 
       {showTeamModal && editingTeam && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">

@@ -1,5 +1,5 @@
 import sql from "mssql";
-import { db } from "../db";
+import { getPool } from "../db/sqlServer";
 
 // import { MatchRecord } from "./matchService"; 
 
@@ -26,7 +26,7 @@ export class NotificationService {
      */
     static async createNotification(data: NotificationData): Promise<void> {
         try {
-            const pool = await db.getPool();
+            const pool = await getPool();
             await pool.request()
                 .input("userId", sql.Int, data.userId)
                 .input("type", sql.NVarChar(50), data.type)

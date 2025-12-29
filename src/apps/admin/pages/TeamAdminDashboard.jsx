@@ -170,7 +170,8 @@ const TeamAdminDashboard = ({ currentUser }) => {
     const activeInvitation = invitations.find(inv => {
       const invSeasonId = inv.season_id ?? inv.seasonId
       const matchesSeason = invSeasonId === selectedSeasonId || invSeasonId === String(selectedSeasonId)
-      const hasValidStatus = inv.status === 'accepted' || inv.status === 'qualified' || inv.status === 'pending'
+      // New registration statuses: DRAFT_INVITE, INVITED, ACCEPTED, SUBMITTED, APPROVED, REJECTED, etc.
+      const hasValidStatus = ['INVITED', 'ACCEPTED', 'SUBMITTED', 'REQUEST_CHANGE', 'APPROVED'].includes(inv.status)
       return matchesSeason && hasValidStatus
     })
 
@@ -185,7 +186,7 @@ const TeamAdminDashboard = ({ currentUser }) => {
     }
 
     // Step 2: Invitation pending - waiting for confirmation
-    if (activeInvitation.status === 'pending' || activeInvitation.status === 'sent') {
+    if (activeInvitation.status === 'INVITED' || activeInvitation.status === 'DRAFT_INVITE') {
       return {
         current: 'invitation',
         label: 'Chờ xác nhận tham gia',
@@ -195,7 +196,7 @@ const TeamAdminDashboard = ({ currentUser }) => {
     }
 
     // Step 3: Accepted - check profile and players
-    if (activeInvitation.status === 'accepted') {
+    if (activeInvitation.status === 'ACCEPTED') {
       // Check club profile first
       if (!profileCompletion.complete) {
         return {
@@ -226,7 +227,7 @@ const TeamAdminDashboard = ({ currentUser }) => {
     }
 
     // Step 4: Submitted for review
-    if (activeInvitation.status === 'submitted') {
+    if (activeInvitation.status === 'SUBMITTED') {
       return {
         current: 'btc_approval',
         label: 'BTC đang thẩm định',
@@ -235,8 +236,18 @@ const TeamAdminDashboard = ({ currentUser }) => {
       }
     }
 
-    // Step 5: Qualified
-    if (activeInvitation.status === 'qualified') {
+    // BTC requested changes
+    if (activeInvitation.status === 'REQUEST_CHANGE') {
+      return {
+        current: 'club_docs',
+        label: 'BTC yêu cầu chỉnh sửa hồ sơ',
+        color: 'orange',
+        stepIndex: 2
+      }
+    }
+
+    // Step 5: Approved
+    if (activeInvitation.status === 'APPROVED') {
       return {
         current: 'complete',
         label: 'Đã đủ điều kiện tham gia',
@@ -246,7 +257,7 @@ const TeamAdminDashboard = ({ currentUser }) => {
     }
 
     // Rejected
-    if (activeInvitation.status === 'disqualified' || activeInvitation.status === 'rejected') {
+    if (activeInvitation.status === 'REJECTED' || activeInvitation.status === 'DECLINED') {
       return {
         current: 'rejected',
         label: 'Bị từ chối / Loại',
@@ -301,16 +312,28 @@ const TeamAdminDashboard = ({ currentUser }) => {
     const loadInvitations = async () => {
       setInvitationsLoading(true)
       try {
-        // Get invitations for this team
-        const response = await ApiService.get(`/seasons/${selectedSeasonId}/invitations`)
-        const allInvitations = response?.data || []
+        // Get registrations for this team (new API)
+        const response = await ApiService.get(`/teams/${teamIds[0]}/registrations`)
+        const allRegistrations = response?.data || []
         
-        // Filter for this team - check both team_id and teamId
-        const myInvitations = allInvitations.filter(inv => {
-          const invTeamId = inv.team_id ?? inv.teamId
-          return teamIds.includes(invTeamId)
+        // Filter for selected season
+        const myRegistrations = allRegistrations.filter(reg => {
+          const regSeasonId = reg.season_id ?? reg.seasonId
+          return regSeasonId === selectedSeasonId
         })
-        setInvitations(myInvitations)
+        
+        // Map registration status to old invitation format for compatibility
+        const mappedInvitations = myRegistrations.map(reg => ({
+          ...reg,
+          invitation_id: reg.registration_id,
+          status: reg.registration_status,
+          team_id: reg.team_id,
+          teamId: reg.team_id,
+          season_id: reg.season_id,
+          seasonId: reg.season_id
+        }))
+        
+        setInvitations(mappedInvitations)
       } catch (err) {
         console.error('Failed to load invitations', err)
         setInvitations([])
@@ -343,20 +366,35 @@ const TeamAdminDashboard = ({ currentUser }) => {
   }, [selectedSeasonId, teamIds])
 
   // Handle invitation response
-  const handleInvitationResponse = async (invitationId, accept) => {
+  const handleInvitationResponse = async (registrationId, accept) => {
     try {
-      await ApiService.patch(`/seasons/${selectedSeasonId}/invitations/${invitationId}/status`, {
-        status: accept ? 'accepted' : 'declined',
-        responseNotes: accept ? 'Đội bóng chấp nhận lời mời' : 'Đội bóng từ chối lời mời'
+      if (accept) {
+        await ApiService.post(`/registrations/${registrationId}/accept`)
+        toast.success('Đã chấp nhận lời mời')
+      } else {
+        await ApiService.post(`/registrations/${registrationId}/decline`)
+        toast.success('Đã từ chối lời mời')
+      }
+      
+      // Reload registrations
+      const response = await ApiService.get(`/teams/${teamIds[0]}/registrations`)
+      const allRegistrations = response?.data || []
+      const myRegistrations = allRegistrations.filter(reg => {
+        const regSeasonId = reg.season_id ?? reg.seasonId
+        return regSeasonId === selectedSeasonId
       })
-      toast.success(accept ? 'Đã chấp nhận lời mời' : 'Đã từ chối lời mời')
-      // Reload invitations
-      const response = await ApiService.get(`/seasons/${selectedSeasonId}/invitations`)
-      const allInvitations = response?.data || []
-      setInvitations(allInvitations.filter(inv => {
-        const invTeamId = inv.team_id ?? inv.teamId
-        return teamIds.includes(invTeamId)
+      
+      const mappedInvitations = myRegistrations.map(reg => ({
+        ...reg,
+        invitation_id: reg.registration_id,
+        status: reg.registration_status,
+        team_id: reg.team_id,
+        teamId: reg.team_id,
+        season_id: reg.season_id,
+        seasonId: reg.season_id
       }))
+      
+      setInvitations(mappedInvitations)
     } catch (err) {
       toast.error(err?.message || 'Không thể cập nhật lời mời')
     }
