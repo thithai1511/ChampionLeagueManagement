@@ -6,7 +6,7 @@ const router = Router();
 
 /**
  * GET /api/participation-fees/season/:seasonId
- * Get all fees for a season
+ * Get all fees for a season (both paid and unpaid)
  */
 router.get(
   "/season/:seasonId",
@@ -15,8 +15,9 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const seasonId = parseInt(req.params.seasonId, 10);
-      const unpaidFees = await participationFeeService.getUnpaidFees(seasonId);
-      res.json(unpaidFees);
+      // Get all fees (both paid and unpaid) for the season
+      const allFees = await participationFeeService.getAllFeesForSeason(seasonId);
+      res.json(allFees);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch fees" });
     }

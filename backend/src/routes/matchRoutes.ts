@@ -20,6 +20,8 @@ import {
 import { syncMatchesOnly } from "../services/syncService";
 import { createMatchEvent, deleteMatchEvent, disallowMatchEvent } from "../services/matchEventService";
 import { getMatchLineups, submitLineup } from "../services/matchLineupService";
+import * as lineupService from "../services/matchLineupService";
+import { isPlayerSuspendedForMatch } from "../services/disciplinaryService";
 
 const router = Router();
 const requireMatchManagement = [requireAuth, requirePermission("manage_matches")] as const;
@@ -610,6 +612,95 @@ router.delete("/:id", ...requireMatchManagement, async (req, res, next) => {
       return res.status(404).json({ message: "Match not found" });
     }
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============ LINEUPS ROUTES ============
+
+/**
+ * GET /api/matches/:matchId/lineups
+ * Get lineups for a match
+ */
+router.get("/:matchId/lineups", async (req, res, next) => {
+  try {
+    const matchId = Number(req.params.matchId);
+    if (!Number.isInteger(matchId) || matchId <= 0) {
+      return res.status(400).json({ message: "Invalid match id" });
+    }
+    const lineups = await lineupService.getMatchLineups(matchId);
+    res.json({ data: lineups });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/matches/:matchId/lineups
+ * Submit lineups for a match
+ */
+router.post("/:matchId/lineups", requireAuth, async (req, res, next) => {
+  try {
+    const matchId = Number(req.params.matchId);
+    if (!Number.isInteger(matchId) || matchId <= 0) {
+      return res.status(400).json({ message: "Invalid match id" });
+    }
+
+    const lineupSchema = z.array(z.object({
+      seasonTeamId: z.number(),
+      playerId: z.number().optional(),
+      seasonPlayerId: z.number().optional(),
+      isStarting: z.boolean(),
+      isCaptain: z.boolean(),
+      jerseyNumber: z.number().optional(),
+      position: z.string().optional(),
+      status: z.string().default('active'),
+      seasonId: z.number()
+    }));
+
+    const payload = lineupSchema.parse(req.body);
+
+    // Check for suspended players before saving
+    const suspendedPlayers = [];
+    for (const item of payload) {
+      const seasonPlayerId = item.seasonPlayerId || item.playerId;
+      if (!seasonPlayerId) continue;
+
+      const suspensionCheck = await isPlayerSuspendedForMatch(
+        item.seasonId,
+        matchId,
+        seasonPlayerId
+      );
+
+      if (suspensionCheck.suspended) {
+        suspendedPlayers.push({
+          seasonPlayerId,
+          reason: suspensionCheck.reason
+        });
+      }
+    }
+
+    // Reject if any suspended players
+    if (suspendedPlayers.length > 0) {
+      return res.status(400).json({
+        error: 'Lineup contains suspended players',
+        suspendedPlayers: suspendedPlayers.map(sp => ({
+          seasonPlayerId: sp.seasonPlayerId,
+          reason: sp.reason,
+          message: sp.reason === 'RED_CARD'
+            ? 'Player suspended due to red card'
+            : 'Player suspended due to accumulation of yellow cards'
+        }))
+      });
+    }
+
+    // Upsert lineups
+    for (const item of payload) {
+      await lineupService.upsertMatchLineup({ ...item, matchId });
+    }
+
+    res.json({ message: "Lineups updated" });
   } catch (error) {
     next(error);
   }

@@ -105,6 +105,98 @@ router.post(
   controller.sendAllInvitations
 );
 
+/**
+ * POST /api/seasons/:seasonId/invitations/generate-suggested
+ * Generate draft invitations for all eligible teams
+ */
+router.post(
+  "/seasons/:seasonId/invitations/generate-suggested",
+  requireAuth,
+  requirePermission("manage_seasons"),
+  controller.generateSuggestedInvitations
+);
+
+// ============================================================
+// INVITATION ALIAS ROUTES (Frontend uses /invitations, backend uses /registrations)
+// ============================================================
+
+/**
+ * GET /api/seasons/:seasonId/invitations
+ * List all invitations for a season (alias for registrations)
+ */
+router.get(
+  "/seasons/:seasonId/invitations",
+  requireAuth,
+  requirePermission("manage_seasons"),
+  controller.listRegistrations
+);
+
+/**
+ * GET /api/seasons/:seasonId/invitations/stats
+ * Get invitation statistics
+ */
+router.get(
+  "/seasons/:seasonId/invitations/stats",
+  requireAuth,
+  requirePermission("manage_seasons"),
+  controller.getStatistics
+);
+
+/**
+ * POST /api/seasons/:seasonId/invitations
+ * Create new invitation
+ */
+router.post(
+  "/seasons/:seasonId/invitations",
+  requireAuth,
+  requirePermission("manage_seasons"),
+  controller.createInvitation
+);
+
+/**
+ * POST /api/seasons/:seasonId/invitations/send-all
+ * Batch send all draft invitations
+ */
+router.post(
+  "/seasons/:seasonId/invitations/send-all",
+  requireAuth,
+  requirePermission("manage_seasons"),
+  controller.sendAllInvitations
+);
+
+/**
+ * PATCH /api/seasons/:seasonId/invitations/:invitationId
+ * Update invitation (deadline, etc.)
+ */
+router.patch(
+  "/seasons/:seasonId/invitations/:invitationId",
+  requireAuth,
+  requirePermission("manage_seasons"),
+  controller.updateInvitation
+);
+
+/**
+ * PATCH /api/seasons/:seasonId/invitations/:invitationId/status
+ * Update invitation status
+ */
+router.patch(
+  "/seasons/:seasonId/invitations/:invitationId/status",
+  requireAuth,
+  requirePermission("manage_seasons"),
+  controller.updateInvitationStatus
+);
+
+/**
+ * DELETE /api/seasons/:seasonId/invitations/:invitationId
+ * Delete invitation
+ */
+router.delete(
+  "/seasons/:seasonId/invitations/:invitationId",
+  requireAuth,
+  requirePermission("manage_seasons"),
+  controller.deleteInvitation
+);
+
 // ============================================================
 // REGISTRATION DETAIL ROUTES
 // ============================================================
@@ -142,7 +234,7 @@ router.post(
 router.post(
   "/registrations/:registrationId/accept",
   requireAuth,
-  requireAnyPermission("manage_teams", "manage_own_team"),
+  requireAnyPermission("manage_teams", "manage_own_team", "manage_own_team_squad", "view_own_team"),
   controller.acceptInvitation
 );
 
@@ -153,7 +245,7 @@ router.post(
 router.post(
   "/registrations/:registrationId/decline",
   requireAuth,
-  requireAnyPermission("manage_teams", "manage_own_team"),
+  requireAnyPermission("manage_teams", "manage_own_team", "manage_own_team_squad", "view_own_team"),
   controller.declineInvitation
 );
 
@@ -165,7 +257,7 @@ router.post(
 router.post(
   "/registrations/:registrationId/submit",
   requireAuth,
-  requireAnyPermission("manage_teams", "manage_own_team"),
+  requireAnyPermission("manage_teams", "manage_own_team", "manage_own_team_squad", "view_own_team"),
   controller.submitDocuments
 );
 

@@ -132,17 +132,20 @@ class TeamsService {
     try {
       const endpoint = APP_CONFIG.API.ENDPOINTS.TEAMS.PLAYERS.replace(':id', teamId)
       const response = await ApiService.get(endpoint, query)
+      console.log('[TeamsService.getTeamPlayers] Response:', response)
       const raw = response?.data || []
       if (!Array.isArray(raw)) {
+        console.warn('[TeamsService.getTeamPlayers] raw is not array:', raw)
         return []
       }
+      console.log('[TeamsService.getTeamPlayers] Raw players count:', raw.length)
       return raw.map((player) => ({
-        id: player.player_id ?? player.id ?? null,
-        name: player.display_name ?? player.full_name ?? player.name ?? 'Unknown',
-        position: player.preferred_position ?? player.position ?? null,
+        id: player.id ?? player.player_id ?? null,
+        name: player.displayName ?? player.fullName ?? player.display_name ?? player.full_name ?? player.name ?? 'Unknown',
+        position: player.preferredPosition ?? player.preferred_position ?? player.position ?? null,
         nationality: player.nationality ?? null,
-        dateOfBirth: player.date_of_birth ?? player.dateOfBirth ?? null,
-        shirtNumber: player.shirt_number ?? player.shirtNumber ?? null
+        dateOfBirth: player.dateOfBirth ?? player.date_of_birth ?? null,
+        shirtNumber: player.shirtNumber ?? player.shirt_number ?? null
       }))
     } catch (error) {
       console.error('Failed to fetch team players:', error)

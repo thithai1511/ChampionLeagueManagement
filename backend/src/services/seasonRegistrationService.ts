@@ -364,6 +364,49 @@ export async function getSeasonRegistrations(
 }
 
 /**
+ * Get registrations for a season with full team info (logo, short_name)
+ */
+export async function getSeasonRegistrationsWithTeamInfo(
+  seasonId: number,
+  status?: RegistrationStatus
+): Promise<(SeasonRegistration & { team_logo?: string; short_name?: string })[]> {
+  let sql = `
+    SELECT 
+      r.registration_id,
+      r.season_id,
+      r.team_id,
+      t.name as team_name,
+      t.short_name,
+      t.logo_url as team_logo,
+      r.invitation_id,
+      r.fee_status,
+      r.registration_status,
+      r.submission_data,
+      r.reviewer_note,
+      CONVERT(VARCHAR(23), r.submitted_at, 126) as submitted_at,
+      CONVERT(VARCHAR(23), r.reviewed_at, 126) as reviewed_at,
+      r.reviewed_by,
+      CONVERT(VARCHAR(23), r.created_at, 126) as created_at,
+      CONVERT(VARCHAR(23), r.updated_at, 126) as updated_at
+    FROM season_team_registrations r
+    INNER JOIN teams t ON r.team_id = t.team_id
+    WHERE r.season_id = @seasonId
+  `;
+
+  const params: any = { seasonId };
+
+  if (status) {
+    sql += " AND r.registration_status = @status";
+    params.status = status;
+  }
+
+  sql += " ORDER BY t.name ASC";
+
+  const result = await query<SeasonRegistration & { team_logo?: string; short_name?: string }>(sql, params);
+  return result.recordset;
+}
+
+/**
  * Create a new registration (usually from invitation)
  */
 export async function createRegistration(
@@ -649,4 +692,212 @@ export async function batchSendInvitations(
   }
 
   return { sent, failed };
+}
+
+/**
+ * Get all registrations for a team across all seasons
+ * Excludes DRAFT_INVITE status (team admins should only see sent invitations)
+ */
+export async function getTeamRegistrationsAcrossSeasons(
+  teamId: number
+): Promise<SeasonRegistration[]> {
+  const result = await query<SeasonRegistration>(
+    `
+    SELECT 
+      r.registration_id,
+      r.season_id,
+      r.team_id,
+      t.name as team_name,
+      s.name as season_name,
+      r.invitation_id,
+      r.fee_status,
+      r.registration_status,
+      r.submission_data,
+      r.reviewer_note,
+      CONVERT(VARCHAR(23), r.submitted_at, 126) as submitted_at,
+      CONVERT(VARCHAR(23), r.reviewed_at, 126) as reviewed_at,
+      r.reviewed_by,
+      CONVERT(VARCHAR(23), r.created_at, 126) as created_at,
+      CONVERT(VARCHAR(23), r.updated_at, 126) as updated_at
+    FROM season_team_registrations r
+    INNER JOIN teams t ON r.team_id = t.team_id
+    LEFT JOIN seasons s ON r.season_id = s.season_id
+    WHERE r.team_id = @teamId
+      AND r.registration_status != 'DRAFT_INVITE'
+    ORDER BY r.created_at DESC
+    `,
+    { teamId }
+  );
+
+  return result.recordset;
+}
+
+/**
+ * Delete a registration/invitation
+ */
+export async function deleteRegistration(registrationId: number): Promise<void> {
+  // First delete from history table
+  await query(
+    `DELETE FROM season_registration_status_history WHERE registration_id = @registrationId`,
+    { registrationId }
+  );
+  
+  // Then delete the registration
+  await query(
+    `DELETE FROM season_team_registrations WHERE registration_id = @registrationId`,
+    { registrationId }
+  );
+}
+
+/**
+ * Generate suggested invitations for a season
+ * Logic theo quy định:
+ * - 8 đội top 8 BXH mùa giải trước
+ * - 2 đội thăng hạng từ giải dưới
+ * Tổng: 10 đội tham gia
+ */
+export async function generateSuggestedInvitations(
+  seasonId: number
+): Promise<{ 
+  created: number; 
+  skipped: number; 
+  errors: string[];
+  teams: { team_id: number; team_name: string; invite_type: string }[] 
+}> {
+  const errors: string[] = [];
+  const createdTeams: { team_id: number; team_name: string; invite_type: string }[] = [];
+  let created = 0;
+  let skipped = 0;
+
+  // 1. Get previous season info
+  const seasonResult = await query<{ season_id: number; start_year: number }>(
+    `SELECT season_id, YEAR(start_date) as start_year FROM seasons WHERE season_id = @seasonId`,
+    { seasonId }
+  );
+  
+  if (seasonResult.recordset.length === 0) {
+    errors.push("Không tìm thấy mùa giải");
+    return { created: 0, skipped: 0, errors, teams: [] };
+  }
+
+  // 2. Find previous season
+  const previousSeasonResult = await query<{ season_id: number; name: string }>(
+    `SELECT TOP 1 season_id, name FROM seasons 
+     WHERE season_id < @seasonId 
+     ORDER BY season_id DESC`,
+    { seasonId }
+  );
+  
+  let top8Teams: { team_id: number; name: string }[] = [];
+  
+  if (previousSeasonResult.recordset.length === 0) {
+    errors.push("Không tìm thấy mùa giải trước. Sẽ mời tất cả đội trong hệ thống.");
+    
+    // Fallback: get all teams if no previous season
+    const allTeamsResult = await query<{ team_id: number; name: string }>(
+      `SELECT TOP 10 team_id, name FROM teams ORDER BY name`
+    );
+    top8Teams = allTeamsResult.recordset;
+  } else {
+    const prevSeasonId = previousSeasonResult.recordset[0].season_id;
+    const prevSeasonName = previousSeasonResult.recordset[0].name;
+    
+    // 3. Get top 8 from previous season standings
+    const standingsResult = await query<{ team_id: number; name: string; position: number }>(
+      `SELECT TOP 8 
+         s.team_id, 
+         t.name,
+         s.position
+       FROM standings s
+       INNER JOIN teams t ON s.team_id = t.team_id
+       WHERE s.season_id = @prevSeasonId
+       ORDER BY s.position ASC`,
+      { prevSeasonId }
+    );
+    
+    if (standingsResult.recordset.length === 0) {
+      errors.push(`Không có dữ liệu BXH mùa giải ${prevSeasonName}. Sẽ lấy 8 đội đầu tiên trong hệ thống.`);
+      
+      // Fallback: get first 8 teams
+      const fallbackResult = await query<{ team_id: number; name: string }>(
+        `SELECT TOP 8 team_id, name FROM teams ORDER BY name`
+      );
+      top8Teams = fallbackResult.recordset;
+    } else if (standingsResult.recordset.length < 8) {
+      errors.push(`BXH mùa trước chỉ có ${standingsResult.recordset.length} đội, cần 8 đội.`);
+      top8Teams = standingsResult.recordset;
+    } else {
+      top8Teams = standingsResult.recordset;
+    }
+  }
+  
+  // 4. Get teams that already have registrations for this season
+  const existingResult = await query<{ team_id: number }>(
+    `SELECT team_id FROM season_team_registrations WHERE season_id = @seasonId`,
+    { seasonId }
+  );
+  const existingTeamIds = new Set(existingResult.recordset.map(r => r.team_id));
+
+  // 5. Create invitations for top 8 (retained teams)
+  for (const team of top8Teams) {
+    if (existingTeamIds.has(team.team_id)) {
+      skipped++;
+      continue;
+    }
+
+    try {
+      await createRegistration(seasonId, team.team_id, undefined, "DRAFT_INVITE");
+      created++;
+      createdTeams.push({ 
+        team_id: team.team_id, 
+        team_name: team.name, 
+        invite_type: "retained" 
+      });
+    } catch (error: any) {
+      console.error(`Failed to create invitation for team ${team.team_id}:`, error);
+      errors.push(`Lỗi khi tạo lời mời cho ${team.name}: ${error.message || "Unknown error"}`);
+      skipped++;
+    }
+  }
+
+  // 6. For promoted teams - currently we don't have lower league data
+  // So we'll note this as a limitation
+  if (top8Teams.length < 10) {
+    const neededPromoted = 10 - top8Teams.length - created;
+    if (neededPromoted > 0) {
+      errors.push(`Cần thêm ${neededPromoted} đội thăng hạng từ giải dưới. Hiện chưa có dữ liệu giải hạng dưới.`);
+    }
+  }
+
+  // 7. If we still need more teams, get additional teams (for demo purposes)
+  const totalInvited = created + existingTeamIds.size;
+  if (totalInvited < 10) {
+    const neededMore = 10 - totalInvited;
+    const additionalTeamsResult = await query<{ team_id: number; name: string }>(
+      `SELECT TOP (@needed) team_id, name FROM teams 
+       WHERE team_id NOT IN (
+         SELECT team_id FROM season_team_registrations WHERE season_id = @seasonId
+       )
+       AND team_id NOT IN (${top8Teams.map(t => t.team_id).join(',') || '0'})
+       ORDER BY name`,
+      { needed: neededMore, seasonId }
+    );
+    
+    for (const team of additionalTeamsResult.recordset) {
+      try {
+        await createRegistration(seasonId, team.team_id, undefined, "DRAFT_INVITE");
+        created++;
+        createdTeams.push({ 
+          team_id: team.team_id, 
+          team_name: team.name, 
+          invite_type: "promoted" // Mark as promoted for display
+        });
+      } catch (error: any) {
+        console.error(`Failed to create invitation for team ${team.team_id}:`, error);
+        errors.push(`Lỗi khi tạo lời mời cho ${team.name}: ${error.message || "Unknown error"}`);
+      }
+    }
+  }
+
+  return { created, skipped, errors, teams: createdTeams };
 }

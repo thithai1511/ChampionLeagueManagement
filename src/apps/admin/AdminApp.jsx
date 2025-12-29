@@ -29,6 +29,7 @@ import OfficialsManagement from './pages/OfficialsManagement'
 import StatisticsPage from './pages/StatisticsPage'
 import SeasonAndRulesPage from './pages/SeasonAndRulesPage'
 import ClubProfilePage from './pages/ClubProfilePage'
+import SeasonRegistrationWorkflowPage from './pages/SeasonRegistrationWorkflowPage'
 
 
 const AdminApp = ({ onLogout, currentUser }) => {
@@ -140,6 +141,14 @@ const AdminApp = ({ onLogout, currentUser }) => {
           element={
             <AccessGuard permission="manage_teams" currentUser={currentUser}>
               <SeasonAndRulesPage />
+            </AccessGuard>
+          }
+        />
+        <Route
+          path="season-registration-workflow"
+          element={
+            <AccessGuard permission="manage_teams" currentUser={currentUser}>
+              <SeasonRegistrationWorkflowPage />
             </AccessGuard>
           }
         />
