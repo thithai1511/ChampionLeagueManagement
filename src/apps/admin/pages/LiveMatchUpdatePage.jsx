@@ -225,8 +225,8 @@ const LiveMatchUpdatePage = () => {
         if (lineup && lineup.starters?.length > 0) {
             // Get players who were substituted OUT
             const substitutedOutIds = (matchEvents || [])
-                .filter(e => e.type === 'SUBSTITUTION' && e.teamId === selectedTeamId)
-                .map(e => e.playerId);
+                .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
+                .map(e => Number(e.playerId));
 
             // Return starters who haven't been subbed out
             return squad.filter(player =>
@@ -252,8 +252,8 @@ const LiveMatchUpdatePage = () => {
         if (lineup && lineup.substitutes?.length > 0) {
             // Get players who already came IN (can't come in again)
             const substitutedInIds = (matchEvents || [])
-                .filter(e => e.type === 'SUBSTITUTION' && e.teamId === selectedTeamId)
-                .map(e => e.assistPlayerId)
+                .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
+                .map(e => Number(e.assistPlayerId))
                 .filter(id => id);
 
             // Return subs who haven't entered the pitch yet
@@ -287,13 +287,13 @@ const LiveMatchUpdatePage = () => {
 
         // Get players who were substituted OUT
         const substitutedOutIds = (matchEvents || [])
-            .filter(e => e.type === 'SUBSTITUTION' && e.teamId === selectedTeamId)
-            .map(e => e.playerId);
+            .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
+            .map(e => Number(e.playerId));
 
         // Get players who came IN
         const substitutedInIds = (matchEvents || [])
-            .filter(e => e.type === 'SUBSTITUTION' && e.teamId === selectedTeamId)
-            .map(e => e.assistPlayerId)
+            .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
+            .map(e => Number(e.assistPlayerId))
             .filter(id => id);
 
         // Active = starters - subbed out + subbed in
