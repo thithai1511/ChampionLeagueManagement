@@ -325,6 +325,10 @@ const TeamsManagement = () => {
       logger.error('Failed to save invitation', err)
       toast.error(err?.message || 'Không thể lưu lời mời')
     } finally {
+      setSavingInvitation(false)
+    }
+  }
+
   return (
     <div>
       <Toaster position="top-right" />
