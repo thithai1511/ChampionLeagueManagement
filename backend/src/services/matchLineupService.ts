@@ -350,14 +350,18 @@ export const submitLineup = async (
     }
 
     // Determine team type based on match info
-    const matchInfo = await query<{ home_season_team_id: number; away_season_team_id: number }>(`
-        SELECT home_season_team_id, away_season_team_id
+    const matchInfo = await query<{ home_season_team_id: number; away_season_team_id: number; status: string }>(`
+        SELECT home_season_team_id, away_season_team_id, status
         FROM matches
         WHERE match_id = @matchId
     `, { matchId: input.matchId });
 
     if (!matchInfo.recordset[0]) {
         return { success: false, errors: ['Không tìm thấy thông tin trận đấu'] };
+    }
+
+    if (matchInfo.recordset[0].status === 'completed') {
+        return { success: false, errors: ['Không thể sửa đội hình của trận đấu đã kết thúc'] };
     }
 
     const teamType = matchInfo.recordset[0].home_season_team_id === input.seasonTeamId ? 'home' : 'away';

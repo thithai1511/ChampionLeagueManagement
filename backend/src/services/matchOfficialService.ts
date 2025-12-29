@@ -5,7 +5,7 @@ export interface MatchOfficial {
   match_id: number;
   official_id: number;
   official_name: string;
-  official_role: "referee" | "assistant_referee" | "fourth_official" | "video_assistant_referee";
+  roleCode: "referee" | "assistant_1" | "assistant_2" | "fourth_official" | "video_assistant" | "match_commissioner";
   assigned_at: string;
   assigned_by_user_id: number;
   is_confirmed: boolean;
@@ -19,8 +19,8 @@ const baseAssignmentSelect = `
     moa.assignment_id,
     moa.match_id,
     moa.official_id,
-    o.name AS official_name,
-    moa.official_role,
+    o.full_name AS official_name,
+    moa.role_code AS roleCode,
     CONVERT(VARCHAR(23), moa.assigned_at, 126) AS assigned_at,
     moa.assigned_by_user_id,
     moa.is_confirmed,
@@ -37,12 +37,12 @@ const baseAssignmentSelect = `
 export async function assignOfficialToMatch(
   matchId: number,
   officialId: number,
-  role: "referee" | "assistant_referee" | "fourth_official" | "video_assistant_referee",
+  role: "referee" | "assistant_1" | "assistant_2" | "fourth_official" | "video_assistant" | "match_commissioner",
   assignedByUserId: number
 ): Promise<MatchOfficial> {
   const result = await query<MatchOfficial>(
     `
-    INSERT INTO match_official_assignments (match_id, official_id, official_role, assigned_at, assigned_by_user_id, is_confirmed, created_at)
+    INSERT INTO match_official_assignments (match_id, official_id, role_code, assigned_at, assigned_by_user_id, is_confirmed, created_at)
     OUTPUT INSERTED.*
     VALUES (@matchId, @officialId, @role, GETUTCDATE(), @assignedByUserId, 0, GETUTCDATE())
   `,
@@ -54,7 +54,11 @@ export async function assignOfficialToMatch(
     }
   );
 
-  return result.recordset[0];
+  const record = result.recordset[0];
+  return {
+    ...record,
+    roleCode: (record as any).role_code
+  };
 }
 
 /**
@@ -62,7 +66,7 @@ export async function assignOfficialToMatch(
  */
 export async function getMatchOfficials(matchId: number): Promise<MatchOfficial[]> {
   const result = await query<MatchOfficial>(
-    `${baseAssignmentSelect} WHERE moa.match_id = @matchId ORDER BY moa.official_role ASC`,
+    `${baseAssignmentSelect} WHERE moa.match_id = @matchId ORDER BY moa.role_code ASC`,
     { matchId }
   );
   return result.recordset;
@@ -156,7 +160,7 @@ export async function getAvailableOfficials(matchId: number): Promise<any[]> {
       FROM match_official_assignments moa
       WHERE moa.match_id = @matchId
     )
-    ORDER BY o.name ASC
+    ORDER BY o.full_name ASC
   `,
     { matchId }
   );
@@ -169,12 +173,12 @@ export async function getAvailableOfficials(matchId: number): Promise<any[]> {
  */
 export async function updateAssignmentRole(
   assignmentId: number,
-  newRole: "referee" | "assistant_referee" | "fourth_official" | "video_assistant_referee"
+  newRole: "referee" | "assistant_1" | "assistant_2" | "fourth_official" | "video_assistant" | "match_commissioner"
 ): Promise<void> {
   await query(
     `
     UPDATE match_official_assignments
-    SET official_role = @newRole
+    SET role_code = @newRole
     WHERE assignment_id = @assignmentId
   `,
     { assignmentId, newRole }
@@ -188,7 +192,7 @@ export async function batchAssignOfficials(
   matchId: number,
   assignments: Array<{
     officialId: number;
-    role: "referee" | "assistant_referee" | "fourth_official" | "video_assistant_referee";
+    role: "referee" | "assistant_1" | "assistant_2" | "fourth_official" | "video_assistant" | "match_commissioner";
   }>,
   assignedByUserId: number
 ): Promise<MatchOfficial[]> {

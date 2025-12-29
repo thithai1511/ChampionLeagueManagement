@@ -46,7 +46,8 @@ class MatchesService {
         // Detailed Infos
         mvp: match.mvp,
         events: match.events || [],
-        stats: match.stats || { home: null, away: null }
+        stats: match.stats || { home: null, away: null },
+        referee: match.referee // Added referee
       }))
 
       return {
@@ -91,7 +92,8 @@ class MatchesService {
         seasonId: match.seasonId,
         mvp: match.mvp,
         events: match.events || [],
-        stats: match.stats || { home: null, away: null }
+        stats: match.stats || { home: null, away: null },
+        referee: match.referee
       }))
     } catch (error) {
       logger.error('Failed to fetch live matches:', error)
