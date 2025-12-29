@@ -460,7 +460,21 @@ const StatisticsPage = () => {
 
   // Load data based on main tab and selected season
   useEffect(() => {
-    if (!selectedSeasonId) return;
+    if (!selectedSeasonId) {
+      // Reset data when no season selected
+      setTopScorers([]);
+      setCardStats([]);
+      setSuspendedPlayers([]);
+      setMotmStats([]);
+      setStandings([]);
+      setCardSummary([]);
+      setSuspensions([]);
+      setAwardTopScorers([]);
+      setTopMVPs([]);
+      return;
+    }
+    
+    console.log('[StatisticsPage] useEffect triggered - mainTab:', mainTab, 'selectedSeasonId:', selectedSeasonId);
     
     switch (mainTab) {
       case 'player-stats':
@@ -497,37 +511,61 @@ const StatisticsPage = () => {
   };
 
   const handleSeasonChange = (e) => {
-    setSelectedSeasonId(Number(e.target.value));
+    const newSeasonId = Number(e.target.value);
+    console.log('[StatisticsPage] Season changed to:', newSeasonId);
+    setSelectedSeasonId(newSeasonId);
   };
 
   // =====================================================================
   // PLAYER STATS FUNCTIONS
   // =====================================================================
   const loadPlayerStatsData = async () => {
-    if (!selectedSeasonId) return;
+    if (!selectedSeasonId) {
+      setTopScorers([]);
+      setCardStats([]);
+      setSuspendedPlayers([]);
+      setMotmStats([]);
+      return;
+    }
     
+    console.log('[StatisticsPage] Loading player stats for season:', selectedSeasonId, 'tab:', playerStatsSubTab);
     setLoadingPlayerStats(true);
+    setError(null);
     try {
       switch (playerStatsSubTab) {
         case 'top-scorers':
+          console.log('[StatisticsPage] Calling getTopScorers for season:', selectedSeasonId);
           const scorers = await StatsService.getTopScorers(selectedSeasonId);
-          setTopScorers(scorers);
+          console.log('[StatisticsPage] Top scorers response:', scorers);
+          setTopScorers(Array.isArray(scorers) ? scorers : []);
           break;
         case 'cards':
+          console.log('[StatisticsPage] Calling getCardStats for season:', selectedSeasonId);
           const cards = await StatsService.getCardStats(selectedSeasonId);
-          setCardStats(cards);
+          console.log('[StatisticsPage] Card stats response:', cards);
+          setCardStats(Array.isArray(cards) ? cards : []);
           break;
         case 'suspended':
+          console.log('[StatisticsPage] Calling getSuspendedPlayers for season:', selectedSeasonId);
           const suspended = await StatsService.getSuspendedPlayers(selectedSeasonId);
-          setSuspendedPlayers(suspended);
+          console.log('[StatisticsPage] Suspended players response:', suspended);
+          setSuspendedPlayers(Array.isArray(suspended) ? suspended : []);
           break;
         case 'man-of-match':
+          console.log('[StatisticsPage] Calling getManOfMatchStats for season:', selectedSeasonId);
           const motm = await StatsService.getManOfMatchStats(selectedSeasonId);
-          setMotmStats(motm);
+          console.log('[StatisticsPage] MOTM stats response:', motm);
+          setMotmStats(Array.isArray(motm) ? motm : []);
           break;
       }
     } catch (err) {
-      console.error('Error loading player stats:', err);
+      console.error('[StatisticsPage] Error loading player stats:', err);
+      setError('Không thể tải dữ liệu thống kê: ' + (err.message || 'Lỗi không xác định'));
+      // Set empty arrays on error
+      setTopScorers([]);
+      setCardStats([]);
+      setSuspendedPlayers([]);
+      setMotmStats([]);
     } finally {
       setLoadingPlayerStats(false);
     }

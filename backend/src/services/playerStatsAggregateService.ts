@@ -52,6 +52,7 @@ export interface SuspendedPlayer {
 
 /**
  * Get card statistics aggregated by player for a season
+ * Uses match_events table for card data
  */
 export async function getCardStatsBySeason(seasonId: number): Promise<PlayerCardStats[]> {
   const result = await query<{
@@ -70,19 +71,22 @@ export async function getCardStatsBySeason(seasonId: number): Promise<PlayerCard
       t.team_id,
       t.name AS team_name,
       spr.season_id,
-      COALESCE(SUM(pms.yellow_cards), 0) AS yellow_cards,
-      COALESCE(SUM(pms.red_cards), 0) AS red_cards,
-      COUNT(DISTINCT pms.match_id) AS matches_played
+      COALESCE(SUM(CASE WHEN me.card_type = 'YELLOW' THEN 1 ELSE 0 END), 0) AS yellow_cards,
+      COALESCE(SUM(CASE WHEN me.card_type IN ('RED', 'SECOND_YELLOW') THEN 1 ELSE 0 END), 0) AS red_cards,
+      COUNT(DISTINCT me.match_id) AS matches_played
      FROM season_player_registrations spr
      INNER JOIN players p ON spr.player_id = p.player_id
      INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
      INNER JOIN teams t ON stp.team_id = t.team_id
-     LEFT JOIN player_match_stats pms ON spr.season_player_id = pms.season_player_id
+     LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id 
+       AND me.event_type = 'CARD'
      WHERE spr.season_id = @seasonId
        AND spr.registration_status = 'approved'
      GROUP BY p.player_id, p.full_name, t.team_id, t.name, spr.season_id
-     HAVING COALESCE(SUM(pms.yellow_cards), 0) > 0 OR COALESCE(SUM(pms.red_cards), 0) > 0
-     ORDER BY (COALESCE(SUM(pms.yellow_cards), 0) + COALESCE(SUM(pms.red_cards), 0) * 2) DESC`,
+     HAVING COALESCE(SUM(CASE WHEN me.card_type = 'YELLOW' THEN 1 ELSE 0 END), 0) > 0 
+        OR COALESCE(SUM(CASE WHEN me.card_type IN ('RED', 'SECOND_YELLOW') THEN 1 ELSE 0 END), 0) > 0
+     ORDER BY (COALESCE(SUM(CASE WHEN me.card_type = 'YELLOW' THEN 1 ELSE 0 END), 0) + 
+               COALESCE(SUM(CASE WHEN me.card_type IN ('RED', 'SECOND_YELLOW') THEN 1 ELSE 0 END), 0) * 2) DESC`,
     { seasonId }
   );
 
@@ -107,6 +111,7 @@ export async function getCardStatsBySeason(seasonId: number): Promise<PlayerCard
 
 /**
  * Get top scorers for a season
+ * Uses match_events table for goal and assist data
  */
 export async function getTopScorersBySeason(seasonId: number, limit: number = 20): Promise<PlayerGoalStats[]> {
   const result = await query<{
@@ -119,26 +124,28 @@ export async function getTopScorersBySeason(seasonId: number, limit: number = 20
     assists: number;
     matches_played: number;
   }>(
-    `SELECT TOP ${limit}
+    `SELECT TOP (@limit)
       p.player_id,
       p.full_name AS player_name,
       t.team_id,
       t.name AS team_name,
       spr.season_id,
-      COALESCE(SUM(pms.goals), 0) AS goals,
-      COALESCE(SUM(pms.assists), 0) AS assists,
-      COUNT(DISTINCT pms.match_id) AS matches_played
+      COALESCE(SUM(CASE WHEN me.event_type = 'GOAL' THEN 1 ELSE 0 END), 0) AS goals,
+      COALESCE(SUM(CASE WHEN me.event_type = 'ASSIST' THEN 1 ELSE 0 END), 0) AS assists,
+      COUNT(DISTINCT me.match_id) AS matches_played
      FROM season_player_registrations spr
      INNER JOIN players p ON spr.player_id = p.player_id
      INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
      INNER JOIN teams t ON stp.team_id = t.team_id
-     LEFT JOIN player_match_stats pms ON spr.season_player_id = pms.season_player_id
+     LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id 
+       AND me.event_type IN ('GOAL', 'ASSIST')
      WHERE spr.season_id = @seasonId
        AND spr.registration_status = 'approved'
      GROUP BY p.player_id, p.full_name, t.team_id, t.name, spr.season_id
-     HAVING COALESCE(SUM(pms.goals), 0) > 0
-     ORDER BY SUM(pms.goals) DESC, SUM(pms.assists) DESC`,
-    { seasonId }
+     HAVING COALESCE(SUM(CASE WHEN me.event_type = 'GOAL' THEN 1 ELSE 0 END), 0) > 0
+     ORDER BY SUM(CASE WHEN me.event_type = 'GOAL' THEN 1 ELSE 0 END) DESC, 
+              SUM(CASE WHEN me.event_type = 'ASSIST' THEN 1 ELSE 0 END) DESC`,
+    { seasonId, limit }
   );
 
   return result.recordset.map(row => ({
@@ -205,10 +212,9 @@ export async function getMotmStatsBySeason(seasonId: number): Promise<ManOfTheMa
  * - 2 accumulated yellow cards (reset after serving suspension)
  * - 1 direct red card
  * - 2nd yellow in same match (automatic red)
+ * Uses match_events table for card data
  */
 export async function getSuspendedPlayers(seasonId: number): Promise<SuspendedPlayer[]> {
-  // This query finds players with accumulated yellow cards >= 2 or any red card
-  // In a real system, we'd track card accumulation windows and suspension serving
   const result = await query<{
     player_id: number;
     player_name: string;
@@ -227,19 +233,18 @@ export async function getSuspendedPlayers(seasonId: number): Promise<SuspendedPl
         t.team_id,
         t.name AS team_name,
         spr.season_id,
-        COALESCE(SUM(pms.yellow_cards), 0) AS yellow_cards,
-        COALESCE(SUM(pms.red_cards), 0) AS red_cards,
-        MAX(m.match_id) AS last_card_match_id,
+        COALESCE(SUM(CASE WHEN me.card_type = 'YELLOW' THEN 1 ELSE 0 END), 0) AS yellow_cards,
+        COALESCE(SUM(CASE WHEN me.card_type IN ('RED', 'SECOND_YELLOW') THEN 1 ELSE 0 END), 0) AS red_cards,
+        MAX(me.match_id) AS last_card_match_id,
         MAX(m.scheduled_kickoff) AS last_card_date
       FROM season_player_registrations spr
       INNER JOIN players p ON spr.player_id = p.player_id
       INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
       INNER JOIN teams t ON stp.team_id = t.team_id
-      INNER JOIN player_match_stats pms ON spr.season_player_id = pms.season_player_id
-      INNER JOIN matches m ON pms.match_id = m.match_id
+      INNER JOIN match_events me ON spr.season_player_id = me.season_player_id AND me.event_type = 'CARD'
+      INNER JOIN matches m ON me.match_id = m.match_id
       WHERE spr.season_id = @seasonId
         AND spr.registration_status = 'approved'
-        AND (pms.yellow_cards > 0 OR pms.red_cards > 0)
       GROUP BY p.player_id, p.full_name, t.team_id, t.name, spr.season_id
     )
     SELECT * FROM PlayerCardSummary

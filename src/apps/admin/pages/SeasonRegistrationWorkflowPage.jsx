@@ -45,7 +45,7 @@ const SeasonRegistrationWorkflowPage = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-900">
       <Toaster position="top-right" />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -55,14 +55,14 @@ const SeasonRegistrationWorkflowPage = () => {
           
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Users className="text-blue-600" size={28} />
+              <div className="p-3 bg-blue-600 rounded-lg">
+                <Users className="text-white" size={28} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-white">
                   Quy trình đăng ký đội tham gia mùa giải
                 </h1>
-                <p className="text-gray-600 text-sm mt-1">
+                <p className="text-gray-300 text-sm mt-1">
                   Quản lý toàn bộ quy trình từ mời đội → nộp hồ sơ → duyệt → xếp lịch
                 </p>
               </div>
@@ -70,7 +70,7 @@ const SeasonRegistrationWorkflowPage = () => {
             
             <button
               onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               <RefreshCw size={18} />
               Làm mới
@@ -79,14 +79,14 @@ const SeasonRegistrationWorkflowPage = () => {
         </div>
 
         {/* Season Selector */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="bg-gray-800 rounded-lg shadow p-6 mb-6 border border-gray-700">
+          <label className="block text-sm font-medium text-white mb-2">
             Chọn mùa giải
           </label>
           <select
             value={selectedSeasonId || ''}
             onChange={(e) => setSelectedSeasonId(parseInt(e.target.value, 10))}
-            className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full md:w-96 px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={loading}
           >
             {seasons.length === 0 ? (
@@ -102,74 +102,74 @@ const SeasonRegistrationWorkflowPage = () => {
         </div>
 
         {/* Workflow Diagram */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow p-6 mb-6 border border-blue-200">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Quy trình Workflow</h3>
+        <div className="bg-gray-800 rounded-lg shadow p-6 mb-6 border border-gray-700">
+          <h3 className="text-lg font-semibold text-cyan-400 mb-4">Quy trình Workflow</h3>
           <div className="flex items-center justify-between text-sm overflow-x-auto pb-2">
             <div className="flex flex-col items-center min-w-[100px]">
-              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-2">
+              <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mb-2">
                 <span className="text-2xl">📝</span>
               </div>
-              <span className="font-medium text-gray-700">Bản nháp</span>
-              <span className="text-xs text-gray-500">DRAFT_INVITE</span>
+              <span className="font-medium text-white">Bản nháp</span>
+              <span className="text-xs text-gray-400">DRAFT_INVITE</span>
             </div>
             
-            <div className="text-gray-400 text-2xl">→</div>
+            <div className="text-blue-400 text-2xl">→</div>
             
             <div className="flex flex-col items-center min-w-[100px]">
-              <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center mb-2">
+              <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-2">
                 <span className="text-2xl">📧</span>
               </div>
-              <span className="font-medium text-gray-700">Gửi lời mời</span>
-              <span className="text-xs text-gray-500">INVITED</span>
+              <span className="font-medium text-white">Gửi lời mời</span>
+              <span className="text-xs text-gray-400">INVITED</span>
             </div>
             
-            <div className="text-gray-400 text-2xl">→</div>
+            <div className="text-blue-400 text-2xl">→</div>
             
             <div className="flex flex-col items-center min-w-[100px]">
-              <div className="w-16 h-16 bg-green-200 rounded-full flex items-center justify-center mb-2">
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-2">
                 <span className="text-2xl">👍</span>
               </div>
-              <span className="font-medium text-gray-700">Chấp nhận</span>
-              <span className="text-xs text-gray-500">ACCEPTED</span>
+              <span className="font-medium text-white">Chấp nhận</span>
+              <span className="text-xs text-gray-400">ACCEPTED</span>
             </div>
             
-            <div className="text-gray-400 text-2xl">→</div>
+            <div className="text-blue-400 text-2xl">→</div>
             
             <div className="flex flex-col items-center min-w-[100px]">
-              <div className="w-16 h-16 bg-purple-200 rounded-full flex items-center justify-center mb-2">
+              <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mb-2">
                 <span className="text-2xl">📄</span>
               </div>
-              <span className="font-medium text-gray-700">Nộp hồ sơ</span>
-              <span className="text-xs text-gray-500">SUBMITTED</span>
+              <span className="font-medium text-white">Nộp hồ sơ</span>
+              <span className="text-xs text-gray-400">SUBMITTED</span>
             </div>
             
-            <div className="text-gray-400 text-2xl">→</div>
+            <div className="text-blue-400 text-2xl">→</div>
             
             <div className="flex flex-col items-center min-w-[100px]">
-              <div className="w-16 h-16 bg-emerald-200 rounded-full flex items-center justify-center mb-2">
+              <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mb-2">
                 <span className="text-2xl">✅</span>
               </div>
-              <span className="font-medium text-gray-700">Duyệt</span>
-              <span className="text-xs text-gray-500">APPROVED</span>
+              <span className="font-medium text-white">Duyệt</span>
+              <span className="text-xs text-gray-400">APPROVED</span>
             </div>
             
-            <div className="text-gray-400 text-2xl">→</div>
+            <div className="text-blue-400 text-2xl">→</div>
             
             <div className="flex flex-col items-center min-w-[100px]">
-              <div className="w-16 h-16 bg-indigo-200 rounded-full flex items-center justify-center mb-2">
+              <div className="w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center mb-2">
                 <span className="text-2xl">📅</span>
               </div>
-              <span className="font-medium text-gray-700">Xếp lịch</span>
-              <span className="text-xs text-gray-500">≥10 đội</span>
+              <span className="font-medium text-white">Xếp lịch</span>
+              <span className="text-xs text-gray-400">≥10 đội</span>
             </div>
           </div>
           
           {/* Alternative Flow */}
-          <div className="mt-4 pt-4 border-t border-blue-200">
-            <p className="text-xs text-gray-600 mb-2">
+          <div className="mt-4 pt-4 border-t border-gray-600">
+            <p className="text-xs text-yellow-400 mb-2 font-semibold">
               <strong>Luồng xử lý khác:</strong>
             </p>
-            <div className="flex gap-4 text-xs text-gray-600">
+            <div className="flex gap-4 text-xs text-gray-300">
               <span>• DECLINED: Đội từ chối → Tìm đội thay thế</span>
               <span>• REQUEST_CHANGE: BTC yêu cầu sửa → SUBMITTED (lại)</span>
               <span>• REJECTED: Không đạt → Loại → Tìm đội thay thế</span>
@@ -184,17 +184,17 @@ const SeasonRegistrationWorkflowPage = () => {
             refreshTrigger={refreshTrigger}
           />
         ) : (
-          <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
+          <div className="bg-gray-800 rounded-lg shadow p-12 text-center text-gray-300 border border-gray-700">
             Vui lòng chọn mùa giải để xem quy trình đăng ký
           </div>
         )}
 
         {/* Help Section */}
-        <div className="bg-blue-50 rounded-lg shadow p-6 mt-6 border border-blue-200">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">
+        <div className="bg-gray-800 rounded-lg shadow p-6 mt-6 border border-gray-700">
+          <h3 className="text-lg font-semibold text-white mb-3">
             📖 Hướng dẫn sử dụng
           </h3>
-          <div className="space-y-2 text-sm text-blue-800">
+          <div className="space-y-2 text-sm text-gray-300">
             <p><strong>Bước 1:</strong> BTC tạo danh sách lời mời (Top 8 + 2 đội thăng hạng) → Trạng thái DRAFT_INVITE</p>
             <p><strong>Bước 2:</strong> BTC bấm "Gửi tất cả lời mời" → Gửi thông báo cho các đội → Trạng thái INVITED</p>
             <p><strong>Bước 3:</strong> Đội bóng chấp nhận/từ chối trong vòng 2 tuần → ACCEPTED hoặc DECLINED</p>
