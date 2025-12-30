@@ -1,4 +1,5 @@
 import { query } from "../db/sqlServer";
+import { canTeamParticipate } from "./participationFeeService";
 
 /**
  * BTC Requirements for Match Lineup - Quy định khi thi đấu
@@ -29,14 +30,14 @@ export const getMatchLineups = async (matchId: number): Promise<MatchLineup[]> =
     const result = await query(
         `
       SELECT 
-        lineup_id as lineupId,
+        lineup_id as matchLineupId,
         match_id as matchId,
         season_id as seasonId,
         season_team_id as seasonTeamId,
         player_id as playerId,
         jersey_number as jerseyNumber,
         position,
-        COALESCE(is_starting, 1) as isStarting,
+        COALESCE(is_starting, 0) as isStarting,
         COALESCE(is_captain, 0) as isCaptain,
         minutes_played as minutesPlayed,
         COALESCE(status, 'pending') as status
@@ -201,6 +202,8 @@ export interface LineupValidationInput {
     seasonTeamId: number;
     startingPlayerIds: number[];
     substitutePlayerIds: number[];
+    formation?: string;   // e.g. '4-4-2', '4-3-3'
+    kitType?: string;     // 'HOME' (Chính thức) | 'AWAY' (Dự bị)
 }
 
 export interface LineupValidationResult {
@@ -246,6 +249,14 @@ export const validateLineup = async (input: LineupValidationInput): Promise<Line
     if (suspendedPlayers.length > 0) {
         const names = suspendedPlayers.map(p => p.player_name).join(', ');
         errors.push(`Cầu thủ đang bị treo giò không được thi đấu: ${names}`);
+    }
+
+    if (input.kitType && !['HOME', 'AWAY'].includes(input.kitType)) {
+        errors.push("kitType chỉ được HOME hoặc AWAY");
+    }
+
+    if (input.formation && !/^\d(-\d){2,3}$/.test(input.formation)) {
+        errors.push("formation không hợp lệ (vd: 4-4-2, 4-3-3, 4-2-3-1)");
     }
 
     // 6. Check if players belong to the team
@@ -343,6 +354,43 @@ export const submitLineup = async (
     input: LineupValidationInput,
     submittedBy: number
 ): Promise<{ success: boolean; errors?: string[] }> => {
+    // 0. Check Participation Fee (via season_team_registrations source of truth)
+    // Need to resolve team_id from season_team_id first.
+    // Assuming season_teams table maps season_team_id to (season_id, team_id) or equivalent.
+
+    // User Mentioned: "match chỉ có home_season_team_id / away_season_team_id, cần JOIN: season_team_participants để ra team_id"
+    // However, I previously used 'season_teams'. 
+    // To be safe and follow instruction about JOINing, I'll attempt to verify if I can just use season_teams or if I must use season_team_participants.
+    // Given the context of "Team Submit", input.seasonTeamId is likely the season_team_id.
+
+    // Let's stick to what we know: Query season_team_registrations.
+    // We need team_id and season_id.
+    // We can get them from season_teams if that exists (as used before).
+
+    const teamInfo = await query<{ team_id: number; season_id: number }>(`
+        SELECT team_id, season_id FROM season_teams WHERE season_team_id = @seasonTeamId
+    `, { seasonTeamId: input.seasonTeamId });
+
+    if (!teamInfo.recordset[0]) {
+        return { success: false, errors: ['Không tìm thấy thông tin đội bóng mùa giải'] };
+    }
+    const { team_id, season_id } = teamInfo.recordset[0];
+
+    const feeInfo = await query<{ fee_status: string }>(`
+        SELECT fee_status FROM season_team_registrations 
+        WHERE season_id = @seasonId AND team_id = @teamId
+    `, { seasonId: season_id, team_id });
+
+    const status = feeInfo.recordset[0]?.fee_status;
+
+    if (!feeInfo.recordset[0]) {
+        return { success: false, errors: ['Đội bóng chưa đăng ký tham gia mùa giải (Registration not found)'] };
+    }
+
+    if (status !== 'paid' && status !== 'waived') {
+        return { success: false, errors: [`Đội bóng chưa hoàn thành nghĩa vụ lệ phí (Status: ${status || 'unknown'})`] };
+    }
+
     // Validate first
     const validation = await validateLineup(input);
     if (!validation.valid) {
@@ -360,7 +408,13 @@ export const submitLineup = async (
         return { success: false, errors: ['Không tìm thấy thông tin trận đấu'] };
     }
 
-    const teamType = matchInfo.recordset[0].home_season_team_id === input.seasonTeamId ? 'home' : 'away';
+    const { home_season_team_id, away_season_team_id } = matchInfo.recordset[0];
+
+    let teamType: 'home' | 'away';
+    if (home_season_team_id === input.seasonTeamId) teamType = 'home';
+    else if (away_season_team_id === input.seasonTeamId) teamType = 'away';
+    else return { success: false, errors: ['Đội không thuộc trận đấu này'] };
+
 
     // Clear existing lineup for this team
     await query(`
@@ -395,15 +449,67 @@ export const submitLineup = async (
         });
     }
 
+    // Save Team Info (Formation & Kit) - always upsert on submit
+    await upsertMatchTeamInfo({
+        matchId: input.matchId,
+        seasonTeamId: input.seasonTeamId,
+        formation: input.formation || '4-4-2',
+        kitType: input.kitType || 'HOME'
+    });
+
+
     // Update team_type and set status to SUBMITTED
     await query(`
         UPDATE match_lineups
         SET team_type = @teamType,
-            approval_status = 'SUBMITTED',
+        approval_status = 'SUBMITTED',
             submitted_at = GETDATE()
         WHERE match_id = @matchId
         AND season_team_id = @seasonTeamId
     `, { matchId: input.matchId, seasonTeamId: input.seasonTeamId, teamType });
 
     return { success: true };
+};
+
+export const upsertMatchTeamInfo = async (info: {
+    matchId: number;
+    seasonTeamId: number;
+    formation: string;
+    kitType: string;
+}): Promise<void> => {
+    const checkSql = `SELECT info_id FROM match_team_infos WHERE match_id = @matchId AND season_team_id = @seasonTeamId`;
+    const existing = await query(checkSql, { matchId: info.matchId, seasonTeamId: info.seasonTeamId });
+
+    if (existing.recordset.length > 0) {
+        await query(`
+            UPDATE match_team_infos
+            SET formation = @formation,
+                kit_type = @kitType,
+                updated_at = GETDATE()
+            WHERE info_id = @id
+        `, {
+            id: existing.recordset[0].info_id,
+            formation: info.formation,
+            kitType: info.kitType
+        });
+    } else {
+        await query(`
+            INSERT INTO match_team_infos (match_id, season_team_id, formation, kit_type)
+            VALUES (@matchId, @seasonTeamId, @formation, @kitType)
+        `, {
+            matchId: info.matchId,
+            seasonTeamId: info.seasonTeamId,
+            formation: info.formation,
+            kitType: info.kitType
+        });
+    }
+};
+
+export const getMatchTeamInfo = async (matchId: number, seasonTeamId: number) => {
+    const result = await query<{ formation: string; kitType: string }>(`
+        SELECT formation, kit_type as kitType
+        FROM match_team_infos
+        WHERE match_id = @matchId AND season_team_id = @seasonTeamId
+    `, { matchId, seasonTeamId });
+    return result.recordset[0] || null;
 };

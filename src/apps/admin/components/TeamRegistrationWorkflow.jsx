@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  AlertCircle, 
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertCircle,
   FileCheck,
   Send,
   Edit3,
@@ -73,16 +73,14 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
   const [loading, setLoading] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
-  
-  // Fee management
-  const [teamFees, setTeamFees] = useState({}) // { teamId: { paid, amount, due_date, ... } }
-  const [feeModalOpen, setFeeModalOpen] = useState(null) // registrationId of modal
+
+
 
   useEffect(() => {
     if (seasonId) {
       loadRegistrations()
       loadStatistics()
-      loadFees()
+      loadStatistics()
     }
   }, [seasonId, refreshTrigger])
 
@@ -109,66 +107,34 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
     }
   }
 
-  const loadFees = async () => {
+  const handleApproveFee = async (registrationId) => {
+    if (!window.confirm('Xác nhận duyệt khoản phí này?')) return
+
+    setActionLoading(true)
     try {
-      const response = await ApiService.get(`/participation-fees/season/${seasonId}`)
-      console.log('[TeamRegistrationWorkflow] Fees API response:', response)
-      // Convert array to map by team_id
-      const feesMap = {}
-      const feesArray = response?.data || response || []
-      if (Array.isArray(feesArray)) {
-        feesArray.forEach(fee => {
-          feesMap[fee.team_id] = fee
-        })
-      }
-      console.log('[TeamRegistrationWorkflow] Fees map:', feesMap)
-      setTeamFees(feesMap)
+      await ApiService.post(`/participation-fees/${registrationId}/approve`)
+      toast.success("Đã duyệt lệ phí thành công")
+      await loadRegistrations()
     } catch (error) {
-      console.error('Failed to load fees:', error)
-      // Not critical, just won't show fee status
-      setTeamFees({})
+      console.error("Approve fee error", error)
+      toast.error(error?.response?.data?.error || "Duyệt thất bại")
+    } finally {
+      setActionLoading(false)
     }
   }
 
-  const handleMarkFeePaid = async (registrationId, teamId) => {
-    const paymentRef = window.prompt('Nhập mã giao dịch/chứng từ thanh toán:')
-    if (!paymentRef) return
-    
+  const handleRejectFee = async (registrationId) => {
+    const reason = window.prompt("Nhập lý do từ chối:")
+    if (!reason) return
+
     setActionLoading(true)
     try {
-      // First check if fee record exists
-      const feeRecord = teamFees[teamId]
-      
-      if (feeRecord && feeRecord.fee_id) {
-        // Mark existing fee as paid
-        await ApiService.post(`/participation-fees/${feeRecord.fee_id}/mark-paid`, {
-          paymentMethod: 'bank_transfer',
-          paymentReference: paymentRef
-        })
-      } else {
-        // Create fee record and mark as paid
-        const createResponse = await ApiService.post('/participation-fees', {
-          seasonId: seasonId,
-          teamId: teamId,
-          feeAmount: 1000000000, // 1 tỷ VND - default
-          dueDate: new Date().toISOString().split('T')[0],
-          currency: 'VND'
-        })
-        
-        const newFeeId = createResponse?.data?.fee_id || createResponse?.fee_id
-        if (newFeeId) {
-          await ApiService.post(`/participation-fees/${newFeeId}/mark-paid`, {
-            paymentMethod: 'bank_transfer',
-            paymentReference: paymentRef
-          })
-        }
-      }
-      
-      toast.success('Đã xác nhận thanh toán lệ phí')
-      await loadFees()
+      await ApiService.post(`/participation-fees/${registrationId}/reject`, { reason })
+      toast.success("Đã từ chối lệ phí")
+      await loadRegistrations()
     } catch (error) {
-      console.error('Mark fee paid error:', error)
-      toast.error(error?.response?.data?.error || 'Không thể xác nhận thanh toán')
+      console.error("Reject fee error", error)
+      toast.error(error?.response?.data?.error || "Từ chối thất bại")
     } finally {
       setActionLoading(false)
     }
@@ -194,16 +160,15 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
 
   const handleApprove = async (registrationId) => {
     if (!window.confirm('Xác nhận duyệt hồ sơ này?')) return
-    
+
     setActionLoading(true)
     try {
       const response = await ApiService.post(`/registrations/${registrationId}/approve`, {
         note: 'Hồ sơ đã được duyệt'
       })
-      
+
       toast.success('Đã duyệt hồ sơ')
-      
-      // Show scheduling readiness info
+
       if (response?.schedulingReady) {
         toast.success(`✅ Đủ ${response.approvedCount}/${response.requiredCount} đội - Sẵn sàng xếp lịch!`, {
           duration: 5000
@@ -214,7 +179,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
           duration: 3000
         })
       }
-      
+
       await loadRegistrations()
       await loadStatistics()
     } catch (error) {
@@ -228,7 +193,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
   const handleReject = async (registrationId) => {
     const reason = window.prompt('Nhập lý do từ chối:')
     if (!reason) return
-    
+
     setActionLoading(true)
     try {
       await ApiService.post(`/registrations/${registrationId}/reject`, {
@@ -248,7 +213,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
   const handleRequestChange = async (registrationId) => {
     const reason = window.prompt('Nhập yêu cầu sửa đổi:')
     if (!reason) return
-    
+
     setActionLoading(true)
     try {
       await ApiService.post(`/registrations/${registrationId}/request-change`, {
@@ -267,7 +232,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
 
   const handleSendAllInvitations = async () => {
     if (!window.confirm('Gửi tất cả lời mời đang ở trạng thái DRAFT_INVITE?')) return
-    
+
     setActionLoading(true)
     try {
       const response = await ApiService.post(`/seasons/${seasonId}/registrations/send-invitations`)
@@ -285,7 +250,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
   const renderStatusBadge = (status) => {
     const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT_INVITE
     const Icon = config.icon
-    
+
     return (
       <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border ${config.color}`}>
         <Icon size={14} />
@@ -296,8 +261,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
 
   const renderActions = (registration) => {
     const status = registration.registration_status
-    
-    // Admin actions based on status
+
     switch (status) {
       case 'DRAFT_INVITE':
         return (
@@ -309,7 +273,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
             Gửi lời mời
           </button>
         )
-      
+
       case 'SUBMITTED':
         return (
           <div className="flex gap-2">
@@ -336,12 +300,12 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
             </button>
           </div>
         )
-      
+
       case 'REQUEST_CHANGE':
         return (
           <span className="text-sm text-gray-500 italic">Chờ đội sửa lại</span>
         )
-      
+
       default:
         return null
     }
@@ -349,22 +313,22 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
 
   const renderSubmissionData = (data) => {
     if (!data) return <p className="text-gray-500 text-sm">Chưa có dữ liệu</p>
-    
+
     try {
       const parsed = typeof data === 'string' ? JSON.parse(data) : data
-      
+
       return (
         <div className="space-y-3 text-sm">
           {parsed.stadium && (
             <div>
               <strong className="text-gray-700">Sân:</strong>
               <p className="ml-4 text-gray-600">
-                {parsed.stadium.name} - {parsed.stadium.capacity} chỗ - 
+                {parsed.stadium.name} - {parsed.stadium.capacity} chỗ -
                 Rating: {parsed.stadium.rating}⭐
               </p>
             </div>
           )}
-          
+
           {parsed.kits && (
             <div>
               <strong className="text-gray-700">Áo đấu:</strong>
@@ -382,7 +346,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
               </div>
             </div>
           )}
-          
+
           {parsed.players && (
             <div>
               <strong className="text-gray-700">Cầu thủ:</strong>
@@ -412,12 +376,12 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
       {statistics && (
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Thống kê đăng ký</h3>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             {Object.entries(statistics.statusCounts || {}).map(([status, count]) => {
               const config = STATUS_CONFIG[status]
               if (!config) return null
-              
+
               return (
                 <div key={status} className={`p-3 rounded-lg border ${config.color}`}>
                   <div className="text-2xl font-bold">{count}</div>
@@ -426,13 +390,12 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
               )
             })}
           </div>
-          
+
           {/* Scheduling Readiness */}
-          <div className={`p-4 rounded-lg border-2 ${
-            statistics.schedulingReady 
-              ? 'bg-green-50 border-green-300' 
-              : 'bg-yellow-50 border-yellow-300'
-          }`}>
+          <div className={`p-4 rounded-lg border-2 ${statistics.schedulingReady
+            ? 'bg-green-50 border-green-300'
+            : 'bg-yellow-50 border-yellow-300'
+            }`}>
             <div className="flex items-center gap-2">
               {statistics.schedulingReady ? (
                 <CheckCircle2 className="text-green-600" size={20} />
@@ -440,8 +403,8 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
                 <Clock className="text-yellow-600" size={20} />
               )}
               <span className="font-semibold">
-                {statistics.schedulingReady 
-                  ? '✅ Sẵn sàng xếp lịch thi đấu' 
+                {statistics.schedulingReady
+                  ? '✅ Sẵn sàng xếp lịch thi đấu'
                   : `Cần ${statistics.requiredCount - statistics.approvedCount} đội nữa`}
               </span>
               <span className="text-sm text-gray-600 ml-auto">
@@ -449,7 +412,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
               </span>
             </div>
           </div>
-          
+
           {/* Batch Send Invitations Button */}
           {(statistics.statusCounts?.DRAFT_INVITE || 0) > 0 && (
             <div className="mt-4">
@@ -467,7 +430,11 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
       )}
 
       {/* Registrations List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden mt-6">
+        <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-gray-800">Danh sách đăng ký đội bóng</h3>
+          <span className="text-sm text-gray-500">Tổng: {registrations.length} đội</span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
@@ -498,49 +465,98 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
                         {renderStatusBadge(reg.registration_status)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {/* Fee Status - Only show for APPROVED teams */}
-                        {reg.registration_status === 'APPROVED' ? (
-                          (() => {
-                            // Get team_id from registration (could be team_id, teamId, or from season_team_id)
-                            const teamId = reg.team_id || reg.teamId || reg.team?.team_id || reg.team?.id
-                            console.log('[TeamRegistrationWorkflow] Registration:', reg, 'TeamId:', teamId, 'Fees:', teamFees)
-                            
-                            if (!teamId) {
-                              console.warn('[TeamRegistrationWorkflow] No team_id found for registration:', reg)
-                              return <span className="text-gray-400 text-xs">N/A</span>
-                            }
-                            
-                            const fee = teamFees[teamId]
-                            // Backend returns is_paid (boolean) or payment_status (string)
-                            const isPaid = fee?.is_paid === true || fee?.is_paid === 1 || fee?.payment_status === 'paid' || fee?.status === 'paid'
-                            
-                            console.log('[TeamRegistrationWorkflow] Fee for team', teamId, ':', fee, 'isPaid:', isPaid)
-                            
-                            return isPaid ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                                <CheckCircle2 size={12} />
-                                Đã thanh toán
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => handleMarkFeePaid(reg.registration_id, teamId)}
-                                disabled={actionLoading}
-                                className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white rounded hover:bg-amber-600 disabled:opacity-50 text-xs font-medium"
-                              >
-                                <CreditCard size={12} />
-                                Xác nhận thanh toán
-                              </button>
+                        {(() => {
+                          const status = reg.fee_status || 'unpaid'
+                          // Safe parsing of payment data
+                          let paymentData = {}
+                          if (reg.submission_data && typeof reg.submission_data === 'object' && reg.submission_data.payment) {
+                            paymentData = reg.submission_data.payment
+                          } else if (typeof reg.submission_data === 'string') {
+                            try {
+                              const parsed = JSON.parse(reg.submission_data);
+                              paymentData = parsed.payment || {};
+                            } catch (e) { }
+                          }
+
+                          if (status === 'paid' || status === 'waived') {
+                            return (
+                              <div className="flex flex-col items-center">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                  <CheckCircle2 size={12} />
+                                  {status === 'waived' ? 'Miễn phí' : 'Đã duyệt'}
+                                </span>
+                                {reg.reviewed_at && (
+                                  <span className="text-[10px] text-gray-500 mt-0.5">
+                                    {new Date(reg.reviewed_at).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
                             )
-                          })()
-                        ) : (
-                          <span className="text-gray-400 text-xs">—</span>
-                        )}
+                          }
+
+                          if (status === 'pending') {
+                            return (
+                              <div className="flex flex-col gap-1 items-start min-w-[140px]">
+                                <div className="flex items-center gap-1 w-full justify-between">
+                                  <span className="text-xs font-bold text-blue-700 font-mono bg-blue-50 px-1 rounded truncate max-w-[100px]" title={paymentData.transaction_code}>
+                                    {paymentData.transaction_code || 'N/A'}
+                                  </span>
+                                  {paymentData.evidence_url && (
+                                    <a href={paymentData.evidence_url} target="_blank" rel="noreferrer" title="Xem minh chứng">
+                                      <FileCheck size={14} className="text-blue-500" />
+                                    </a>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-gray-500 italic truncate max-w-[140px]" title={paymentData.team_note}>
+                                  {paymentData.team_note || 'Không có ghi chú'}
+                                </span>
+                                <div className="flex gap-1 mt-1 w-full">
+                                  <button
+                                    onClick={() => handleApproveFee(reg.registration_id)}
+                                    disabled={actionLoading}
+                                    className="flex-1 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-xs"
+                                    title="Duyệt"
+                                  >
+                                    <CheckCircle2 size={12} className="mx-auto" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectFee(reg.registration_id)}
+                                    disabled={actionLoading}
+                                    className="flex-1 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
+                                    title="Từ chối"
+                                  >
+                                    <XCircle size={12} className="mx-auto" />
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          if (status === 'unpaid' && reg.review_notes) {
+                            return (
+                              <div className="flex flex-col items-center">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium" title={reg.review_notes}>
+                                  <XCircle size={12} />
+                                  Từ chối
+                                </span>
+                                <span className="text-[10px] text-gray-500 truncate max-w-[100px]">{reg.review_notes}</span>
+                              </div>
+                            )
+                          }
+
+                          // Unpaid (default)
+                          return (
+                            <span className="text-gray-400 text-xs flex items-center gap-1">
+                              <Clock size={12} /> Chưa nộp
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
                         {reg.reviewer_note || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {reg.submitted_at 
+                        {reg.submitted_at
                           ? new Date(reg.submitted_at).toLocaleDateString('vi-VN')
                           : '-'}
                       </td>
@@ -551,15 +567,15 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
                             onClick={() => setExpandedId(expandedId === reg.registration_id ? null : reg.registration_id)}
                             className="p-1 hover:bg-gray-200 rounded"
                           >
-                            <ChevronRight 
-                              size={18} 
+                            <ChevronRight
+                              size={18}
                               className={`transition-transform ${expandedId === reg.registration_id ? 'rotate-90' : ''}`}
                             />
                           </button>
                         </div>
                       </td>
                     </tr>
-                    
+
                     {/* Expanded Details */}
                     {expandedId === reg.registration_id && (
                       <tr>
@@ -569,7 +585,7 @@ const TeamRegistrationWorkflow = ({ seasonId, refreshTrigger }) => {
                               <h4 className="font-semibold text-gray-700 mb-2">Thông tin hồ sơ:</h4>
                               {renderSubmissionData(reg.submission_data)}
                             </div>
-                            
+
                             {reg.reviewer_note && (
                               <div>
                                 <h4 className="font-semibold text-gray-700 mb-2">Ghi chú BTC:</h4>

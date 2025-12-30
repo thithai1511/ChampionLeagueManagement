@@ -21,8 +21,6 @@ import { syncMatchesOnly } from "../services/syncService";
 import { createMatchEvent, deleteMatchEvent, disallowMatchEvent } from "../services/matchEventService";
 import { getMatchLineups, submitLineup } from "../services/matchLineupService";
 import * as lineupService from "../services/matchLineupService";
-import { isPlayerSuspendedForMatch } from "../services/disciplinaryService";
-
 const router = Router();
 const requireMatchManagement = [requireAuth, requirePermission("manage_matches")] as const;
 
@@ -229,44 +227,85 @@ router.get("/:id/lineups", async (req, res, next) => {
     if (!Number.isInteger(matchId) || matchId <= 0) {
       return res.status(400).json({ message: "Invalid match id" });
     }
+
     const lineups = await getMatchLineups(matchId);
-    console.log(`[GET Lineups] Match ${matchId}: Retrieved ${lineups.length} lineups`);
-    console.log(`[GET Lineups] First item:`, lineups[0]);
     res.json({ data: lineups });
   } catch (error) {
     next(error);
   }
 });
 
-router.post("/:id/lineups", ...requireMatchManagement, async (req: any, res, next) => {
+router.post("/:id/lineups", requireAuth, async (req: any, res, next) => {
   try {
     const matchId = Number(req.params.id);
     if (!Number.isInteger(matchId) || matchId <= 0) {
       return res.status(400).json({ message: "Invalid match id" });
     }
 
-    console.log('[Lineup Save] Received payload:', JSON.stringify(req.body, null, 2));
+    const {
+      seasonTeamId,
+      seasonId,
+      startingPlayerIds,
+      substitutePlayerIds,
+      formation,
+      kitType,
+    } = req.body ?? {};
 
-    // Expected body: { seasonTeamId, seasonId, startingPlayerIds, substitutePlayerIds }
-    const { seasonTeamId, seasonId, startingPlayerIds, substitutePlayerIds } = req.body;
-
-    if (!seasonTeamId || !seasonId || !Array.isArray(startingPlayerIds) || !Array.isArray(substitutePlayerIds)) {
-      return res.status(400).json({ message: "Invalid payload. Required: seasonTeamId, seasonId, startingPlayerIds[], substitutePlayerIds[]" });
+    if (
+      !seasonTeamId ||
+      !seasonId ||
+      !Array.isArray(startingPlayerIds) ||
+      !Array.isArray(substitutePlayerIds)
+    ) {
+      return res.status(400).json({
+        message:
+          "Invalid payload. Required: seasonTeamId, seasonId, startingPlayerIds[], substitutePlayerIds[]",
+      });
     }
 
-    const result = await submitLineup({
-      matchId,
-      seasonId,
-      seasonTeamId,
-      startingPlayerIds,
-      substitutePlayerIds
-    }, req.user?.sub);
+    // ================== CHECK TEAM ADMIN OWNERSHIP ==================
+    if (Array.isArray(req.user?.roles) && req.user.roles.includes("team_admin")) {
+      const stpResult = await query<{ team_id: number }>(
+        `
+        SELECT team_id
+        FROM season_team_participants
+        WHERE season_team_id = @seasonTeamId
+        `,
+        { seasonTeamId }
+      );
 
-    console.log('[Lineup Save] Validation result:', result);
+      const teamIdOfSeasonTeam = stpResult.recordset[0]?.team_id;
+      const allowedTeamIds: number[] = Array.isArray(req.user?.teamIds)
+        ? req.user.teamIds
+        : [];
+
+      if (!teamIdOfSeasonTeam || !allowedTeamIds.includes(teamIdOfSeasonTeam)) {
+        return res.status(403).json({
+          error: "You are not allowed to perform this action",
+          details: "Team admin cannot submit lineup for another team",
+        });
+      }
+    }
+    // ================== END CHECK ==================
+
+    const result = await submitLineup(
+      {
+        matchId,
+        seasonId,
+        seasonTeamId,
+        startingPlayerIds,
+        substitutePlayerIds,
+        formation,
+        kitType,
+      },
+      req.user?.sub
+    );
 
     if (!result.success) {
-      console.log('[Lineup Save] Validation failed:', result.errors);
-      return res.status(400).json({ message: "Lineup validation failed", errors: result.errors });
+      return res.status(400).json({
+        message: "Lineup validation failed",
+        errors: result.errors,
+      });
     }
 
     res.json({ message: "Lineup submitted successfully" });
@@ -274,6 +313,256 @@ router.post("/:id/lineups", ...requireMatchManagement, async (req: any, res, nex
     next(error);
   }
 });
+
+router.get("/:matchId/team-infos", async (req, res, next) => {
+  try {
+    const matchId = Number(req.params.matchId);
+    if (!Number.isInteger(matchId) || matchId <= 0) {
+      return res.status(400).json({ message: "Invalid match id" });
+    }
+
+    const result = await query<{
+      match_id: number;
+      home_season_team_id: number;
+      away_season_team_id: number;
+      home_formation: string | null;
+      home_kit_type: string | null;
+      away_formation: string | null;
+      away_kit_type: string | null;
+    }>(
+      `
+      SELECT
+        m.match_id,
+        m.home_season_team_id,
+        m.away_season_team_id,
+        hti.formation AS home_formation,
+        hti.kit_type AS home_kit_type,
+        ati.formation AS away_formation,
+        ati.kit_type AS away_kit_type
+      FROM matches m
+      LEFT JOIN match_team_infos hti
+        ON hti.match_id = m.match_id AND hti.season_team_id = m.home_season_team_id
+      LEFT JOIN match_team_infos ati
+        ON ati.match_id = m.match_id AND ati.season_team_id = m.away_season_team_id
+      WHERE m.match_id = @matchId
+      `,
+      { matchId }
+    );
+
+    const row = result.recordset[0];
+    if (!row) return res.status(404).json({ message: "Match not found" });
+
+    res.json({
+      data: {
+        matchId: row.match_id,
+        home: {
+          seasonTeamId: row.home_season_team_id,
+          formation: row.home_formation ?? null,
+          kitType: row.home_kit_type ?? null,
+        },
+        away: {
+          seasonTeamId: row.away_season_team_id,
+          formation: row.away_formation ?? null,
+          kitType: row.away_kit_type ?? null,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/:matchId/lineups/approval-status", requireAuth, async (req: any, res, next) => {
+  try {
+    const matchId = Number(req.params.matchId);
+    if (!Number.isInteger(matchId) || matchId <= 0) {
+      return res.status(400).json({ message: "Invalid match id" });
+    }
+
+    const statuses = await lineupService.getLineupApprovalStatus(matchId);
+    res.json({ data: statuses });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post(
+  "/:matchId/lineups/:teamType/approve",
+  requireAuth,
+  requirePermission("manage_matches"),
+  async (req: any, res, next) => {
+    try {
+      const matchId = Number(req.params.matchId);
+      const teamType = String(req.params.teamType || "").toLowerCase();
+
+      if (!Number.isInteger(matchId) || matchId <= 0) {
+        return res.status(400).json({ message: "Invalid match id" });
+      }
+      if (teamType !== "home" && teamType !== "away") {
+        return res.status(400).json({ message: "teamType must be 'home' or 'away'" });
+      }
+
+      // (Optional) ensure lineup exists for that teamType before approving
+      const exists = await query<{ cnt: number }>(
+        `
+        SELECT COUNT(*) AS cnt
+        FROM match_lineups
+        WHERE match_id = @matchId
+          AND team_type = @teamType
+        `,
+        { matchId, teamType }
+      );
+
+      if ((exists.recordset[0]?.cnt || 0) === 0) {
+        return res.status(400).json({
+          message: "No lineup submitted for this team yet",
+        });
+      }
+
+      await lineupService.approveLineup(matchId, teamType as "home" | "away", req.user?.sub);
+
+      res.json({ message: "Lineup approved successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  "/:matchId/lineups/:teamType/reject",
+  requireAuth,
+  requirePermission("manage_matches"),
+  async (req: any, res, next) => {
+    try {
+      const matchId = Number(req.params.matchId);
+      const teamType = String(req.params.teamType || "").toLowerCase();
+      const reason = String(req.body?.reason || "").trim();
+
+      if (!Number.isInteger(matchId) || matchId <= 0) {
+        return res.status(400).json({ message: "Invalid match id" });
+      }
+      if (teamType !== "home" && teamType !== "away") {
+        return res.status(400).json({ message: "teamType must be 'home' or 'away'" });
+      }
+      if (!reason) {
+        return res.status(400).json({ message: "reason is required" });
+      }
+
+      const exists = await query<{ cnt: number }>(
+        `
+        SELECT COUNT(*) AS cnt
+        FROM match_lineups
+        WHERE match_id = @matchId
+          AND team_type = @teamType
+        `,
+        { matchId, teamType }
+      );
+
+      if ((exists.recordset[0]?.cnt || 0) === 0) {
+        return res.status(400).json({
+          message: "No lineup submitted for this team yet",
+        });
+      }
+
+      await lineupService.rejectLineup(matchId, teamType as "home" | "away", reason, req.user?.sub);
+
+      res.json({ message: "Lineup rejected successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get("/:matchId/lineups/review", requireAuth, async (req: any, res, next) => {
+  try {
+    const matchId = Number(req.params.matchId);
+    if (!Number.isInteger(matchId) || matchId <= 0) {
+      return res.status(400).json({ message: "Invalid match id" });
+    }
+
+    // Lấy 2 team của match để biết season_team_id của home/away
+    const matchResult = await query<{
+      home_season_team_id: number;
+      away_season_team_id: number;
+    }>(
+      `
+      SELECT home_season_team_id, away_season_team_id
+      FROM matches
+      WHERE match_id = @matchId
+      `,
+      { matchId }
+    );
+
+    const match = matchResult.recordset[0];
+    if (!match) return res.status(404).json({ message: "Match not found" });
+
+    // Lấy trạng thái + lý do theo team_type (mỗi team lấy 1 dòng đại diện)
+    const reviewResult = await query<{
+      team_type: "home" | "away";
+      approval_status: string | null;
+      rejection_reason: string | null;
+      approved_by: number | null;
+      approved_at: string | null;
+      submitted_at: string | null;
+    }>(
+      `
+      SELECT
+        team_type,
+        MAX(approval_status) AS approval_status,
+        MAX(rejection_reason) AS rejection_reason,
+        MAX(approved_by) AS approved_by,
+        MAX(approved_at) AS approved_at,
+        MAX(submitted_at) AS submitted_at
+      FROM match_lineups
+      WHERE match_id = @matchId
+        AND team_type IN ('home','away')
+      GROUP BY team_type
+      `,
+      { matchId }
+    );
+
+    const map: any = {
+      home: {
+        seasonTeamId: match.home_season_team_id,
+        status: "PENDING",
+        rejectionReason: null,
+        approvedBy: null,
+        approvedAt: null,
+        submittedAt: null,
+      },
+      away: {
+        seasonTeamId: match.away_season_team_id,
+        status: "PENDING",
+        rejectionReason: null,
+        approvedBy: null,
+        approvedAt: null,
+        submittedAt: null,
+      },
+    };
+
+    for (const row of reviewResult.recordset) {
+      map[row.team_type] = {
+        ...map[row.team_type],
+        status: row.approval_status ?? "PENDING",
+        rejectionReason: row.rejection_reason ?? null,
+        approvedBy: row.approved_by ?? null,
+        approvedAt: row.approved_at ?? null,
+        submittedAt: row.submitted_at ?? null,
+      };
+    }
+
+    res.json({
+      data: {
+        matchId,
+        home: map.home,
+        away: map.away,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 router.post("/:id/events", ...requireMatchManagement, async (req: any, res, next) => {
   try {
@@ -617,93 +906,5 @@ router.delete("/:id", ...requireMatchManagement, async (req, res, next) => {
   }
 });
 
-// ============ LINEUPS ROUTES ============
-
-/**
- * GET /api/matches/:matchId/lineups
- * Get lineups for a match
- */
-router.get("/:matchId/lineups", async (req, res, next) => {
-  try {
-    const matchId = Number(req.params.matchId);
-    if (!Number.isInteger(matchId) || matchId <= 0) {
-      return res.status(400).json({ message: "Invalid match id" });
-    }
-    const lineups = await lineupService.getMatchLineups(matchId);
-    res.json({ data: lineups });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * POST /api/matches/:matchId/lineups
- * Submit lineups for a match
- */
-router.post("/:matchId/lineups", requireAuth, async (req, res, next) => {
-  try {
-    const matchId = Number(req.params.matchId);
-    if (!Number.isInteger(matchId) || matchId <= 0) {
-      return res.status(400).json({ message: "Invalid match id" });
-    }
-
-    const lineupSchema = z.array(z.object({
-      seasonTeamId: z.number(),
-      playerId: z.number().optional(),
-      seasonPlayerId: z.number().optional(),
-      isStarting: z.boolean(),
-      isCaptain: z.boolean(),
-      jerseyNumber: z.number().optional(),
-      position: z.string().optional(),
-      status: z.string().default('active'),
-      seasonId: z.number()
-    }));
-
-    const payload = lineupSchema.parse(req.body);
-
-    // Check for suspended players before saving
-    const suspendedPlayers = [];
-    for (const item of payload) {
-      const seasonPlayerId = item.seasonPlayerId || item.playerId;
-      if (!seasonPlayerId) continue;
-
-      const suspensionCheck = await isPlayerSuspendedForMatch(
-        item.seasonId,
-        matchId,
-        seasonPlayerId
-      );
-
-      if (suspensionCheck.suspended) {
-        suspendedPlayers.push({
-          seasonPlayerId,
-          reason: suspensionCheck.reason
-        });
-      }
-    }
-
-    // Reject if any suspended players
-    if (suspendedPlayers.length > 0) {
-      return res.status(400).json({
-        error: 'Lineup contains suspended players',
-        suspendedPlayers: suspendedPlayers.map(sp => ({
-          seasonPlayerId: sp.seasonPlayerId,
-          reason: sp.reason,
-          message: sp.reason === 'RED_CARD'
-            ? 'Player suspended due to red card'
-            : 'Player suspended due to accumulation of yellow cards'
-        }))
-      });
-    }
-
-    // Upsert lineups
-    for (const item of payload) {
-      await lineupService.upsertMatchLineup({ ...item, matchId });
-    }
-
-    res.json({ message: "Lineups updated" });
-  } catch (error) {
-    next(error);
-  }
-});
 
 export default router;

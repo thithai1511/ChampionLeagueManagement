@@ -32,6 +32,8 @@ import ClubProfilePage from './pages/ClubProfilePage'
 import SeasonRegistrationWorkflowPage from './pages/SeasonRegistrationWorkflowPage'
 
 
+import MatchLineupReviewPage from './pages/MatchLineupReviewPage'
+
 const AdminApp = ({ onLogout, currentUser }) => {
   return (
     <ErrorBoundary>
@@ -40,194 +42,202 @@ const AdminApp = ({ onLogout, currentUser }) => {
         {/* Prop onLogout được truyền vào Layout để nó có thể truyền xuống Header */}
         <Route path="/" element={<AdminLayout onLogout={onLogout} currentUser={currentUser} />}>
 
-        {/* 3. Các trang con sẽ được render bên trong <Outlet/> của AdminLayout */}
-        <Route index element={<DashboardPage />} /> {/* trang mặc định khi vào /admin */}
-        <Route path="dashboard" element={<DashboardPage />} />
-        <Route
-          path="teams"
-          element={
-            <AccessGuard permission="manage_teams" currentUser={currentUser}>
-              <TeamsManagement />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="teams/:teamId"
-          element={
-            <AccessGuard permission="manage_teams" currentUser={currentUser}>
-              <TeamDetailsPage />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="matches"
-          element={
-            <AccessGuard permission="manage_matches" currentUser={currentUser}>
-              <MatchesManagement />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="players"
-          element={
-            <AccessGuard
-              anyPermissions={['manage_teams', 'manage_own_player_registrations']}
-              currentUser={currentUser}
-            >
-              <PlayersManagement currentUser={currentUser} />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="statistics"
-          element={
-            <AccessGuard permission="manage_matches" currentUser={currentUser}>
-              <StatisticsPage />
-            </AccessGuard>
-          }
-        />
-        <Route path="standings/view" element={<StandingsPage />} />
-        <Route
-          path="news"
-          element={
-            <AccessGuard permission="manage_content" currentUser={currentUser}>
-              <NewsManagement />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="media"
-          element={
-            <AccessGuard permission="manage_content" currentUser={currentUser}>
-              <MediaLibrary />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="content"
-          element={
-            <AccessGuard permission="manage_content" currentUser={currentUser}>
-              <CMSManagement />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="users"
-          element={
-            <AccessGuard permission="manage_users" currentUser={currentUser}>
-              <UsersManagement />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="roles"
-          element={
-            <AccessGuard permission="manage_users" currentUser={currentUser}>
-              <RolesPermissions />
-            </AccessGuard>
-          }
-        />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route
-          path="settings"
-          element={
-            <AccessGuard permission="manage_users" currentUser={currentUser}>
-              <SettingsPage />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="seasons"
-          element={
-            <AccessGuard permission="manage_teams" currentUser={currentUser}>
-              <SeasonAndRulesPage />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="season-registration-workflow"
-          element={
-            <AccessGuard permission="manage_teams" currentUser={currentUser}>
-              <SeasonRegistrationWorkflowPage />
-            </AccessGuard>
-          }
-        />
+          {/* 3. Các trang con sẽ được render bên trong <Outlet/> của AdminLayout */}
+          <Route index element={<DashboardPage />} /> {/* trang mặc định khi vào /admin */}
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route
+            path="teams"
+            element={
+              <AccessGuard permission="manage_teams" currentUser={currentUser}>
+                <TeamsManagement />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="teams/:teamId"
+            element={
+              <AccessGuard permission="manage_teams" currentUser={currentUser}>
+                <TeamDetailsPage />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="matches"
+            element={
+              <AccessGuard permission="manage_matches" currentUser={currentUser}>
+                <MatchesManagement />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="players"
+            element={
+              <AccessGuard
+                anyPermissions={['manage_teams', 'manage_own_player_registrations']}
+                currentUser={currentUser}
+              >
+                <PlayersManagement currentUser={currentUser} />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="statistics"
+            element={
+              <AccessGuard permission="manage_matches" currentUser={currentUser}>
+                <StatisticsPage />
+              </AccessGuard>
+            }
+          />
+          <Route path="standings/view" element={<StandingsPage />} />
+          <Route
+            path="news"
+            element={
+              <AccessGuard permission="manage_content" currentUser={currentUser}>
+                <NewsManagement />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="media"
+            element={
+              <AccessGuard permission="manage_content" currentUser={currentUser}>
+                <MediaLibrary />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="content"
+            element={
+              <AccessGuard permission="manage_content" currentUser={currentUser}>
+                <CMSManagement />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <AccessGuard permission="manage_users" currentUser={currentUser}>
+                <UsersManagement />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="roles"
+            element={
+              <AccessGuard permission="manage_users" currentUser={currentUser}>
+                <RolesPermissions />
+              </AccessGuard>
+            }
+          />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route
+            path="settings"
+            element={
+              <AccessGuard permission="manage_users" currentUser={currentUser}>
+                <SettingsPage />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="seasons"
+            element={
+              <AccessGuard permission="manage_teams" currentUser={currentUser}>
+                <SeasonAndRulesPage />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="season-registration-workflow"
+            element={
+              <AccessGuard permission="manage_teams" currentUser={currentUser}>
+                <SeasonRegistrationWorkflowPage />
+              </AccessGuard>
+            }
+          />
 
-        <Route
-          path="my-team"
-          element={
-            <AccessGuard
-              permission="view_own_team"
-              allowedRoles={['team_admin']}
-              disallowedRoles={['super_admin']}
-              currentUser={currentUser}
-            >
-              <TeamAdminDashboard currentUser={currentUser} />
-            </AccessGuard>
-          }
-        />
+          <Route
+            path="my-team"
+            element={
+              <AccessGuard
+                permission="view_own_team"
+                allowedRoles={['team_admin']}
+                disallowedRoles={['super_admin']}
+                currentUser={currentUser}
+              >
+                <TeamAdminDashboard currentUser={currentUser} />
+              </AccessGuard>
+            }
+          />
 
-        <Route
-          path="club-profile"
-          element={
-            <AccessGuard
-              permission="view_own_team"
-              allowedRoles={['team_admin']}
-              disallowedRoles={['super_admin']}
-              currentUser={currentUser}
-            >
-              <ClubProfilePage currentUser={currentUser} />
-            </AccessGuard>
-          }
-        />
+          <Route
+            path="club-profile"
+            element={
+              <AccessGuard
+                permission="view_own_team"
+                allowedRoles={['team_admin']}
+                disallowedRoles={['super_admin']}
+                currentUser={currentUser}
+              >
+                <ClubProfilePage currentUser={currentUser} />
+              </AccessGuard>
+            }
+          />
 
-        <Route
-          path="player-registrations"
-          element={
-            <AccessGuard
-              permission="manage_own_player_registrations"
-              allowedRoles={['team_admin']}
-              disallowedRoles={['super_admin']}
-              currentUser={currentUser}
-            >
-              <PlayerRegistrationsPage currentUser={currentUser} />
-            </AccessGuard>
-          }
-        />
+          <Route
+            path="player-registrations"
+            element={
+              <AccessGuard
+                permission="manage_own_player_registrations"
+                allowedRoles={['team_admin']}
+                disallowedRoles={['super_admin']}
+                currentUser={currentUser}
+              >
+                <PlayerRegistrationsPage currentUser={currentUser} />
+              </AccessGuard>
+            }
+          />
 
 
-        <Route
-          path="schedule"
-          element={
-            <AccessGuard permission="manage_matches" currentUser={currentUser}>
-              <ScheduleManagement />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="matches/:matchId/live"
-          element={
-            <AccessGuard permission="manage_matches" currentUser={currentUser}>
-              <LiveMatchUpdatePage />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="officials"
-          element={
-            <AccessGuard permission="manage_matches" currentUser={currentUser}>
-              <OfficialsManagement />
-            </AccessGuard>
-          }
-        />
+          <Route
+            path="schedule"
+            element={
+              <AccessGuard permission="manage_matches" currentUser={currentUser}>
+                <ScheduleManagement />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="matches/:matchId/live"
+            element={
+              <AccessGuard permission="manage_matches" currentUser={currentUser}>
+                <LiveMatchUpdatePage />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="matches/:matchId/lineup-review"
+            element={
+              <AccessGuard permission="manage_matches" currentUser={currentUser}>
+                <MatchLineupReviewPage />
+              </AccessGuard>
+            }
+          />
+          <Route
+            path="officials"
+            element={
+              <AccessGuard permission="manage_matches" currentUser={currentUser}>
+                <OfficialsManagement />
+              </AccessGuard>
+            }
+          />
 
-        {/* Fallback: avoid dead routes under /admin */}
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
-      </Route>
+          {/* Fallback: avoid dead routes under /admin */}
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Route>
 
-      {/* Bạn có thể thêm các route không cần layout ở đây, ví dụ: */}
-      {/* <Route path="/login" element={<LoginPage />} /> */}
-    </Routes>
+        {/* Bạn có thể thêm các route không cần layout ở đây, ví dụ: */}
+        {/* <Route path="/login" element={<LoginPage />} /> */}
+      </Routes>
     </ErrorBoundary>
   )
 }
