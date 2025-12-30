@@ -70,3 +70,4 @@ sqlcmd -S localhost -d ChampionLeague -U sa -P yourpassword -i "backend/src/db/m
 - Script chỉ cập nhật các trận đã kết thúc, không ảnh hưởng đến trận chưa đá
 - Script có thể chạy nhiều lần an toàn (idempotent)
 
+

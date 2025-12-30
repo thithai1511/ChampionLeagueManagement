@@ -22,6 +22,7 @@ class MatchesService {
       // Map backend structure to frontend
       const matches = (response?.data || []).map(match => ({
         id: match.matchId,
+        homeSeasonTeamId: match.homeSeasonTeamId, // Added for lineup generation
         homeTeamId: match.homeTeamId, // Added ID
         homeTeamName: match.homeTeamName,
         homeTeamShortName: match.homeTeamShortName,
@@ -30,6 +31,7 @@ class MatchesService {
           : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder') 
               ? match.homeTeamLogo 
               : null),
+        awaySeasonTeamId: match.awaySeasonTeamId, // Added for lineup generation
         awayTeamId: match.awayTeamId, // Added ID
         awayTeamName: match.awayTeamName,
         awayTeamShortName: match.awayTeamShortName,

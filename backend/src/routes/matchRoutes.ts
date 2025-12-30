@@ -19,7 +19,7 @@ import {
 } from "../services/matchService";
 import { syncMatchesOnly } from "../services/syncService";
 import { createMatchEvent, deleteMatchEvent, disallowMatchEvent } from "../services/matchEventService";
-import { getMatchLineups, submitLineup } from "../services/matchLineupService";
+import { getMatchLineups, submitLineup, autoGenerateLineup } from "../services/matchLineupService";
 import * as lineupService from "../services/matchLineupService";
 const router = Router();
 const requireMatchManagement = [requireAuth, requirePermission("manage_matches")] as const;
@@ -350,6 +350,59 @@ router.post("/:id/lineups", requireAuth, async (req: any, res, next) => {
     next(error);
   }
 });
+
+/**
+ * POST /api/matches/:matchId/auto-generate-lineup
+ * Auto generate lineup for a team (Super Admin only)
+ */
+router.post(
+  "/:matchId/auto-generate-lineup",
+  requireAuth,
+  requireMatchManagement,
+  async (req: any, res, next) => {
+    try {
+      const matchId = Number(req.params.matchId);
+      const { seasonTeamId } = req.body;
+
+      if (!Number.isInteger(matchId) || matchId <= 0) {
+        return res.status(400).json({ message: "Invalid match id" });
+      }
+
+      if (!seasonTeamId) {
+        return res.status(400).json({ message: "seasonTeamId is required" });
+      }
+
+      // Check if user is super admin
+      const isSuperAdmin = Array.isArray(req.user?.roles) && req.user.roles.includes("super_admin");
+      if (!isSuperAdmin) {
+        return res.status(403).json({ error: "Only super admin can auto generate lineup" });
+      }
+
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const result = await autoGenerateLineup(matchId, seasonTeamId, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          message: result.message,
+          data: result
+        });
+      }
+
+      res.json({
+        success: true,
+        message: result.message,
+        data: result
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.get("/:matchId/team-infos", async (req, res, next) => {
   try {

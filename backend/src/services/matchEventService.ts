@@ -1,5 +1,4 @@
 import { query } from "../db/sqlServer";
-import * as goalTypeService from "./goalTypeService";
 import { BadRequestError } from "../utils/httpError";
 
 export interface MatchEvent {
@@ -109,7 +108,14 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     
     if (!goalTypeInfo.recordset[0]) {
       // Get list of valid codes for error message
-      const validCodes = await goalTypeService.getActiveGoalTypeCodes(rulesetId);
+      const validCodesResult = await query<{ code: string }>(
+        `SELECT code
+         FROM ruleset_goal_types
+         WHERE ruleset_id = @rulesetId AND is_active = 1
+         ORDER BY code ASC`,
+        { rulesetId }
+      );
+      const validCodes = validCodesResult.recordset.map(row => row.code);
       throw BadRequestError(
         `Invalid goal type code "${requestedCode}". Valid codes for this ruleset: ${validCodes.length > 0 ? validCodes.join(', ') : 'none configured'}`
       );

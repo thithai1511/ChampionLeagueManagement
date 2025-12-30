@@ -22,8 +22,11 @@ import {
 } from 'lucide-react'
 import MatchesService from '../../../layers/application/services/MatchesService'
 import SeasonService from '../../../layers/application/services/SeasonService'
+import TeamsService from '../../../layers/application/services/TeamsService'
+import ApiService from '../../../layers/application/services/ApiService'
 import logger from '../../../shared/utils/logger'
 import MatchOfficialAssignmentModal from '../components/MatchOfficialAssignmentModal'
+import { useAuth } from '../../../layers/application/context/AuthContext'
 
 const statusOptions = [
   { id: 'all', name: 'Tất cả trận' },
@@ -94,6 +97,8 @@ const formatTime = (isoString) => {
 
 const MatchesManagement = () => {
   const navigate = useNavigate()
+  const { user: currentUser } = useAuth()
+  const isSuperAdmin = Array.isArray(currentUser?.roles) && currentUser.roles.includes('super_admin')
 
   // Tab state
   const [activeTab, setActiveTab] = useState('all') // 'all' | 'today'
@@ -102,9 +107,11 @@ const MatchesManagement = () => {
     dateFrom: '',
     dateTo: '',
     status: 'all',
-    seasonId: ''
+    seasonId: '',
+    teamId: ''
   })
   const [seasons, setSeasons] = useState([])
+  const [teams, setTeams] = useState([])
   const [matches, setMatches] = useState([])
   const [pagination, setPagination] = useState({ page: 1, limit: 20, totalPages: 1, total: 0 })
   const [loading, setLoading] = useState(true)
@@ -189,7 +196,19 @@ const MatchesManagement = () => {
       }
     }
 
+    const fetchTeams = async () => {
+      try {
+        const response = await TeamsService.getAllTeams({ limit: 1000 })
+        if (isMounted) {
+          setTeams(response.teams || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch teams', err)
+      }
+    }
+
     fetchSeasons()
+    fetchTeams()
 
     return () => {
       isMounted = false
@@ -207,6 +226,7 @@ const MatchesManagement = () => {
         const response = await MatchesService.getAllMatches({
           status: filters.status === 'all' ? '' : filters.status,
           seasonId: filters.seasonId === 'all' ? '' : filters.seasonId,
+          teamId: filters.teamId === '' ? '' : filters.teamId,
           dateFrom: filters.dateFrom,
           dateTo: filters.dateTo,
           page: pagination.page,
@@ -288,6 +308,44 @@ const MatchesManagement = () => {
       alert('Không thể đồng bộ dữ liệu trận đấu từ API.')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handleAutoAssignOfficials = async (matchId) => {
+    if (!window.confirm('Tự động phân công trọng tài cho trận đấu này?')) {
+      return
+    }
+    try {
+      const response = await ApiService.post(`/match-officials/match/${matchId}/auto-assign`)
+      if (response.success) {
+        alert(`✅ ${response.message}\nĐã phân công: ${response.data.assigned.length} trọng tài${response.data.skipped.length > 0 ? `\nBỏ qua: ${response.data.skipped.join(', ')}` : ''}`)
+        setRefreshKey(prev => prev + 1)
+      }
+    } catch (err) {
+      logger.error('Failed to auto assign officials', err)
+      alert(`❌ Không thể tự động phân công trọng tài: ${err.message || 'Lỗi không xác định'}`)
+    }
+  }
+
+  const handleAutoGenerateLineup = async (matchId, seasonTeamId, teamName) => {
+    if (!seasonTeamId) {
+      alert('⚠️ Không tìm thấy thông tin đội. Vui lòng kiểm tra lại.')
+      return
+    }
+    if (!window.confirm(`Tự động tạo đội hình cho ${teamName}?`)) {
+      return
+    }
+    try {
+      const response = await ApiService.post(`/matches/${matchId}/auto-generate-lineup`, { seasonTeamId })
+      if (response.success) {
+        alert(`✅ ${response.message}`)
+        setRefreshKey(prev => prev + 1)
+      } else {
+        alert(`⚠️ ${response.message}`)
+      }
+    } catch (err) {
+      logger.error('Failed to auto generate lineup', err)
+      alert(`❌ Không thể tự động tạo đội hình: ${err.message || 'Lỗi không xác định'}`)
     }
   }
 
@@ -460,7 +518,7 @@ const MatchesManagement = () => {
       {activeTab === 'all' && (
         <>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="flex items-center space-x-3">
                 <Calendar size={18} className="text-gray-400" />
                 <input
@@ -492,6 +550,21 @@ const MatchesManagement = () => {
                   {seasons.map(season => (
                     <option key={season.seasonId || season.id} value={season.seasonId || season.id}>
                       {season.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Filter size={18} className="text-gray-400" />
+                <select
+                  value={filters.teamId}
+                  onChange={(e) => setFilters(prev => ({ ...prev, teamId: e.target.value }))}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                >
+                  <option value="">Tất cả đội bóng</option>
+                  {teams.map(team => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
                     </option>
                   ))}
                 </select>
@@ -594,37 +667,50 @@ const MatchesManagement = () => {
                           <div className="text-sm text-gray-500">{match.stage || match.groupName || 'League Phase'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <button
-                            onClick={() => openOfficialModal(match)}
-                            className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
-                          >
-                            <Shield size={14} />
-                            <span>{match.referee || 'Phân công'}</span>
-                          </button>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {match.referee ? 'Nhấn để chỉnh sửa' : 'Chưa phân công'}
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => openOfficialModal(match)}
+                              className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
+                            >
+                              <Shield size={14} />
+                              <span>{match.referee || 'Phân công'}</span>
+                            </button>
+                            {isSuperAdmin && (
+                              <button
+                                onClick={() => handleAutoAssignOfficials(match.id)}
+                                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 hover:bg-green-50 px-2 py-1 rounded transition-colors"
+                                title="Tự động phân công trọng tài"
+                              >
+                                <UserPlus size={12} />
+                                <span>Tự động</span>
+                              </button>
+                            )}
+                            <div className="text-xs text-gray-500">
+                              {match.referee ? 'Nhấn để chỉnh sửa' : 'Chưa phân công'}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {statusBadge(match.status)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-<button
-                              onClick={() => navigate(`/admin/matches/${match.id}/lineup-review`)}
-                              className="text-purple-600 hover:text-purple-900 transition-colors"
-                              title="Duyệt đội hình"
-                            >
-                              <ClipboardList size={16} />
-                            </button>
-                            
-                            <button
-                              onClick={() => setEditingMatch(match)}
-                              className="text-blue-600 hover:text-blue-900 transition-colors"
-                              title="Xem chi tiết"
-                            >
-                              <Eye size={16} />
-                            </button>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => navigate(`/admin/matches/${match.id}/lineup-review`)}
+                                className="text-purple-600 hover:text-purple-900 transition-colors"
+                                title="Duyệt đội hình"
+                              >
+                                <ClipboardList size={16} />
+                              </button>
+                              
+                              <button
+                                onClick={() => setEditingMatch(match)}
+                                className="text-blue-600 hover:text-blue-900 transition-colors"
+                                title="Xem chi tiết"
+                              >
+                                <Eye size={16} />
+                              </button>
 
                             {/* Chỉ hiện nút Sửa nếu trận đấu CHƯA kết thúc (Logic từ Main) */}
                             {!['FINISHED', 'COMPLETED'].includes(match.status?.toUpperCase()) && (
@@ -637,13 +723,34 @@ const MatchesManagement = () => {
                               </button>
                             )}
 
-                            <button
-                              onClick={() => handleDelete(match.id)}
-                              className="text-red-600 hover:text-red-900 transition-colors"
-                              title="Xóa trận đấu"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                              <button
+                                onClick={() => handleDelete(match.id)}
+                                className="text-red-600 hover:text-red-900 transition-colors"
+                                title="Xóa trận đấu"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                            {isSuperAdmin && (
+                              <div className="flex space-x-2 text-xs">
+                                <button
+                                  onClick={() => handleAutoGenerateLineup(match.id, match.homeSeasonTeamId, match.homeTeamName)}
+                                  className="text-green-600 hover:text-green-800 hover:bg-green-50 px-2 py-1 rounded transition-colors"
+                                  title="Tự động tạo đội hình đội nhà"
+                                >
+                                  <ClipboardList size={12} className="inline mr-1" />
+                                  {match.homeTeamShortName || 'Nhà'}
+                                </button>
+                                <button
+                                  onClick={() => handleAutoGenerateLineup(match.id, match.awaySeasonTeamId, match.awayTeamName)}
+                                  className="text-green-600 hover:text-green-800 hover:bg-green-50 px-2 py-1 rounded transition-colors"
+                                  title="Tự động tạo đội hình đội khách"
+                                >
+                                  <ClipboardList size={12} className="inline mr-1" />
+                                  {match.awayTeamShortName || 'Khách'}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>

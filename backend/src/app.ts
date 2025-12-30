@@ -45,6 +45,7 @@ import participationFeeRoutes from "./routes/participationFeeRoutes";
 import playerOfMatchRoutes from "./routes/playerOfMatchRoutes";
 import stadiumRoutes from "./routes/stadiumRoutes";
 import playerPortalRoutes from "./routes/playerPortalRoutes";
+import goalTypeRoutes from "./routes/goalTypeRoutes";
 
 const app = express();
 
@@ -69,6 +70,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/permissions", permissionRoutes);
 app.use("/api/rulesets", rulesetRoutes);
+app.use("/api", goalTypeRoutes); // Goal types management
 // IMPORTANT: Mount specific season sub-routes BEFORE generic seasonRoutes
 // to prevent /:id from matching /:seasonId/awards or /:seasonId/discipline
 app.use("/api/seasons", awardsRoutes);

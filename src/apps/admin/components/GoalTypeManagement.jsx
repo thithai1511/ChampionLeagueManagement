@@ -361,3 +361,4 @@ const GoalTypeManagement = ({ rulesetId, onGoalTypesChange }) => {
 
 export default GoalTypeManagement;
 
+

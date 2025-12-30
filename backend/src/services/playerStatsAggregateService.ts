@@ -24,6 +24,8 @@ export interface PlayerGoalStats {
   assists: number;
   matchesPlayed: number;
   goalsPerMatch: number;
+  position?: string | null;
+  shirtNumber?: number | null;
 }
 
 export interface ManOfTheMatchStats {
@@ -123,6 +125,8 @@ export async function getTopScorersBySeason(seasonId: number, limit: number = 20
     goals: number;
     assists: number;
     matches_played: number;
+    position_code: string;
+    shirt_number: number;
   }>(
     `SELECT TOP (@limit)
       p.player_id,
@@ -130,21 +134,27 @@ export async function getTopScorersBySeason(seasonId: number, limit: number = 20
       t.team_id,
       t.name AS team_name,
       spr.season_id,
-      COALESCE(SUM(CASE WHEN me.event_type = 'GOAL' THEN 1 ELSE 0 END), 0) AS goals,
-      COALESCE(SUM(CASE WHEN me.event_type = 'ASSIST' THEN 1 ELSE 0 END), 0) AS assists,
-      COUNT(DISTINCT me.match_id) AS matches_played
+      spr.position_code,
+      spr.shirt_number,
+      COALESCE(SUM(CASE WHEN me.event_type = 'GOAL' AND m.status IN ('COMPLETED', 'FINISHED') THEN 1 ELSE 0 END), 0) AS goals,
+      COALESCE(SUM(CASE WHEN me.event_type = 'ASSIST' AND m.status IN ('COMPLETED', 'FINISHED') THEN 1 ELSE 0 END), 0) AS assists,
+      COUNT(DISTINCT CASE WHEN m.status IN ('COMPLETED', 'FINISHED') THEN me.match_id ELSE NULL END) AS matches_played
      FROM season_player_registrations spr
      INNER JOIN players p ON spr.player_id = p.player_id
      INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
      INNER JOIN teams t ON stp.team_id = t.team_id
      LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id 
        AND me.event_type IN ('GOAL', 'ASSIST')
+       AND me.season_id = @seasonId
+     LEFT JOIN matches m ON me.match_id = m.match_id
+       AND m.season_id = @seasonId
+       AND m.status IN ('COMPLETED', 'FINISHED')
      WHERE spr.season_id = @seasonId
        AND spr.registration_status = 'approved'
-     GROUP BY p.player_id, p.full_name, t.team_id, t.name, spr.season_id
-     HAVING COALESCE(SUM(CASE WHEN me.event_type = 'GOAL' THEN 1 ELSE 0 END), 0) > 0
-     ORDER BY SUM(CASE WHEN me.event_type = 'GOAL' THEN 1 ELSE 0 END) DESC, 
-              SUM(CASE WHEN me.event_type = 'ASSIST' THEN 1 ELSE 0 END) DESC`,
+     GROUP BY p.player_id, p.full_name, t.team_id, t.name, spr.season_id, spr.position_code, spr.shirt_number
+     ORDER BY COALESCE(SUM(CASE WHEN me.event_type = 'GOAL' AND m.status IN ('COMPLETED', 'FINISHED') THEN 1 ELSE 0 END), 0) DESC, 
+              COALESCE(SUM(CASE WHEN me.event_type = 'ASSIST' AND m.status IN ('COMPLETED', 'FINISHED') THEN 1 ELSE 0 END), 0) DESC,
+              p.full_name ASC`,
     { seasonId, limit }
   );
 
@@ -157,7 +167,9 @@ export async function getTopScorersBySeason(seasonId: number, limit: number = 20
     goals: row.goals,
     assists: row.assists,
     matchesPlayed: row.matches_played,
-    goalsPerMatch: row.matches_played > 0 ? Math.round((row.goals / row.matches_played) * 100) / 100 : 0
+    goalsPerMatch: row.matches_played > 0 ? Math.round((row.goals / row.matches_played) * 100) / 100 : 0,
+    position: row.position_code || null,
+    shirtNumber: row.shirt_number || null
   }));
 }
 
