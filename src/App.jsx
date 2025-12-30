@@ -8,6 +8,7 @@ import OfflineDetector from './shared/components/OfflineDetector'
 const PublicApp = lazy(() => import('./apps/public/PublicApp'))
 const AdminApp = lazy(() => import('./apps/admin/AdminApp'))
 const RefereeApp = lazy(() => import('./apps/referee/RefereeApp'))
+const SupervisorApp = lazy(() => import('./apps/supervisor/SupervisorApp'))
 const LoginPage = lazy(() => import('./apps/admin/pages/LoginPage'))
 
 // Loading component
@@ -58,6 +59,30 @@ const RefereeRoute = ({ children }) => {
   }
 
   if (!isMatchOfficial) {
+    return <Navigate to="/portal" replace />
+  }
+
+  return children
+}
+
+const SupervisorRoute = ({ children }) => {
+  const location = useLocation()
+  const { isAuthenticated, user, status } = useAuth()
+  // Check for supervisor role
+  const isSupervisor = isAuthenticated && (
+    user?.role === 'supervisor' || 
+    user?.roles?.includes('supervisor')
+  )
+
+  if (status === 'checking') {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" replace state={{ from: `${location.pathname}${location.search}` }} />
+  }
+
+  if (!isSupervisor) {
     return <Navigate to="/portal" replace />
   }
 
@@ -132,6 +157,16 @@ function App() {
                 <RefereeRoute>
                   <RefereeApp />
                 </RefereeRoute>
+              } 
+            />
+            
+            {/* Supervisor Portal Routes */}
+            <Route 
+              path="/supervisor/*" 
+              element={
+                <SupervisorRoute>
+                  <SupervisorApp />
+                </SupervisorRoute>
               } 
             />
             

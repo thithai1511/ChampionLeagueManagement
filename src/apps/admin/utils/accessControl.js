@@ -1,4 +1,4 @@
-const ADMIN_ALLOWED_ROLES = ['super_admin', 'admin', 'team_admin', 'content_manager', 'match_official', 'competition_manager']
+const ADMIN_ALLOWED_ROLES = ['super_admin', 'admin', 'team_admin', 'supervisor', 'match_official', 'competition_manager']
 
 export const hasAdminPortalAccess = (user) => {
   if (!user || !Array.isArray(user.roles)) {
