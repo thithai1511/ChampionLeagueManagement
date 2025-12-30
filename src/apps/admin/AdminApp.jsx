@@ -29,6 +29,7 @@ import MatchLineupReviewPage from './pages/MatchLineupReviewPage'
 import TeamAdminDashboard from './pages/TeamAdminDashboard';
 import ClubProfilePage from './pages/ClubProfilePage';
 import PlayerRegistrationsPage from './pages/PlayerRegistrationsPage';
+import TeamMatchLineupRegistration from './pages/TeamMatchLineupRegistration';
 import RegulationsPageWrapper from '../../components/RegulationsPageWrapper';
 
 const AdminApp = ({ onLogout, currentUser }) => {
@@ -144,7 +145,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
                 disallowedRoles={['super_admin']}
                 currentUser={currentUser}
               >
-                 {/* LƯU Ý: Đảm bảo bạn đã import ClubProfilePage */}
+                {/* LƯU Ý: Đảm bảo bạn đã import ClubProfilePage */}
                 <ClubProfilePage currentUser={currentUser} />
               </AccessGuard>
             }
@@ -159,8 +160,22 @@ const AdminApp = ({ onLogout, currentUser }) => {
                 disallowedRoles={['super_admin']}
                 currentUser={currentUser}
               >
-                 {/* LƯU Ý: Đảm bảo bạn đã import PlayerRegistrationsPage */}
+                {/* LƯU Ý: Đảm bảo bạn đã import PlayerRegistrationsPage */}
                 <PlayerRegistrationsPage currentUser={currentUser} />
+              </AccessGuard>
+            }
+          />
+
+          <Route
+            path="match-lineup-registration"
+            element={
+              <AccessGuard
+                permission="view_own_team"
+                allowedRoles={['team_admin']}
+                disallowedRoles={['super_admin']}
+                currentUser={currentUser}
+              >
+                <TeamMatchLineupRegistration currentUser={currentUser} />
               </AccessGuard>
             }
           />
