@@ -39,12 +39,19 @@ const MatchDetailPage = () => {
       // Load match details, events, and lineups in parallel
       const [matchData, eventsData, lineupsData] = await Promise.all([
         MatchesService.getMatchById(matchId),
-        MatchesService.getMatchEvents(matchId).catch(() => []),
+        MatchesService.getMatchEvents(matchId).catch((err) => {
+          console.error('Error loading events:', err);
+          return [];
+        }),
         ApiService.get(`/matches/${matchId}/lineups`).catch(() => ({ data: [] }))
       ]);
 
       setMatch(matchData);
-      setEvents(eventsData || []);
+      // Use events from matchData if available, otherwise use eventsData from API
+      // matchData.events comes from getMatchById which includes eventsJson
+      const allEvents = matchData?.events?.length > 0 ? matchData.events : (eventsData || []);
+      console.log('Loaded events:', allEvents.length, allEvents);
+      setEvents(allEvents);
 
       // Split lineups by team
       const allLineups = lineupsData?.data || [];
@@ -209,8 +216,12 @@ const MatchDetailPage = () => {
                       src={match.homeTeamLogo || match.home_team_logo} 
                       alt={match.homeTeamName || match.home_team_name} 
                       className="w-16 h-16 md:w-20 md:h-20 object-contain"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
                     />
-                  ) : (
+                  ) : null}
+                  {(!match.homeTeamLogo && !match.home_team_logo) && (
                     <Shield size={48} className="text-white/40" />
                   )}
                 </div>
@@ -259,8 +270,12 @@ const MatchDetailPage = () => {
                       src={match.awayTeamLogo || match.away_team_logo} 
                       alt={match.awayTeamName || match.away_team_name} 
                       className="w-16 h-16 md:w-20 md:h-20 object-contain"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
                     />
-                  ) : (
+                  ) : null}
+                  {(!match.awayTeamLogo && !match.away_team_logo) && (
                     <Shield size={48} className="text-white/40" />
                   )}
                 </div>
@@ -371,10 +386,12 @@ const MatchDetailPage = () => {
                         <span className="text-2xl">{getEventIcon(event)}</span>
                         <div>
                           <p className="text-white font-medium">{event.player || event.playerName || 'Unknown'}</p>
-                          <p className="text-xs text-white/50">{event.description || event.type}</p>
+                          <p className="text-xs text-white/50">{event.description || event.type || 'Event'}</p>
                         </div>
                       </div>
-                      <span className="text-white/70 font-mono font-bold">{event.minute}'</span>
+                      <span className="text-white/70 font-mono font-bold">
+                        {event.minute || event.event_minute || 0}'{event.stoppageTime || event.stoppage_time ? `+${event.stoppageTime || event.stoppage_time}` : ''}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -415,7 +432,10 @@ const MatchDetailPage = () => {
             {events.length > 0 ? (
               <div className="space-y-3 relative before:absolute before:left-1/2 before:-translate-x-1/2 before:h-full before:w-px before:bg-white/10">
                 {events.map((event, idx) => {
-                  const isHome = event.teamId === match.home_team_id || event.teamId === match.homeTeamId;
+                  const isHome = event.teamId === match.homeTeamId || 
+                                 event.teamId === match.home_team_id ||
+                                 event.seasonTeamId === match.homeSeasonTeamId ||
+                                 event.seasonTeamId === match.home_season_team_id;
                   return (
                     <div key={idx} className={`flex items-center gap-4 ${isHome ? 'flex-row' : 'flex-row-reverse'}`}>
                       <div className={`flex-1 ${isHome ? 'text-right' : 'text-left'}`}>
@@ -423,10 +443,15 @@ const MatchDetailPage = () => {
                         {event.description && (
                           <p className="text-xs text-white/50">{event.description}</p>
                         )}
+                        {event.type && event.type !== 'GOAL' && (
+                          <p className="text-xs text-white/40 uppercase">{event.type}</p>
+                        )}
                       </div>
                       <div className="z-10 bg-slate-800 border-2 border-white/20 rounded-full w-12 h-12 flex flex-col items-center justify-center shadow-lg">
                         <span className="text-lg">{getEventIcon(event)}</span>
-                        <span className="text-[10px] text-white/70 font-mono font-bold">{event.minute}'</span>
+                        <span className="text-[10px] text-white/70 font-mono font-bold">
+                          {event.minute || event.event_minute || 0}'{event.stoppageTime || event.stoppage_time ? `+${event.stoppageTime || event.stoppage_time}` : ''}
+                        </span>
                       </div>
                       <div className="flex-1" />
                     </div>
@@ -449,10 +474,106 @@ const MatchDetailPage = () => {
               <TrendingUp size={20} className="text-cyan-400" />
               Thống kê trận đấu
             </h3>
-            <div className="text-center py-12 text-white/40">
-              <TrendingUp className="mx-auto mb-3" size={48} />
-              <p>Thống kê chi tiết sẽ được cập nhật sau trận đấu</p>
-            </div>
+            {match?.stats?.home || match?.stats?.away ? (
+              <div className="space-y-6">
+                {/* Possession */}
+                {match.stats.home?.possession !== undefined || match.stats.away?.possession !== undefined ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white font-semibold">{match.homeTeamName || 'Home'}</span>
+                      <span className="text-white font-semibold">{match.awayTeamName || 'Away'}</span>
+                    </div>
+                    <div className="relative h-8 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="absolute left-0 top-0 h-full bg-cyan-500/30 flex items-center justify-end pr-2"
+                        style={{ width: `${match.stats.home?.possession || 50}%` }}
+                      >
+                        <span className="text-xs font-bold text-white">{match.stats.home?.possession || 0}%</span>
+                      </div>
+                      <div 
+                        className="absolute right-0 top-0 h-full bg-purple-500/30 flex items-center justify-start pl-2"
+                        style={{ width: `${match.stats.away?.possession || 50}%` }}
+                      >
+                        <span className="text-xs font-bold text-white">{match.stats.away?.possession || 0}%</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-white/50 mt-1 text-center">Kiểm soát bóng</p>
+                  </div>
+                ) : null}
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Shots */}
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <p className="text-xs text-white/50 mb-2 uppercase tracking-wider">Cú sút</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-white">{match.stats.home?.shots || 0}</span>
+                      <span className="text-white/30">-</span>
+                      <span className="text-2xl font-bold text-white">{match.stats.away?.shots || 0}</span>
+                    </div>
+                  </div>
+
+                  {/* Shots on Target */}
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <p className="text-xs text-white/50 mb-2 uppercase tracking-wider">Sút trúng đích</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-white">{match.stats.home?.onTarget || 0}</span>
+                      <span className="text-white/30">-</span>
+                      <span className="text-2xl font-bold text-white">{match.stats.away?.onTarget || 0}</span>
+                    </div>
+                  </div>
+
+                  {/* Corners */}
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <p className="text-xs text-white/50 mb-2 uppercase tracking-wider">Phạt góc</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-white">{match.stats.home?.corners || 0}</span>
+                      <span className="text-white/30">-</span>
+                      <span className="text-2xl font-bold text-white">{match.stats.away?.corners || 0}</span>
+                    </div>
+                  </div>
+
+                  {/* Fouls */}
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <p className="text-xs text-white/50 mb-2 uppercase tracking-wider">Lỗi</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-white">{match.stats.home?.fouls || 0}</span>
+                      <span className="text-white/30">-</span>
+                      <span className="text-2xl font-bold text-white">{match.stats.away?.fouls || 0}</span>
+                    </div>
+                  </div>
+
+                  {/* Offsides */}
+                  {(match.stats.home?.offsides !== undefined || match.stats.away?.offsides !== undefined) && (
+                    <div className="bg-white/5 rounded-lg p-4">
+                      <p className="text-xs text-white/50 mb-2 uppercase tracking-wider">Việt vị</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-bold text-white">{match.stats.home?.offsides || 0}</span>
+                        <span className="text-white/30">-</span>
+                        <span className="text-2xl font-bold text-white">{match.stats.away?.offsides || 0}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Passes Completed */}
+                  {(match.stats.home?.passesCompleted !== undefined || match.stats.away?.passesCompleted !== undefined) && (
+                    <div className="bg-white/5 rounded-lg p-4">
+                      <p className="text-xs text-white/50 mb-2 uppercase tracking-wider">Đường chuyền</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-bold text-white">{match.stats.home?.passesCompleted || 0}</span>
+                        <span className="text-white/30">-</span>
+                        <span className="text-2xl font-bold text-white">{match.stats.away?.passesCompleted || 0}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-white/40">
+                <TrendingUp className="mx-auto mb-3" size={48} />
+                <p>Thống kê chi tiết sẽ được cập nhật sau trận đấu</p>
+              </div>
+            )}
           </div>
         )}
       </section>

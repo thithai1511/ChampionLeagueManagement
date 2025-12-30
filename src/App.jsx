@@ -8,6 +8,9 @@ import OfflineDetector from './shared/components/OfflineDetector'
 const PublicApp = lazy(() => import('./apps/public/PublicApp'))
 const AdminApp = lazy(() => import('./apps/admin/AdminApp'))
 const RefereeApp = lazy(() => import('./apps/referee/RefereeApp'))
+const SupervisorApp = lazy(() => import('./apps/supervisor/SupervisorApp'))
+const PlayerApp = lazy(() => import('./apps/player/PlayerApp'))
+const TeamAdminApp = lazy(() => import('./apps/admin_team/TeamAdminApp'))
 const LoginPage = lazy(() => import('./apps/admin/pages/LoginPage'))
 
 // Loading component
@@ -58,6 +61,78 @@ const RefereeRoute = ({ children }) => {
   }
 
   if (!isMatchOfficial) {
+    return <Navigate to="/portal" replace />
+  }
+
+  return children
+}
+
+const SupervisorRoute = ({ children }) => {
+  const location = useLocation()
+  const { isAuthenticated, user, status } = useAuth()
+  // Check for supervisor role
+  const isSupervisor = isAuthenticated && (
+    user?.role === 'supervisor' || 
+    user?.roles?.includes('supervisor')
+  )
+
+  if (status === 'checking') {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" replace state={{ from: `${location.pathname}${location.search}` }} />
+  }
+
+  if (!isSupervisor) {
+    return <Navigate to="/portal" replace />
+  }
+
+  return children
+}
+
+const PlayerRoute = ({ children }) => {
+  const location = useLocation()
+  const { isAuthenticated, user, status } = useAuth()
+  // Check for player role
+  const isPlayer = isAuthenticated && (
+    user?.role === 'player' || 
+    user?.roles?.includes('player')
+  )
+
+  if (status === 'checking') {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" replace state={{ from: `${location.pathname}${location.search}` }} />
+  }
+
+  if (!isPlayer) {
+    return <Navigate to="/portal" replace />
+  }
+
+  return children
+}
+
+const TeamAdminRoute = ({ children }) => {
+  const location = useLocation()
+  const { isAuthenticated, user, status } = useAuth()
+  // Check for team_admin role
+  const isTeamAdmin = isAuthenticated && (
+    user?.role === 'team_admin' || 
+    user?.roles?.includes('team_admin')
+  )
+
+  if (status === 'checking') {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" replace state={{ from: `${location.pathname}${location.search}` }} />
+  }
+
+  if (!isTeamAdmin) {
     return <Navigate to="/portal" replace />
   }
 
@@ -132,6 +207,36 @@ function App() {
                 <RefereeRoute>
                   <RefereeApp />
                 </RefereeRoute>
+              } 
+            />
+            
+            {/* Supervisor Portal Routes */}
+            <Route 
+              path="/supervisor/*" 
+              element={
+                <SupervisorRoute>
+                  <SupervisorApp />
+                </SupervisorRoute>
+              } 
+            />
+            
+            {/* Player Portal Routes */}
+            <Route 
+              path="/player/*" 
+              element={
+                <PlayerRoute>
+                  <PlayerApp />
+                </PlayerRoute>
+              } 
+            />
+            
+            {/* Team Admin Portal Routes */}
+            <Route 
+              path="/admin-team/*" 
+              element={
+                <TeamAdminRoute>
+                  <TeamAdminApp currentUser={user} />
+                </TeamAdminRoute>
               } 
             />
             

@@ -9,6 +9,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../types";
 import * as registrationService from "../services/seasonRegistrationService";
+import * as participationFeeService from "../services/participationFeeService";
 
 // Map backend status to frontend status
 function mapStatusToFrontend(backendStatus: string): string {
@@ -28,6 +29,7 @@ function mapStatusToFrontend(backendStatus: string): string {
 // Transform registration to invitation format for frontend
 function toInvitationFormat(reg: registrationService.SeasonRegistration & { team_logo?: string; short_name?: string }): any {
   return {
+    // CamelCase fields (Legacy/Mobile)
     invitationId: reg.registration_id,
     registrationId: reg.registration_id,
     seasonId: reg.season_id,
@@ -44,7 +46,57 @@ function toInvitationFormat(reg: registrationService.SeasonRegistration & { team
     reviewerNote: reg.reviewer_note,
     createdAt: reg.created_at,
     updatedAt: reg.updated_at,
+    submissionData: typeof reg.submission_data === 'string' ? JSON.parse(reg.submission_data || '{}') : reg.submission_data,
+
+    // Snake_case fields (Admin Portal / TeamRegistrationWorkflow.jsx)
+    registration_id: reg.registration_id,
+    season_id: reg.season_id,
+    team_id: reg.team_id,
+    team_name: reg.team_name,
+    registration_status: reg.registration_status,
+    fee_status: reg.fee_status,
+    submission_data: typeof reg.submission_data === 'string' ? JSON.parse(reg.submission_data || '{}') : reg.submission_data,
+    reviewer_note: reg.reviewer_note,
+    submitted_at: reg.submitted_at,
+    reviewed_at: reg.reviewed_at,
+    created_at: reg.created_at
   };
+}
+
+/**
+ * GET /api/seasons/:seasonId/registrations/my
+ * Get MY registration for a specific season (Top 1)
+ */
+export async function getMyRegistrationForSeason(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const seasonId = parseInt(req.params.seasonId, 10);
+    if (isNaN(seasonId)) {
+      res.status(400).json({ error: "Invalid season ID" });
+      return;
+    }
+
+    if (!req.user || !req.user.teamIds || req.user.teamIds.length === 0) {
+      res.status(403).json({ error: "User is not assigned to any team" });
+      return;
+    }
+    const teamId = Number(req.user.teamIds[0]);
+
+    // Use participationFeeService to get the latest registration
+    const registration = await participationFeeService.getMyFee(seasonId, teamId);
+
+    if (!registration) {
+      res.status(404).json({ error: "Registration not found" });
+      return;
+    }
+
+    // Format matches toInvitationFormat but we used a different service return type
+    // Casting to any to allow passing to toInvitationFormat which expects more fields but handles undefined
+    res.json({ data: toInvitationFormat(registration as any) });
+
+  } catch (error: any) {
+    console.error("Get my registration error:", error);
+    res.status(500).json({ error: "Failed to get my registration" });
+  }
 }
 
 /**
@@ -212,18 +264,18 @@ export async function acceptInvitation(req: AuthenticatedRequest, res: Response)
 
     // If already accepted, return success
     if (currentRegistration.registration_status === "ACCEPTED") {
-      res.json({ 
-        data: currentRegistration, 
+      res.json({
+        data: currentRegistration,
         message: "Lời mời đã được chấp nhận trước đó",
-        alreadyAccepted: true 
+        alreadyAccepted: true
       });
       return;
     }
 
     // Check if in correct state to accept
     if (currentRegistration.registration_status !== "INVITED") {
-      res.status(400).json({ 
-        error: `Không thể chấp nhận lời mời ở trạng thái "${currentRegistration.registration_status}"` 
+      res.status(400).json({
+        error: `Không thể chấp nhận lời mời ở trạng thái "${currentRegistration.registration_status}"`
       });
       return;
     }
@@ -269,18 +321,18 @@ export async function declineInvitation(req: AuthenticatedRequest, res: Response
 
     // If already declined, return success
     if (currentRegistration.registration_status === "DECLINED") {
-      res.json({ 
-        data: currentRegistration, 
+      res.json({
+        data: currentRegistration,
         message: "Lời mời đã được từ chối trước đó",
-        alreadyDeclined: true 
+        alreadyDeclined: true
       });
       return;
     }
 
     // Check if in correct state to decline
     if (!["INVITED", "ACCEPTED"].includes(currentRegistration.registration_status)) {
-      res.status(400).json({ 
-        error: `Không thể từ chối lời mời ở trạng thái "${currentRegistration.registration_status}"` 
+      res.status(400).json({
+        error: `Không thể từ chối lời mời ở trạng thái "${currentRegistration.registration_status}"`
       });
       return;
     }
@@ -581,9 +633,9 @@ export async function generateSuggestedInvitations(req: AuthenticatedRequest, re
     });
   } catch (error: any) {
     console.error("Generate suggested invitations error:", error);
-    res.status(500).json({ 
-      error: "Không thể tạo danh sách lời mời", 
-      details: error.message 
+    res.status(500).json({
+      error: "Không thể tạo danh sách lời mời",
+      details: error.message
     });
   }
 }
@@ -609,9 +661,9 @@ export async function createInvitation(req: AuthenticatedRequest, res: Response)
     // Check if team already has an invitation/registration for this season
     const existingRegistrations = await registrationService.getSeasonRegistrations(seasonId);
     const existingForTeam = existingRegistrations.find(r => r.team_id === parseInt(teamId, 10));
-    
+
     if (existingForTeam) {
-      res.status(409).json({ 
+      res.status(409).json({
         error: `Đội bóng "${existingForTeam.team_name}" đã có lời mời/đăng ký cho mùa giải này (Trạng thái: ${existingForTeam.registration_status})`,
         existingRegistration: {
           registrationId: existingForTeam.registration_id,
@@ -629,7 +681,7 @@ export async function createInvitation(req: AuthenticatedRequest, res: Response)
       "DRAFT_INVITE"
     );
 
-    res.status(201).json({ 
+    res.status(201).json({
       data: {
         ...registration,
         invitationId: registration.registration_id,
@@ -701,10 +753,10 @@ export async function updateInvitationStatus(req: AuthenticatedRequest, res: Res
 
     // If already in target status, return success without error
     if (currentRegistration.registration_status === status) {
-      res.json({ 
-        data: currentRegistration, 
+      res.json({
+        data: currentRegistration,
         message: "Already in target status",
-        skipped: true 
+        skipped: true
       });
       return;
     }

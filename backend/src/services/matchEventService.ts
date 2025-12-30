@@ -20,21 +20,25 @@ export const getMatchEvents = async (matchId: number): Promise<MatchEvent[]> => 
   const result = await query(
     `
       SELECT 
-        match_event_id as matchEventId,
-        match_id as matchId,
-        season_id as seasonId,
-        season_team_id as seasonTeamId,
-        type,
-        minute,
-        description,
-        player_id as playerId,
-        assist_player_id as assistPlayerId,
-        in_player_id as inPlayerId,
-        out_player_id as outPlayerId,
-        created_at as createdAt
-      FROM match_events
-      WHERE match_id = @matchId
-      ORDER BY minute ASC, created_at ASC
+        me.match_event_id as matchEventId,
+        me.match_id as matchId,
+        me.season_id as seasonId,
+        me.season_team_id as seasonTeamId,
+        stp.team_id as teamId,
+        me.event_type as type,
+        me.event_minute as minute,
+        me.stoppage_time as stoppageTime,
+        me.description,
+        me.player_name as playerName,
+        me.player_id as playerId,
+        me.assist_player_id as assistPlayerId,
+        me.card_type as cardType,
+        me.goal_type_code as goalTypeCode,
+        me.created_at as createdAt
+      FROM match_events me
+      INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+      WHERE me.match_id = @matchId
+      ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
     `,
     { matchId }
   );

@@ -71,7 +71,7 @@ export const USER_ROLES = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
   TEAM_ADMIN: 'team_admin',
-  CONTENT_MANAGER: 'content_manager',
+  SUPERVISOR: 'supervisor',
   MATCH_OFFICIAL: 'match_official',
   VIEWER: 'viewer'
 }

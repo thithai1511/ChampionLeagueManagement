@@ -365,29 +365,35 @@ export const listMatches = async (filters: MatchFilters = {}): Promise<Paginated
         (SELECT TOP 1 JSON_QUERY((SELECT player_name AS playerName, team_name AS teamName FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)) FROM match_mvps WHERE match_id = m.match_id) AS mvpJson,
         (SELECT (
             SELECT 
-                match_event_id AS id,
+                me.match_event_id AS id,
                 stp.team_id AS teamId,
-                player_name AS player,
-                event_type AS type,
-                card_type AS cardType,
-                event_minute AS minute,
-                description,
-                player_id AS playerId,
-                assist_player_id AS assistPlayerId
+                me.season_team_id AS seasonTeamId,
+                me.player_name AS player,
+                me.event_type AS type,
+                me.card_type AS cardType,
+                me.event_minute AS minute,
+                me.stoppage_time AS stoppageTime,
+                me.description,
+                me.player_id AS playerId,
+                me.assist_player_id AS assistPlayerId,
+                me.goal_type_code AS goalTypeCode
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
             WHERE me.match_id = m.match_id 
-            ORDER BY me.event_minute ASC 
+            ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
             FOR JSON PATH
         )) AS eventsJson,
         (SELECT (
             SELECT 
                 stp.team_id AS teamId,
+                stp.season_team_id AS seasonTeamId,
                 mts.possession_percent AS possession,
                 mts.shots_total AS shots,
                 mts.shots_on_target AS onTarget,
                 mts.corners,
-                mts.fouls_committed AS fouls
+                mts.fouls_committed AS fouls,
+                mts.offsides,
+                mts.passes_completed AS passesCompleted
             FROM match_team_statistics mts
             INNER JOIN season_team_participants stp ON mts.season_team_id = stp.season_team_id
             WHERE mts.match_id = m.match_id
@@ -493,27 +499,33 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
             SELECT 
                 me.match_event_id AS id,
                 stp.team_id AS teamId,
+                me.season_team_id AS seasonTeamId,
                 me.player_name AS player,
                 me.event_type AS type,
                 me.card_type AS cardType,
                 me.event_minute AS minute,
+                me.stoppage_time AS stoppageTime,
                 me.description,
                 me.player_id AS playerId,
-                me.assist_player_id AS assistPlayerId
+                me.assist_player_id AS assistPlayerId,
+                me.goal_type_code AS goalTypeCode
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
             WHERE me.match_id = m.match_id 
-            ORDER BY me.event_minute ASC 
+            ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
             FOR JSON PATH
         )) AS eventsJson,
         (SELECT (
             SELECT 
                 stp.team_id AS teamId,
+                stp.season_team_id AS seasonTeamId,
                 mts.possession_percent AS possession,
                 mts.shots_total AS shots,
                 mts.shots_on_target AS onTarget,
                 mts.corners,
-                mts.fouls_committed AS fouls
+                mts.fouls_committed AS fouls,
+                mts.offsides,
+                mts.passes_completed AS passesCompleted
             FROM match_team_statistics mts
             INNER JOIN season_team_participants stp ON mts.season_team_id = stp.season_team_id
             WHERE mts.match_id = m.match_id
@@ -806,11 +818,14 @@ export const listLiveMatches = async (): Promise<MatchRecord[]> => {
         (SELECT (
             SELECT 
                 stp.team_id AS teamId,
+                stp.season_team_id AS seasonTeamId,
                 mts.possession_percent AS possession,
                 mts.shots_total AS shots,
                 mts.shots_on_target AS onTarget,
                 mts.corners,
-                mts.fouls_committed AS fouls
+                mts.fouls_committed AS fouls,
+                mts.offsides,
+                mts.passes_completed AS passesCompleted
             FROM match_team_statistics mts
             INNER JOIN season_team_participants stp ON mts.season_team_id = stp.season_team_id
             WHERE mts.match_id = m.match_id
