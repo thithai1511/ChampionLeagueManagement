@@ -183,6 +183,34 @@ export async function changeMatchStatus(
     }
   }
 
+  if (newStatus === "IN_PROGRESS") {
+    // Must have all officials assigned before starting match
+    const officials = await query<{ role_code: string }>(
+      `SELECT role_code FROM match_official_assignments WHERE match_id = @matchId`,
+      { matchId }
+    );
+
+    const requiredRoles = ['referee', 'assistant_1', 'assistant_2', 'fourth_official'];
+    const assignedRoles = officials.recordset.map(o => o.role_code);
+    const missingRoles = requiredRoles.filter(role => !assignedRoles.includes(role));
+
+    if (missingRoles.length > 0) {
+      const roleNames: Record<string, string> = {
+        'referee': 'Trọng tài chính',
+        'assistant_1': 'Trọng tài biên 1',
+        'assistant_2': 'Trọng tài biên 2',
+        'fourth_official': 'Trọng tài bàn'
+      };
+      const missingNames = missingRoles.map(r => roleNames[r] || r).join(', ');
+      throw new Error(`Không thể bắt đầu trận đấu. Thiếu trọng tài: ${missingNames}`);
+    }
+
+    // Must have both lineups approved
+    if (match.home_lineup_status !== "APPROVED" || match.away_lineup_status !== "APPROVED") {
+      throw new Error("Cannot start match without both lineups approved");
+    }
+  }
+
   if (newStatus === "REPORTED") {
     // Must have both reports submitted
     if (!match.referee_report_submitted || !match.supervisor_report_submitted) {
