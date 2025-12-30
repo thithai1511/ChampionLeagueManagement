@@ -4,6 +4,7 @@ import SupervisorLayout from './components/SupervisorLayout';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
 import MatchSupervisionPage from './pages/MatchSupervisionPage';
 import ReportsPage from './pages/ReportsPage';
+import RegulationsPageWrapper from '../../components/RegulationsPageWrapper';
 
 const SupervisorApp = () => {
   return (
@@ -13,6 +14,7 @@ const SupervisorApp = () => {
         <Route path="/my-assignments" element={<MyAssignmentsPage />} />
         <Route path="/match/:matchId" element={<MatchSupervisionPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/regulations" element={<RegulationsPageWrapper />} />
       </Routes>
     </SupervisorLayout>
   );

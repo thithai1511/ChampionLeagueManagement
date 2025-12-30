@@ -79,6 +79,12 @@ const MENU_SECTIONS = [
       { name: 'Quản lý người dùng', path: '/admin/users', icon: Shield, permission: 'manage_users' },
       { name: 'Vai trò & Quyền', path: '/admin/roles', icon: KeyRound, permission: 'manage_users' }
     ]
+  },
+  {
+    title: 'Thông tin',
+    items: [
+      { name: 'Quy định', path: '/admin/regulations', icon: ScrollText }
+    ]
   }
 ]
 

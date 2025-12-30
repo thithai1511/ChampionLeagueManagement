@@ -373,9 +373,12 @@ export const listMatches = async (filters: MatchFilters = {}): Promise<Paginated
                 me.description,
                 me.player_id AS playerId,
                 me.assist_player_id AS assistPlayerId,
-                me.goal_type_code AS goalTypeCode
+                me.goal_type_code AS goalTypeCode,
+                rgt.name AS goalTypeName,
+                rgt.description AS goalTypeDescription
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+            LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
             WHERE me.match_id = m.match_id 
             ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
             FOR JSON PATH
@@ -505,9 +508,12 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
                 me.description,
                 me.player_id AS playerId,
                 me.assist_player_id AS assistPlayerId,
-                me.goal_type_code AS goalTypeCode
+                me.goal_type_code AS goalTypeCode,
+                rgt.name AS goalTypeName,
+                rgt.description AS goalTypeDescription
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+            LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
             WHERE me.match_id = m.match_id 
             ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
             FOR JSON PATH

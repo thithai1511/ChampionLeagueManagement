@@ -8,11 +8,29 @@ import RegulationTimeline from '../components/regulations/RegulationTimeline';
 import RegulationTable from '../components/regulations/RegulationTable';
 import { RoleType, PhaseType, regulations } from '../data/regulations';
 
-const RegulationsPage: React.FC = () => {
+interface RegulationsPageProps {
+  theme?: {
+    headerGradient?: string;
+    iconBg?: string;
+    accentColor?: string;
+    borderColor?: string;
+  };
+}
+
+const RegulationsPage: React.FC<RegulationsPageProps> = ({ theme }) => {
   const [selectedRole, setSelectedRole] = useState<RoleType>('league_admin');
   const [selectedPhase, setSelectedPhase] = useState<PhaseType>('pre_season');
 
   const currentContent = regulations[selectedRole]?.[selectedPhase];
+  
+  // Default theme colors
+  const defaultTheme = {
+    headerGradient: 'from-blue-600 to-blue-700',
+    iconBg: 'bg-white/20',
+    accentColor: 'text-blue-100',
+  };
+  
+  const activeTheme = theme || defaultTheme;
 
   const renderBanner = (type: 'warning' | 'info' | 'success', message: string) => {
     const styles = {
@@ -53,15 +71,15 @@ const RegulationsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+      <div className={`bg-gradient-to-r ${activeTheme.headerGradient} text-white ${activeTheme.borderColor ? `border-b-4 ${activeTheme.borderColor}` : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+            <div className={`w-14 h-14 ${activeTheme.iconBg} backdrop-blur-sm rounded-xl flex items-center justify-center`}>
               <Book className="w-8 h-8 text-white" />
             </div>
             <div>
               <h1 className="text-3xl md:text-4xl font-bold">Quy định giải hạng nhất VĐQG</h1>
-              <p className="text-blue-100 mt-2">
+              <p className={`${activeTheme.accentColor} mt-2`}>
                 Quy định chi tiết theo từng vai trò và giai đoạn mùa giải
               </p>
             </div>
@@ -73,12 +91,20 @@ const RegulationsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Role Selector */}
         <div className="mb-6">
-          <RoleSelector selectedRole={selectedRole} onRoleChange={setSelectedRole} />
+          <RoleSelector 
+            selectedRole={selectedRole} 
+            onRoleChange={setSelectedRole}
+            theme={activeTheme}
+          />
         </div>
 
         {/* Phase Tabs */}
         <div className="mb-8">
-          <RegulationTabs selectedPhase={selectedPhase} onPhaseChange={setSelectedPhase} />
+          <RegulationTabs 
+            selectedPhase={selectedPhase} 
+            onPhaseChange={setSelectedPhase}
+            theme={activeTheme}
+          />
         </div>
 
         {/* Content Area */}

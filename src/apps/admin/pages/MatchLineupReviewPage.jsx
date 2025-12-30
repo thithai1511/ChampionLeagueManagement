@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import TeamsService from '../../../layers/application/services/TeamsService';
 import { APP_CONFIG } from '../../../config/app.config';
 import {
@@ -9,7 +9,9 @@ import {
     Shield,
     Shirt,
     User,
-    Users
+    Users,
+    Activity,
+    ChevronLeft
 } from 'lucide-react';
 
 const SHOW_REJECTION_BANNER = false;
@@ -80,6 +82,7 @@ const toNum = (v) => (v === null || v === undefined || v === '' ? null : Number(
 // ==========================================
 const MatchLineupReviewPage = () => {
     const { matchId } = useParams();
+    const navigate = useNavigate();
 
     // Data State
     const [match, setMatch] = useState(null);
@@ -390,10 +393,27 @@ const MatchLineupReviewPage = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-6">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Shield className="text-blue-600" />
-                Duyệt Đội Hình - Trận đấu #{matchId}
-            </h1>
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => navigate('/admin/matches')}
+                        className="text-gray-600 hover:text-gray-900 flex items-center gap-2"
+                    >
+                        <ChevronLeft size={20} /> Quay lại
+                    </button>
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <Shield className="text-blue-600" />
+                        Duyệt Đội Hình - Trận đấu #{matchId}
+                    </h1>
+                </div>
+                <button
+                    onClick={() => navigate(`/admin/matches/${matchId}/live`)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                >
+                    <Activity size={18} />
+                    Quản lý trận đấu
+                </button>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[750px]">
                 {renderTeamCard('home')}

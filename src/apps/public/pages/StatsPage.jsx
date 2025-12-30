@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import StatsService from '../../../layers/application/services/StatsService';
 import TeamsService from '../../../layers/application/services/TeamsService';
+import ApiService from '../../../layers/application/services/ApiService';
 
 // Import stat background image
 import statBgImage from '../../../assets/images/stat.avif';
@@ -227,20 +228,36 @@ const StatsPage = () => {
   useEffect(() => {
     const loadSeasons = async () => {
       try {
-        const list = await TeamsService.getCompetitionSeasons();
+        // Try to get seasons from internal API first
+        const response = await ApiService.get('/teams/seasons');
+        const list = Array.isArray(response) ? response : (response?.data || []);
+        
         // Normalize seasons from public endpoint
         const normalized = (list || []).map(s => ({
           season_id: s.season_id ?? s.id,
           name: s.name ?? s.label ?? `${s.year}-${s.year + 1}`,
-          year: s.year,
+          year: s.year ?? (s.start_date ? new Date(s.start_date).getFullYear() : new Date().getFullYear()),
           start_date: s.start_date ?? s.startDate
         }));
+        
+        console.log('[StatsPage] Loaded seasons:', normalized);
+        
         if (normalized.length > 0) {
           setSeasons(normalized);
           setSelectedSeasonId(normalized[0].season_id);
+        } else {
+          console.warn('[StatsPage] No seasons found');
         }
       } catch (error) {
         console.error('Failed to load seasons:', error);
+        // Try fallback: use current year as default
+        const currentYear = new Date().getFullYear();
+        setSeasons([{
+          season_id: null,
+          name: `${currentYear}-${currentYear + 1}`,
+          year: currentYear,
+          start_date: null
+        }]);
       }
     };
     loadSeasons();
@@ -256,8 +273,11 @@ const StatsPage = () => {
     const loadAllStats = async () => {
       setLoading(true);
       try {
+        console.log('[StatsPage] Loading stats for season:', selectedSeasonId);
+        
         // Fetch top scorers using StatsService
         const scorersData = await StatsService.getTopScorers(selectedSeasonId, 20);
+        console.log('[StatsPage] Top scorers response:', scorersData);
         
         // Map to frontend format
         const mappedScorers = (scorersData || []).map(scorer => ({
@@ -270,6 +290,7 @@ const StatsPage = () => {
           matchesPlayed: scorer.matchesPlayed || scorer.matches_played || 0
         }));
         
+        console.log('[StatsPage] Mapped scorers:', mappedScorers);
         setTopScorers(mappedScorers);
         
         // Extract top assists from the same data (since getTopScorers includes assists)
@@ -286,6 +307,7 @@ const StatsPage = () => {
 
         // Fetch card stats
         const cards = await StatsService.getCardStats(selectedSeasonId);
+        console.log('[StatsPage] Card stats response:', cards);
         setCardStats((cards || []).map(p => ({
           id: p.playerId,
           name: p.playerName,
@@ -337,7 +359,18 @@ const StatsPage = () => {
         }
 
       } catch (error) {
-        console.error('Failed to load stats:', error);
+        console.error('[StatsPage] Failed to load stats:', error);
+        console.error('[StatsPage] Error details:', {
+          message: error?.message,
+          response: error?.response,
+          seasonId: selectedSeasonId
+        });
+        // Set empty arrays on error to show "Chưa có dữ liệu"
+        setTopScorers([]);
+        setTopAssists([]);
+        setCardStats([]);
+        setTeamGoals([]);
+        setTeamStats([]);
       } finally {
         setLoading(false);
       }

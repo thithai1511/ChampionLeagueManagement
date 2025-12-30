@@ -4,7 +4,7 @@ import {
   DollarSign, 
   Building2, 
   UsersRound, 
-  Stadium, 
+  MapPin, 
   Clock, 
   FileText, 
   AlertCircle,
@@ -110,7 +110,7 @@ export const regulations: RoleRegulations = {
           ],
         },
         {
-          icon: Stadium,
+          icon: MapPin,
           title: 'Sân vận động',
           items: [
             'Tối thiểu 10.000 chỗ ngồi',

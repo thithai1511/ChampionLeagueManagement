@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, User, Calendar, BarChart3, LogOut, Trophy, Award } from 'lucide-react';
+import { Home, User, Calendar, BarChart3, LogOut, Trophy, Award, ScrollText } from 'lucide-react';
 import { useAuth } from '@/layers/application/context/AuthContext';
 
 const PlayerLayout = ({ children }) => {
@@ -19,6 +19,7 @@ const PlayerLayout = ({ children }) => {
     { path: '/player/matches', icon: Calendar, label: 'Lịch thi đấu' },
     { path: '/player/statistics', icon: BarChart3, label: 'Thống kê' },
     { path: '/player/achievements', icon: Award, label: 'Danh hiệu' },
+    { path: '/player/regulations', icon: ScrollText, label: 'Quy định' },
   ];
 
   const isActive = (path, exact = false) => {

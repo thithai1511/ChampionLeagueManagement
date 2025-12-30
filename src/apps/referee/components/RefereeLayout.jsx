@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Calendar, FileText, LogOut, Activity } from 'lucide-react';
+import { Calendar, FileText, LogOut, Activity, ScrollText } from 'lucide-react';
 import { useAuth } from '@/layers/application/context/AuthContext';
 
 const RefereeLayout = () => {
@@ -15,6 +15,7 @@ const RefereeLayout = () => {
   const navItems = [
     { path: '/referee/my-matches', label: 'Lịch Trọng Tài', icon: Calendar },
     { path: '/referee/reports', label: 'Báo Cáo', icon: FileText },
+    { path: '/referee/regulations', label: 'Quy định', icon: ScrollText },
   ];
 
   return (

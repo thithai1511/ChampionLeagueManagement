@@ -5,6 +5,7 @@ import PlayerDashboard from './pages/PlayerDashboard';
 import MyProfile from './pages/MyProfile';
 import MyMatches from './pages/MyMatches';
 import MyStatistics from './pages/MyStatistics';
+import RegulationsPageWrapper from '../../components/RegulationsPageWrapper';
 
 const PlayerApp = () => {
   return (
@@ -14,6 +15,7 @@ const PlayerApp = () => {
         <Route path="/profile" element={<MyProfile />} />
         <Route path="/matches" element={<MyMatches />} />
         <Route path="/statistics" element={<MyStatistics />} />
+        <Route path="/regulations" element={<RegulationsPageWrapper />} />
         <Route path="*" element={<Navigate to="/player" replace />} />
       </Routes>
     </PlayerLayout>

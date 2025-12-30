@@ -4,6 +4,7 @@ import RefereeLayout from './components/RefereeLayout';
 import MyMatchesPage from './pages/MyMatchesPage';
 import MatchControlPage from './pages/MatchControlPage';
 import ReportsPage from './pages/ReportsPage';
+import RegulationsPageWrapper from '../../components/RegulationsPageWrapper';
 
 const RefereeApp = () => {
   return (
@@ -13,6 +14,7 @@ const RefereeApp = () => {
         <Route path="my-matches" element={<MyMatchesPage />} />
         <Route path="match/:matchId" element={<MatchControlPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="regulations" element={<RegulationsPageWrapper />} />
       </Route>
     </Routes>
   );

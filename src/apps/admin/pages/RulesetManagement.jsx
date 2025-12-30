@@ -14,6 +14,7 @@ import {
 import toast, { Toaster } from 'react-hot-toast'
 
 import RulesetForm from '../components/RulesetForm'
+import GoalTypeManagement from '../components/GoalTypeManagement'
 import RulesetService from '../../../layers/application/services/RulesetService'
 import SeasonService from '../../../layers/application/services/SeasonService'
 
@@ -550,9 +551,9 @@ const RulesetManagement = () => {
                   </ul>
                 </div>
 
-                <div className="rounded-md border border-gray-100 bg-gray-50 p-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Goal validation (QD3)</h3>
-                  <ul className="mt-3 space-y-1 text-sm text-gray-600">
+                <div className="md:col-span-2 rounded-md border border-gray-100 bg-gray-50 p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Goal validation (QD3)</h3>
+                  <ul className="mb-4 space-y-1 text-sm text-gray-600">
                     <li>
                       Accepted goals: {selectedRuleset.parameters.scoring.goalTypes.join(', ')}
                     </li>
@@ -560,6 +561,27 @@ const RulesetManagement = () => {
                       Maximum review time: {selectedRuleset.parameters.scoring.maxGoalTime} minutes
                     </li>
                   </ul>
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <GoalTypeManagement 
+                      rulesetId={selectedRuleset.id}
+                      onGoalTypesChange={(goalTypes) => {
+                        // Update selectedRuleset when goal types change
+                        if (selectedRuleset) {
+                          const updatedGoalTypes = goalTypes.filter(gt => gt.isActive).map(gt => gt.code);
+                          setSelectedRuleset({
+                            ...selectedRuleset,
+                            parameters: {
+                              ...selectedRuleset.parameters,
+                              scoring: {
+                                ...selectedRuleset.parameters.scoring,
+                                goalTypes: updatedGoalTypes
+                              }
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="md:col-span-2 rounded-md border border-gray-100 bg-gray-50 p-4">

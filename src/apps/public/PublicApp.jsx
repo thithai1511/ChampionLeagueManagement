@@ -22,6 +22,7 @@ import LoginPage from './pages/LoginPage';
 import PortalHomePage from './pages/PortalHomePage';
 import PortalGuard from './components/PortalGuard';
 import HistoryPage from './pages/HistoryPage';
+import RegulationsPage from '../../pages/RegulationsPage';
 import { Navigate } from 'react-router-dom';
 
 const PublicApp = () => {
@@ -35,6 +36,7 @@ const PublicApp = () => {
         <Route path="player-lookup" element={<PlayerLookup />} />
         <Route path="stats" element={<StatsPage />} />
         <Route path="history" element={<HistoryPage />} />
+        <Route path="regulations" element={<RegulationsPage />} />
         <Route path="news" element={<NewsPage />} />
         <Route path="news/:slug" element={<NewsDetailPage />} />
         <Route path="video" element={<VideoPage />} />

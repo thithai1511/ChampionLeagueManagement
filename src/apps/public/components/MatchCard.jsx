@@ -222,9 +222,16 @@ const MatchCard = ({ match }) => {
                         <div className="flex-1 flex gap-2 items-center">
                           <span className="text-lg leading-none" title={event.type}>{icon}</span>
                           {(isGoal || isOwnGoal) && !isDisallowed && (
-                            <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">
-                              {displayScore}
-                            </span>
+                            <>
+                              <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">
+                                {displayScore}
+                              </span>
+                              {event.goalTypeName && (
+                                <span className="text-[10px] text-slate-500 italic" title={event.goalTypeDescription || event.goalTypeName}>
+                                  ({event.goalTypeName})
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
