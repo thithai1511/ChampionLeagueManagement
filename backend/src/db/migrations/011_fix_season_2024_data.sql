@@ -1,3 +1,5 @@
+USE ChampionLeagueManagement;
+GO
 /*
   Migration: Fix Season 2024 Data
   Purpose: Ensure Season 2024 has complete data (matches, events, standings)
@@ -178,7 +180,7 @@ PRINT '--- Ensuring season rounds exist ---';
 DECLARE @roundNum INT = 1;
 DECLARE @roundDate DATE = DATEADD(DAY, 15, @season2024Start);
 
-WHILE @roundNum <= 18
+WHILE @roundNum <= 22
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM season_rounds WHERE season_id = @season2024Id AND round_number = @roundNum)
     BEGIN
@@ -227,7 +229,7 @@ DECLARE @matchesCreated INT = 0;
 DECLARE @homeSeq INT, @awaySeq INT;
 
 SET @round = 1;
-WHILE @round <= 18
+WHILE @round <= 22
 BEGIN
     SELECT @roundId = round_id FROM season_rounds WHERE season_id = @season2024Id AND round_number = @round;
     
@@ -248,7 +250,7 @@ BEGIN
             SET @awaySeq = 11 - @matchNum;
             
             -- Swap home/away for second half of season
-            IF @round > 9
+            IF @round > 11
             BEGIN
                 SET @homeSeq = 11 - @matchNum;
                 SET @awaySeq = @matchNum;
@@ -270,15 +272,17 @@ BEGIN
             
             IF @homeTeamId IS NOT NULL AND @awayTeamId IS NOT NULL AND @roundId IS NOT NULL AND @stadiumId IS NOT NULL
             BEGIN
-                SET @homeScore = ABS(CHECKSUM(NEWID())) % 5;
-                SET @awayScore = ABS(CHECKSUM(NEWID())) % 4;
+                -- Higher scoring: 1-8 goals for home, 0-6 for away
+                SET @homeScore = 1 + (ABS(CHECKSUM(NEWID())) % 8);  -- 1-8 goals (min 1)
+                SET @awayScore = ABS(CHECKSUM(NEWID())) % 7;  -- 0-6 goals
                 
                 BEGIN TRY
                     INSERT INTO matches (season_id, round_id, matchday_number, home_season_team_id, away_season_team_id,
-                        stadium_id, ruleset_id, scheduled_kickoff, status, home_score, away_score, attendance)
+                        stadium_id, ruleset_id, scheduled_kickoff, status, home_score, away_score, attendance, match_code)
                     VALUES (@season2024Id, @roundId, @round, @homeTeamId, @awayTeamId,
                         @stadiumId, @rulesetId, DATEADD(HOUR, @matchNum - 1, @kickoff), 'completed',
-                        @homeScore, @awayScore, 10000 + ABS(CHECKSUM(NEWID())) % 15000);
+                        @homeScore, @awayScore, 10000 + ABS(CHECKSUM(NEWID())) % 15000,
+                        'S' + CAST(@season2024Id AS VARCHAR(10)) + '-R' + CAST(@round AS VARCHAR(10)) + '-M' + CAST(@matchNum AS VARCHAR(10)));
                     SET @matchesCreated = @matchesCreated + 1;
                 END TRY
                 BEGIN CATCH
@@ -332,12 +336,18 @@ FETCH NEXT FROM match_cursor INTO @matchId, @mHomeScore, @mAwayScore, @mHomeTeam
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    -- Home team goals
+    -- Home team goals (weight top 3 forwards to score more)
     SET @goalIdx = 1;
     WHILE @goalIdx <= @mHomeScore
     BEGIN
-        SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
-        WHERE season_team_id = @mHomeTeamId AND position_code != 'GK' ORDER BY NEWID();
+        -- 60% chance: pick from top 3 forwards, 40% random
+        IF ABS(CHECKSUM(NEWID())) % 10 < 6
+            SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
+            WHERE season_team_id = @mHomeTeamId AND position_code IN ('ST', 'LW', 'RW') 
+            ORDER BY NEWID();
+        ELSE
+            SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
+            WHERE season_team_id = @mHomeTeamId AND position_code != 'GK' ORDER BY NEWID();
         
         SELECT TOP 1 @assistId = season_player_id FROM season_player_registrations 
         WHERE season_team_id = @mHomeTeamId AND season_player_id != ISNULL(@scorerId, 0) ORDER BY NEWID();
@@ -367,12 +377,18 @@ BEGIN
         SET @goalIdx = @goalIdx + 1;
     END
     
-    -- Away team goals
+    -- Away team goals (weight top 3 forwards to score more)
     SET @goalIdx = 1;
     WHILE @goalIdx <= @mAwayScore
     BEGIN
-        SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
-        WHERE season_team_id = @mAwayTeamId AND position_code != 'GK' ORDER BY NEWID();
+        -- 60% chance: pick from top 3 forwards, 40% random
+        IF ABS(CHECKSUM(NEWID())) % 10 < 6
+            SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
+            WHERE season_team_id = @mAwayTeamId AND position_code IN ('ST', 'LW', 'RW') 
+            ORDER BY NEWID();
+        ELSE
+            SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
+            WHERE season_team_id = @mAwayTeamId AND position_code != 'GK' ORDER BY NEWID();
         
         SELECT TOP 1 @assistId = season_player_id FROM season_player_registrations 
         WHERE season_team_id = @mAwayTeamId AND season_player_id != ISNULL(@scorerId, 0) ORDER BY NEWID();
