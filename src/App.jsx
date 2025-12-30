@@ -7,6 +7,7 @@ import OfflineDetector from './shared/components/OfflineDetector'
 // Lazy load apps for better performance
 const PublicApp = lazy(() => import('./apps/public/PublicApp'))
 const AdminApp = lazy(() => import('./apps/admin/AdminApp'))
+const RefereeApp = lazy(() => import('./apps/referee/RefereeApp'))
 const LoginPage = lazy(() => import('./apps/admin/pages/LoginPage'))
 
 // Loading component
@@ -33,6 +34,26 @@ const AdminRoute = ({ children }) => {
   }
 
   if (!isAdminAuthenticated) {
+    return <Navigate to="/portal" replace />
+  }
+
+  return children
+}
+
+const RefereeRoute = ({ children }) => {
+  const location = useLocation()
+  const { isAuthenticated, user, status } = useAuth()
+  const isReferee = isAuthenticated && (user?.role === 'REFEREE' || user?.role === 'referee')
+
+  if (status === 'checking') {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" replace state={{ from: `${location.pathname}${location.search}` }} />
+  }
+
+  if (!isReferee) {
     return <Navigate to="/portal" replace />
   }
 
@@ -99,6 +120,16 @@ function App() {
           <Routes>
             {/* Public Portal Routes */}
             <Route path="/*" element={<PublicApp />} />
+            
+            {/* Referee Portal Routes */}
+            <Route 
+              path="/referee/*" 
+              element={
+                <RefereeRoute>
+                  <RefereeApp />
+                </RefereeRoute>
+              } 
+            />
             
             {/* Admin Dashboard Routes */}
             <Route 
