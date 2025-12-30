@@ -180,7 +180,7 @@ PRINT '--- Ensuring season rounds exist ---';
 DECLARE @roundNum INT = 1;
 DECLARE @roundDate DATE = DATEADD(DAY, 15, @season2024Start);
 
-WHILE @roundNum <= 22
+WHILE @roundNum <= 18
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM season_rounds WHERE season_id = @season2024Id AND round_number = @roundNum)
     BEGIN
@@ -229,7 +229,7 @@ DECLARE @matchesCreated INT = 0;
 DECLARE @homeSeq INT, @awaySeq INT;
 
 SET @round = 1;
-WHILE @round <= 22
+WHILE @round <= 18
 BEGIN
     SELECT @roundId = round_id FROM season_rounds WHERE season_id = @season2024Id AND round_number = @round;
     
@@ -250,7 +250,7 @@ BEGIN
             SET @awaySeq = 11 - @matchNum;
             
             -- Swap home/away for second half of season
-            IF @round > 11
+            IF @round > 9
             BEGIN
                 SET @homeSeq = 11 - @matchNum;
                 SET @awaySeq = @matchNum;
