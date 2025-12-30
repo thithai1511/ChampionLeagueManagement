@@ -213,7 +213,7 @@ END
 
 -- Delete existing matches first to recreate them
 -- Must delete dependent data first to avoid FK constraints
-DELETE FROM player_suspensions WHERE trigger_match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id) OR cleared_match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id);
+DELETE FROM player_suspensions WHERE trigger_match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id) OR start_match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id);
 DELETE FROM player_of_match WHERE match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id);
 DELETE FROM match_events WHERE match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id);
 DELETE FROM matches WHERE season_id = @season2024Id;
