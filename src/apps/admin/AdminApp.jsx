@@ -29,11 +29,10 @@ import SeasonAndRulesPage from './pages/SeasonAndRulesPage'
 import SeasonRegistrationWorkflowPage from './pages/SeasonRegistrationWorkflowPage'
 import MatchLineupReviewPage from './pages/MatchLineupReviewPage'
 
-// [LƯU Ý] Kiểm tra lại xem bạn đã import các file này chưa nhé,
-// trong đoạn code gốc bạn gửi mình thấy thiếu import 3 trang này:
-// import TeamAdminDashboard from './pages/TeamAdminDashboard';
-// import ClubProfilePage from './pages/ClubProfilePage';
-// import PlayerRegistrationsPage from './pages/PlayerRegistrationsPage';
+// Team Admin pages
+import TeamAdminDashboard from './pages/TeamAdminDashboard';
+import ClubProfilePage from './pages/ClubProfilePage';
+import PlayerRegistrationsPage from './pages/PlayerRegistrationsPage';
 
 const AdminApp = ({ onLogout, currentUser }) => {
   return (
@@ -181,7 +180,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
                 disallowedRoles={['super_admin']}
                 currentUser={currentUser}
               >
-                 {/* LƯU Ý: Đảm bảo bạn đã import ClubProfilePage */}
+                {/* LƯU Ý: Đảm bảo bạn đã import ClubProfilePage */}
                 <ClubProfilePage currentUser={currentUser} />
               </AccessGuard>
             }
@@ -196,7 +195,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
                 disallowedRoles={['super_admin']}
                 currentUser={currentUser}
               >
-                 {/* LƯU Ý: Đảm bảo bạn đã import PlayerRegistrationsPage */}
+                {/* LƯU Ý: Đảm bảo bạn đã import PlayerRegistrationsPage */}
                 <PlayerRegistrationsPage currentUser={currentUser} />
               </AccessGuard>
             }
