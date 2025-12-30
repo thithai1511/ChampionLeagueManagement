@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Building2, Users, FileText, LogOut, Shield, Trophy } from 'lucide-react';
+import { Home, Building2, Users, FileText, LogOut, Shield, Trophy, ScrollText } from 'lucide-react';
 import { useAuth } from '@/layers/application/context/AuthContext';
 
 const TeamAdminLayout = ({ children }) => {
@@ -17,6 +17,7 @@ const TeamAdminLayout = ({ children }) => {
     { path: '/admin-team', icon: Home, label: 'Trang chủ', exact: true },
     { path: '/admin-team/club-profile', icon: Building2, label: 'Hồ sơ CLB' },
     { path: '/admin-team/player-registrations', icon: Users, label: 'Đăng ký cầu thủ' },
+    { path: '/admin-team/regulations', icon: ScrollText, label: 'Quy định' },
   ];
 
   const isActive = (path, exact = false) => {

@@ -9,9 +9,6 @@ import TeamsManagement from './pages/TeamsManagement'
 import TeamDetailsPage from './pages/TeamDetailsPage'
 import MatchesManagement from './pages/MatchesManagement'
 import PlayersManagement from './pages/PlayersManagement'
-import NewsManagement from './pages/NewsManagement'
-import CMSManagement from './pages/CMSManagement'
-import MediaLibrary from './pages/MediaLibrary'
 import UsersManagement from './pages/UsersManagement'
 import RolesPermissions from './pages/RolesPermissions'
 import SettingsPage from './pages/SettingsPage'
@@ -26,13 +23,13 @@ import OfficialsManagement from './pages/OfficialsManagement'
 // Các trang tích hợp mới
 import StatisticsPage from './pages/StatisticsPage'
 import SeasonAndRulesPage from './pages/SeasonAndRulesPage'
-import SeasonRegistrationWorkflowPage from './pages/SeasonRegistrationWorkflowPage'
 import MatchLineupReviewPage from './pages/MatchLineupReviewPage'
 
 // Team Admin pages
 import TeamAdminDashboard from './pages/TeamAdminDashboard';
 import ClubProfilePage from './pages/ClubProfilePage';
 import PlayerRegistrationsPage from './pages/PlayerRegistrationsPage';
+import RegulationsPageWrapper from '../../components/RegulationsPageWrapper';
 
 const AdminApp = ({ onLogout, currentUser }) => {
   return (
@@ -90,30 +87,6 @@ const AdminApp = ({ onLogout, currentUser }) => {
           />
           <Route path="standings/view" element={<StandingsPage />} />
           <Route
-            path="news"
-            element={
-              <AccessGuard permission="manage_content" currentUser={currentUser}>
-                <NewsManagement />
-              </AccessGuard>
-            }
-          />
-          <Route
-            path="media"
-            element={
-              <AccessGuard permission="manage_content" currentUser={currentUser}>
-                <MediaLibrary />
-              </AccessGuard>
-            }
-          />
-          <Route
-            path="content"
-            element={
-              <AccessGuard permission="manage_content" currentUser={currentUser}>
-                <CMSManagement />
-              </AccessGuard>
-            }
-          />
-          <Route
             path="users"
             element={
               <AccessGuard permission="manage_users" currentUser={currentUser}>
@@ -146,15 +119,6 @@ const AdminApp = ({ onLogout, currentUser }) => {
               </AccessGuard>
             }
           />
-          <Route
-            path="season-registration-workflow"
-            element={
-              <AccessGuard permission="manage_teams" currentUser={currentUser}>
-                <SeasonRegistrationWorkflowPage />
-              </AccessGuard>
-            }
-          />
-
           {/* === START RESOLVED CONFLICT: Giữ lại phần đầy đủ tính năng của nhánh lephi === */}
           <Route
             path="my-team"
@@ -232,6 +196,10 @@ const AdminApp = ({ onLogout, currentUser }) => {
                 <OfficialsManagement />
               </AccessGuard>
             }
+          />
+          <Route
+            path="regulations"
+            element={<RegulationsPageWrapper />}
           />
           {/* === END RESOLVED CONFLICT === */}
 

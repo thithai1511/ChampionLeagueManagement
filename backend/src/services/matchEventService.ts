@@ -1,4 +1,6 @@
 import { query } from "../db/sqlServer";
+import * as goalTypeService from "./goalTypeService";
+import { BadRequestError } from "../utils/httpError";
 
 export interface MatchEvent {
   matchEventId: number;
@@ -34,9 +36,12 @@ export const getMatchEvents = async (matchId: number): Promise<MatchEvent[]> => 
         me.assist_player_id as assistPlayerId,
         me.card_type as cardType,
         me.goal_type_code as goalTypeCode,
+        rgt.name as goalTypeName,
+        rgt.description as goalTypeDescription,
         me.created_at as createdAt
       FROM match_events me
       INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+      LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
       WHERE me.match_id = @matchId
       ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
     `,
@@ -85,10 +90,43 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     seasonPlayerId = playerData.recordset[0]?.season_player_id;
   }
 
-  // 4. Insert with Correct Schema
+  // 4. Validate and set goal type code
   let dbEventType = input.type;
   let cardType = null;
-  const goalTypeCode = input.type === 'GOAL' ? 'N' : null;
+  let goalTypeCode: string | null = null;
+
+  if (input.type === 'GOAL') {
+    // Get goal type code from input or use default
+    const requestedCode = (input as any).goalTypeCode || 'open_play';
+    
+    // Validate goal type code against ruleset_goal_types
+    const goalTypeInfo = await query<{ minute_min: number; minute_max: number }>(
+      `SELECT minute_min, minute_max 
+       FROM ruleset_goal_types 
+       WHERE ruleset_id = @rulesetId AND code = @code AND is_active = 1`,
+      { rulesetId, code: requestedCode }
+    );
+    
+    if (!goalTypeInfo.recordset[0]) {
+      // Get list of valid codes for error message
+      const validCodes = await goalTypeService.getActiveGoalTypeCodes(rulesetId);
+      throw BadRequestError(
+        `Invalid goal type code "${requestedCode}". Valid codes for this ruleset: ${validCodes.length > 0 ? validCodes.join(', ') : 'none configured'}`
+      );
+    }
+
+    // Validate minute against goal type constraints
+    if (input.minute !== undefined) {
+      const { minute_min, minute_max } = goalTypeInfo.recordset[0];
+      if (input.minute < minute_min || input.minute > minute_max) {
+        throw BadRequestError(
+          `Goal minute ${input.minute} is outside allowed range [${minute_min}, ${minute_max}] for goal type "${requestedCode}"`
+        );
+      }
+    }
+
+    goalTypeCode = requestedCode;
+  }
 
   if (input.type === 'YELLOW_CARD') {
     dbEventType = 'CARD';

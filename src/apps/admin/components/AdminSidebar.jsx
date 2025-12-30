@@ -57,7 +57,6 @@ const MENU_SECTIONS = [
     title: 'Quản lý giải đấu',
     items: [
       { name: 'Mùa giải & Quy tắc', path: '/admin/seasons', icon: Swords, permission: 'manage_teams' },
-      { name: 'Đăng ký đội', path: '/admin/season-registration-workflow', icon: UserCheck, permission: 'manage_teams' },
       { name: 'Đội bóng', path: '/admin/teams', icon: Users, permission: 'manage_teams' },
       { name: 'Cầu thủ', path: '/admin/players', icon: UserCheck, anyPermissions: ['manage_teams', 'approve_player_registrations'] },
       { name: 'Trận đấu', path: '/admin/matches', icon: Calendar, permission: 'manage_matches' },
@@ -66,18 +65,16 @@ const MENU_SECTIONS = [
     ]
   },
   {
-    title: 'Quản lý nội dung',
-    items: [
-      { name: 'Tin tức & Bài viết', path: '/admin/news', icon: FileText, permission: 'manage_content' },
-      { name: 'Thư viện Media', path: '/admin/media', icon: Target, permission: 'manage_content' },
-      { name: 'Nội dung Website', path: '/admin/content', icon: Globe, permission: 'manage_content' }
-    ]
-  },
-  {
     title: 'Hệ thống',
     items: [
       { name: 'Quản lý người dùng', path: '/admin/users', icon: Shield, permission: 'manage_users' },
       { name: 'Vai trò & Quyền', path: '/admin/roles', icon: KeyRound, permission: 'manage_users' }
+    ]
+  },
+  {
+    title: 'Thông tin',
+    items: [
+      { name: 'Quy định', path: '/admin/regulations', icon: ScrollText }
     ]
   }
 ]

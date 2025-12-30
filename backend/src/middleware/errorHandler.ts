@@ -112,6 +112,22 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
 
+  // Handle standard Error objects - return their message to frontend
+  if (err instanceof Error) {
+    // eslint-disable-next-line no-console
+    console.error("Error:", err);
+    // Use 400 for validation/business logic errors, 500 for unexpected errors
+    const status = err.message.includes('Không thể') || 
+                   err.message.includes('không hợp lệ') || 
+                   err.message.includes('Thiếu') ||
+                   err.message.includes('Yêu cầu') 
+                   ? 400 : 500;
+    res.status(status).json({
+      error: err.message || "Lỗi máy chủ nội bộ",
+    });
+    return;
+  }
+
   // eslint-disable-next-line no-console
   console.error("Unexpected error:", err);
   res.status(500).json({

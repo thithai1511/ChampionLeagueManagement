@@ -213,9 +213,12 @@ router.get("/:id/events", async (req, res, next) => {
           me.description,
           me.player_id AS playerId,
           me.assist_player_id AS assistPlayerId,
-          me.goal_type_code AS goalTypeCode
+          me.goal_type_code AS goalTypeCode,
+          rgt.name AS goalTypeName,
+          rgt.description AS goalTypeDescription
         FROM match_events me
         INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+        LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
         WHERE me.match_id = @matchId
         ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC;`,
       { matchId },
@@ -294,27 +297,55 @@ router.post("/:id/lineups", requireAuth, async (req: any, res, next) => {
     }
     // ================== END CHECK ==================
 
-    const result = await submitLineup(
-      {
-        matchId,
-        seasonId,
-        seasonTeamId,
-        startingPlayerIds,
-        substitutePlayerIds,
-        formation,
-        kitType,
-      },
-      req.user?.sub
-    );
-
-    if (!result.success) {
-      return res.status(400).json({
-        message: "Lineup validation failed",
-        errors: result.errors,
+    // Validate user ID
+    if (!req.user?.sub || !Number.isInteger(req.user.sub)) {
+      return res.status(401).json({
+        message: "User authentication required",
+        error: "Invalid or missing user ID"
       });
     }
 
-    res.json({ message: "Lineup submitted successfully" });
+    // Validate player IDs are numbers
+    const allPlayerIds = [...startingPlayerIds, ...substitutePlayerIds];
+    const invalidIds = allPlayerIds.filter(id => !id || !Number.isInteger(Number(id)));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        message: "Invalid player IDs",
+        errors: [`Invalid player IDs found: ${invalidIds.join(', ')}`]
+      });
+    }
+
+    try {
+      const result = await submitLineup(
+        {
+          matchId,
+          seasonId,
+          seasonTeamId,
+          startingPlayerIds: startingPlayerIds.map(id => Number(id)),
+          substitutePlayerIds: substitutePlayerIds.map(id => Number(id)),
+          formation,
+          kitType,
+        },
+        Number(req.user.sub)
+      );
+
+      if (!result.success) {
+        return res.status(400).json({
+          message: "Lineup validation failed",
+          errors: result.errors,
+        });
+      }
+
+      res.json({ message: "Lineup submitted successfully" });
+    } catch (error: any) {
+      console.error("[matchRoutes] Error submitting lineup:", error);
+      console.error("[matchRoutes] Error stack:", error.stack);
+      return res.status(500).json({
+        message: "Lỗi máy chủ nội bộ",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
   } catch (error) {
     next(error);
   }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Clock, Goal, Play, Square, Replace, ShieldCheck,
-    ChevronLeft, Users, FileText, Activity, AlertCircle, CheckCircle, Trash2, Eye
+    ChevronLeft, Users, FileText, Activity, AlertCircle, CheckCircle, Trash2, Eye, Shield
 } from 'lucide-react';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import TeamsService from '../../../layers/application/services/TeamsService';
@@ -359,9 +359,18 @@ const LiveMatchUpdatePage = () => {
         <div className="max-w-7xl mx-auto p-4 space-y-6 relative">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <button onClick={() => navigate('/admin/matches-today')} className="text-gray-600 hover:text-gray-900 flex items-center gap-2">
-                    <ChevronLeft size={20} /> Back to Match Day
-                </button>
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate('/admin/matches-today')} className="text-gray-600 hover:text-gray-900 flex items-center gap-2">
+                        <ChevronLeft size={20} /> Back to Match Day
+                    </button>
+                    <button 
+                        onClick={() => navigate(`/admin/matches/${matchId}/lineup-review`)}
+                        className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2 transition-colors"
+                    >
+                        <Shield size={16} />
+                        Duyệt đội hình
+                    </button>
+                </div>
                 <div className="flex bg-gray-100 rounded-lg p-1">
                     {tabs.map(tab => (
                         <button
@@ -452,6 +461,11 @@ const LiveMatchUpdatePage = () => {
                                                     {event.type === 'CARD'
                                                         ? `${event.cardType} Card`
                                                         : (event.type === 'OTHER' && event.description ? event.description : event.type.replace('_', ' '))}
+                                                    {event.type === 'GOAL' && event.goalTypeName && (
+                                                        <span className="ml-2 text-xs font-normal text-gray-500 italic">
+                                                            ({event.goalTypeName})
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-gray-500">
                                                     {event.player || 'Unknown Player'} ({event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName})

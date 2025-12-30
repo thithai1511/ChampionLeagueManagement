@@ -1,6 +1,7 @@
 import { query } from "../db/sqlServer";
 import { getCompetitionMatches, type MatchSummary } from "./footballDataService";
 import { calculateStandings } from "./standingsAdminService";
+import { BadRequestError } from "../utils/httpError";
 
 class NotificationService {
   static async notifyMatchScheduleChange(
@@ -376,9 +377,12 @@ export const listMatches = async (filters: MatchFilters = {}): Promise<Paginated
                 me.description,
                 me.player_id AS playerId,
                 me.assist_player_id AS assistPlayerId,
-                me.goal_type_code AS goalTypeCode
+                me.goal_type_code AS goalTypeCode,
+                rgt.name AS goalTypeName,
+                rgt.description AS goalTypeDescription
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+            LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
             WHERE me.match_id = m.match_id 
             ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
             FOR JSON PATH
@@ -508,9 +512,12 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
                 me.description,
                 me.player_id AS playerId,
                 me.assist_player_id AS assistPlayerId,
-                me.goal_type_code AS goalTypeCode
+                me.goal_type_code AS goalTypeCode,
+                rgt.name AS goalTypeName,
+                rgt.description AS goalTypeDescription
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+            LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
             WHERE me.match_id = m.match_id 
             ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
             FOR JSON PATH
@@ -594,7 +601,7 @@ const validatePreMatchConditions = async (matchId: number, homeSeasonTeamId: num
       'fourth_official': 'Trọng tài bàn'
     };
     const missingNames = missingRoles.map(r => roleNames[r] || r).join(', ');
-    throw new Error(`Không thể bắt đầu trận đấu. Thiếu trọng tài: ${missingNames}`);
+    throw BadRequestError(`Không thể bắt đầu trận đấu. Thiếu trọng tài: ${missingNames}`);
   }
 
   // 2. Lineup Check
@@ -609,7 +616,7 @@ const validatePreMatchConditions = async (matchId: number, homeSeasonTeamId: num
     const subs = teamLineup.filter(l => !l.is_starting).length;
 
     if (starters !== 11 || subs !== 5) {
-      throw new Error(`Đội hình ${teamName} không hợp lệ. Yêu cầu: 11 chính thức, 5 dự bị. Hiện tại: ${starters} chính, ${subs} dự.`);
+      throw BadRequestError(`Đội hình ${teamName} không hợp lệ. Yêu cầu: 11 chính thức, 5 dự bị. Hiện tại: ${starters} chính, ${subs} dự.`);
     }
   };
 

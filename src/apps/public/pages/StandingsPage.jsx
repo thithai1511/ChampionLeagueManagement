@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Trophy, Download, Share2, TrendingUp, TrendingDown, Minus, Users, Target, Award, AlertCircle, RefreshCw, Shield } from 'lucide-react';
 import StandingsService from '../../../layers/application/services/StandingsService';
+import ApiService from '../../../layers/application/services/ApiService';
 import PlayerStatsPanel from '../components/PlayerStatsPanel';
 import DisciplinePanel from '../components/DisciplinePanel';
 import UpcomingMatches from '../components/UpcomingMatches';
@@ -33,19 +34,46 @@ const StandingsPage = () => {
     const loadSeasons = async () => {
       setIsLoadingSeasons(true);
       try {
-        // TODO: Replace with proper seasons API
-        // For now, mock seasons data
-        const mockSeasons = [
-          { id: 1, year: 2024, label: '2024/2025' },
-          { id: 2, year: 2023, label: '2023/2024' }
-        ];
-        setSeasons(mockSeasons);
-        if (mockSeasons.length) {
-          setSelectedSeason(String(mockSeasons[0].id));
+        // Fetch seasons from API
+        const response = await ApiService.get('/teams/seasons');
+        const seasonsData = response?.data || [];
+        
+        // Map seasons to format: { id, year, label: year only }
+        const formattedSeasons = seasonsData.map(season => {
+          // Extract year from startDate or use year field
+          const startYear = season.year || (season.startDate || season.start_date ? new Date(season.startDate || season.start_date).getFullYear() : null);
+          
+          // If label exists and is in format "2024/2025" or "2024-2025", extract first year
+          let displayYear = startYear;
+          if (season.label && !startYear) {
+            const yearMatch = season.label.match(/^(\d{4})/);
+            if (yearMatch) {
+              displayYear = parseInt(yearMatch[1], 10);
+            }
+          }
+          
+          return {
+            id: season.id || season.season_id,
+            year: displayYear || new Date().getFullYear(),
+            label: String(displayYear || new Date().getFullYear())
+          };
+        }).sort((a, b) => b.year - a.year); // Sort descending (newest first)
+        
+        setSeasons(formattedSeasons);
+        if (formattedSeasons.length) {
+          setSelectedSeason(String(formattedSeasons[0].id));
         }
       } catch (err) {
         logger.error('Không thể tải danh sách mùa giải', err);
         setError('Không thể tải danh sách mùa giải.');
+        // Fallback to default seasons if API fails
+        const fallbackSeasons = [
+          { id: 1, year: 2026, label: '2026' },
+          { id: 2, year: 2025, label: '2025' },
+          { id: 3, year: 2024, label: '2024' }
+        ];
+        setSeasons(fallbackSeasons);
+        setSelectedSeason(String(fallbackSeasons[0].id));
       } finally {
         setIsLoadingSeasons(false);
       }
@@ -178,7 +206,10 @@ const StandingsPage = () => {
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/60"></div>
                     <span>
-                      {standings.season?.label || `Mùa ${selectedSeason}/${Number(selectedSeason) + 1}`}
+                      {(() => {
+                        const season = seasons.find(s => String(s.id) === String(selectedSeason));
+                        return season?.label || `Mùa ${selectedSeason}`;
+                      })()}
                     </span>
                   </div>
                   {standings.updated && (
@@ -204,8 +235,8 @@ const StandingsPage = () => {
                 )}
                 {!isLoadingSeasons &&
                   seasons.map((season) => (
-                    <option key={season.id || season.year} value={String(season.year || season.id)} className="text-slate-900">
-                      {season.label || `${season.year}/${season.year + 1}`}
+                    <option key={season.id || season.year} value={String(season.id || season.year)} className="text-slate-900">
+                      {season.label || String(season.year)}
                     </option>
                   ))}
               </select>

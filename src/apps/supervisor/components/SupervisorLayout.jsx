@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Calendar, FileText, LogOut, Shield, Activity, Eye } from 'lucide-react';
+import { Calendar, FileText, LogOut, Shield, Activity, Eye, ScrollText } from 'lucide-react';
 import { useAuth } from '@/layers/application/context/AuthContext';
 
 const SupervisorLayout = () => {
@@ -15,6 +15,7 @@ const SupervisorLayout = () => {
   const navItems = [
     { path: '/supervisor/my-assignments', label: 'Lịch Giám Sát', icon: Calendar },
     { path: '/supervisor/reports', label: 'Báo Cáo', icon: FileText },
+    { path: '/supervisor/regulations', label: 'Quy định', icon: ScrollText },
   ];
 
   return (
