@@ -36,8 +36,8 @@ const LoginPage = ({ onLogin, isAuthenticated }) => {
 
     try {
       const user = await onLogin(formData)
-      // Check role and redirect accordingly
-      if (user?.role === 'REFEREE' || user?.role === 'referee') {
+      // Check role and redirect match officials to referee portal
+      if (user?.role === 'match_official' || user?.roles?.includes('match_official')) {
         window.location.href = '/referee/my-matches'
       }
     } catch (err) {

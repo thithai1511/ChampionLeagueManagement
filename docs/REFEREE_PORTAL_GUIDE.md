@@ -1,8 +1,10 @@
-# Hướng Dẫn Referee Portal - Hệ Thống Trọng Tài
+# Hướng Dẫn Referee Portal - Hệ Thống Trọng Tài (Match Official)
 
 ## 📋 Tổng Quan
 
-Referee Portal là hệ thống dành riêng cho trọng tài và trợ lý để quản lý, điều khiển và báo cáo các trận đấu được phân công.
+Referee Portal là hệ thống dành riêng cho **trọng tài và trợ lý** (Match Officials) để quản lý, điều khiển và báo cáo các trận đấu được phân công.
+
+> **Role yêu cầu**: `match_official` trong bảng `user_role_assignments`
 
 ## 🎯 Tính Năng Chính
 
@@ -61,9 +63,11 @@ Sau trận đấu, trọng tài phải nộp báo cáo gồm:
 ### Đăng Nhập
 ```
 URL: http://localhost:3000/admin/login
-- Username: Tài khoản trọng tài
+- Username: Tài khoản có role match_official
 - Password: Mật khẩu
 ```
+> **Lưu ý**: Chỉ users có role `match_official` mới được truy cập portal này.
+
 Sau khi đăng nhập, hệ thống tự động chuyển đến `/referee/my-matches`
 
 ### Quy Trình Làm Việc Chuẩn
@@ -153,7 +157,7 @@ Sau khi đăng nhập, hệ thống tự động chuyển đến `/referee/my-ma
 ### Integration
 - **API Service**: Centralized API calls
 - **Auth Context**: User authentication
-- **Protected Routes**: Role-based access
+- **Protected Routes**: Role-based access (`match_official` role required)
 
 ## 📂 Cấu Trúc Files
 
@@ -205,19 +209,25 @@ src/apps/referee/
 ## 🐛 Troubleshooting
 
 ### Không thấy trận đấu nào?
-- Kiểm tra user có role `REFEREE`
-- Kiểm tra đã được admin phân công chưa
-- Xem trong database `match_officials` table
+- Kiểm tra user có role `match_official` trong `user_role_assignments`
+- Kiểm tra đã được admin phân công trong `match_officials` table
+- Xem query `GET /match-officials/my-assignments`
 
 ### Không ghi được sự kiện?
 - Kiểm tra match status (phải là IN_PROGRESS)
 - Kiểm tra cầu thủ có trong lineup không
 - Kiểm tra API response trong console
+- Verify permission `manage_matches` hoặc `official_role`
 
 ### Báo cáo không nộp được?
 - Điền đầy đủ required fields
 - Kiểm tra match đã kết thúc chưa
 - Xem network tab để debug
+
+### Không truy cập được portal?
+- Verify user có role `match_official`
+- Check `RefereeRoute` trong App.jsx
+- Xem console logs khi redirect
 
 ## 🚀 Future Enhancements
 

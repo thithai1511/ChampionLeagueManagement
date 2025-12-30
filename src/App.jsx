@@ -43,7 +43,11 @@ const AdminRoute = ({ children }) => {
 const RefereeRoute = ({ children }) => {
   const location = useLocation()
   const { isAuthenticated, user, status } = useAuth()
-  const isReferee = isAuthenticated && (user?.role === 'REFEREE' || user?.role === 'referee')
+  // Check for match_official role (includes both user.role string or user.roles array)
+  const isMatchOfficial = isAuthenticated && (
+    user?.role === 'match_official' || 
+    user?.roles?.includes('match_official')
+  )
 
   if (status === 'checking') {
     return null
@@ -53,7 +57,7 @@ const RefereeRoute = ({ children }) => {
     return <Navigate to="/admin/login" replace state={{ from: `${location.pathname}${location.search}` }} />
   }
 
-  if (!isReferee) {
+  if (!isMatchOfficial) {
     return <Navigate to="/portal" replace />
   }
 

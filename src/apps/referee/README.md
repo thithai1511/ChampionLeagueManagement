@@ -1,6 +1,6 @@
-# Referee Portal
+# Referee Portal (Match Official)
 
-Portal dành riêng cho trọng tài và trợ lý trọng tài để quản lý và điều khiển trận đấu.
+Portal dành riêng cho **trọng tài và trợ lý trọng tài** (Match Officials) để quản lý và điều khiển trận đấu.
 
 ## ✨ Tính Năng
 
@@ -14,8 +14,10 @@ Portal dành riêng cho trọng tài và trợ lý trọng tài để quản lý
 ### 1. Đăng nhập
 ```
 URL: /admin/login
-Role: REFEREE
+Role: match_official (trong bảng user_role_assignments)
 ```
+
+> **Lưu ý**: Portal này dành cho users có role `match_official` trong hệ thống.
 
 ### 2. Navigation
 ```
