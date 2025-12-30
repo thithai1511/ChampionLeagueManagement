@@ -8,6 +8,7 @@ import MatchesService from '../../../layers/application/services/MatchesService'
 import TeamsService from '../../../layers/application/services/TeamsService';
 import toast from 'react-hot-toast';
 import TeamLineupEditor from '../components/TeamLineupEditor';
+import InteractiveFormationPitch from '../components/InteractiveFormationPitch';
 import LineupDisplay from '../components/LineupDisplay';
 
 const LiveMatchUpdatePage = () => {
@@ -15,6 +16,7 @@ const LiveMatchUpdatePage = () => {
     const navigate = useNavigate();
     const [match, setMatch] = useState(null);
     const [activeTab, setActiveTab] = useState('control');
+    const [editorMode, setEditorMode] = useState('list'); // 'list' or 'interactive'
     const [loading, setLoading] = useState(true);
 
     // Lineup State
@@ -519,21 +521,74 @@ const LiveMatchUpdatePage = () => {
                 )}
 
                 {activeTab === 'lineups' && (
-                    <div className="grid grid-cols-2 gap-8">
-                        <TeamLineupEditor
-                            teamId={match.homeTeamId}
-                            teamName={match.homeTeamName}
-                            squad={homeSquad}
-                            initialLineup={homeLineup}
-                            onSave={handleLineupSave}
-                        />
-                        <TeamLineupEditor
-                            teamId={match.awayTeamId}
-                            teamName={match.awayTeamName}
-                            squad={awaySquad}
-                            initialLineup={awayLineup}
-                            onSave={handleLineupSave}
-                        />
+                    <div className="space-y-4">
+                        {/* Editor Mode Toggle */}
+                        <div className="flex justify-center">
+                            <div className="bg-gray-100 rounded-lg p-1 inline-flex">
+                                <button
+                                    onClick={() => setEditorMode('list')}
+                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${editorMode === 'list'
+                                        ? 'bg-white shadow text-blue-600'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                >
+                                    📋 List Editor
+                                </button>
+                                <button
+                                    onClick={() => setEditorMode('interactive')}
+                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${editorMode === 'interactive'
+                                        ? 'bg-white shadow text-blue-600'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                >
+                                    ⚽ Interactive Builder
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Editors */}
+                        <div className="grid grid-cols-2 gap-8">
+                            {(() => {
+                                console.log('[Render] Current editorMode:', editorMode);
+                                return editorMode === 'list' ? (
+                                    <>
+                                        <TeamLineupEditor
+                                            teamId={match.homeTeamId}
+                                            teamName={match.homeTeamName}
+                                            squad={homeSquad}
+                                            initialLineup={homeLineup}
+                                            onSave={handleLineupSave}
+                                        />
+                                        <TeamLineupEditor
+                                            teamId={match.awayTeamId}
+                                            teamName={match.awayTeamName}
+                                            squad={awaySquad}
+                                            initialLineup={awayLineup}
+                                            onSave={handleLineupSave}
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <InteractiveFormationPitch
+                                            teamId={match.homeTeamId}
+                                            teamName={match.homeTeamName}
+                                            squad={homeSquad}
+                                            initialLineup={homeLineup}
+                                            onSave={handleLineupSave}
+                                            teamColor="#3b82f6"
+                                        />
+                                        <InteractiveFormationPitch
+                                            teamId={match.awayTeamId}
+                                            teamName={match.awayTeamName}
+                                            squad={awaySquad}
+                                            initialLineup={awayLineup}
+                                            onSave={handleLineupSave}
+                                            teamColor="#ef4444"
+                                        />
+                                    </>
+                                );
+                            })()}
+                        </div>
                     </div>
                 )}
 
