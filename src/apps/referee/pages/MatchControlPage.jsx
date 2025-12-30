@@ -4,7 +4,7 @@ import {
   ChevronLeft, Clock, Goal, Square, Replace, Users, Eye, FileText,
   Activity, Trash2, AlertCircle, Target, Save, Send
 } from 'lucide-react';
-import ApiService from '../../../shared/services/ApiService';
+import ApiService from '@/layers/application/services/ApiService';
 import LineupDisplay from '../../admin/components/LineupDisplay';
 import toast from 'react-hot-toast';
 

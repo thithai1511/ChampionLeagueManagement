@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, Clock, MapPin, Eye, Filter, 
   Loader2, AlertCircle, CheckCircle, Activity,
-  Users, Whistle
+  Users
 } from 'lucide-react';
-import ApiService from '../../../shared/services/ApiService';
-import { useAuth } from '../../../context/AuthContext';
+import ApiService from '@/layers/application/services/ApiService';
+import { useAuth } from '@/layers/application/context/AuthContext';
 import toast from 'react-hot-toast';
 
 const MyMatchesPage = () => {
@@ -106,7 +106,7 @@ const MyMatchesPage = () => {
       <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-2xl p-8 shadow-xl">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg">
-            <Whistle size={32} className="text-slate-900" />
+            <Activity size={32} className="text-slate-900" />
           </div>
           <div>
             <h1 className="text-3xl font-black text-slate-900">Lịch Điều Hành Trận Đấu</h1>

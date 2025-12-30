@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Calendar, FileText, LogOut, Whistle, Activity } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
+import { Calendar, FileText, LogOut, Activity } from 'lucide-react';
+import { useAuth } from '@/layers/application/context/AuthContext';
 
 const RefereeLayout = () => {
   const { logout, user } = useAuth();
@@ -26,7 +26,7 @@ const RefereeLayout = () => {
             {/* Logo & Title */}
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-xl flex items-center justify-center shadow-lg">
-                <Whistle size={28} className="text-slate-900" />
+                <Activity size={28} className="text-slate-900" />
               </div>
               <div>
                 <h1 className="text-2xl font-black text-white tracking-tight">Referee Portal</h1>

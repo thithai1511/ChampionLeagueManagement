@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Calendar, CheckCircle, Clock, Eye } from 'lucide-react';
-import ApiService from '../../../shared/services/ApiService';
+import ApiService from '@/layers/application/services/ApiService';
 import toast from 'react-hot-toast';
 
 const ReportsPage = () => {
