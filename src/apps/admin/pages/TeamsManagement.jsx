@@ -26,6 +26,7 @@ import {
 import TeamsService from '../../../layers/application/services/TeamsService'
 import ApiService from '../../../layers/application/services/ApiService'
 import SeasonService from '../../../layers/application/services/SeasonService'
+import TeamRegistrationWorkflow from '../components/TeamRegistrationWorkflow'
 
 const EMPTY_TEAM = {
   id: null,
@@ -55,7 +56,10 @@ const TeamsManagement = () => {
   const navigate = useNavigate()
 
   // Tab state
-  const [activeTab, setActiveTab] = useState('teams') // 'teams' | 'invitations'
+  const [activeTab, setActiveTab] = useState('teams') // 'teams' | 'invitations' | 'registration'
+  
+  // Registration workflow state
+  const [registrationRefreshTrigger, setRegistrationRefreshTrigger] = useState(0)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [teams, setTeams] = useState([])
@@ -653,6 +657,15 @@ const TeamsManagement = () => {
                 <span>Làm mới</span>
               </button>
             )}
+            {activeTab === 'registration' && selectedSeasonId && (
+              <button
+                onClick={() => setRegistrationRefreshTrigger(prev => prev + 1)}
+                className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <Loader2 size={16} />
+                <span>Làm mới</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -680,6 +693,17 @@ const TeamsManagement = () => {
         >
           <Mail size={18} />
           <span>Lời mời đội bóng</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('registration')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'registration'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <CheckCircle2 size={18} />
+          <span>Đăng ký đội</span>
         </button>
       </div>
 
@@ -1329,6 +1353,46 @@ const TeamsManagement = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Registration Workflow Tab Content */}
+      {activeTab === 'registration' && (
+        <div className="space-y-6">
+          {/* Season Selector */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Chọn mùa giải
+            </label>
+            <select
+              value={selectedSeasonId || ''}
+              onChange={(e) => setSelectedSeasonId(parseInt(e.target.value, 10))}
+              className="w-full md:w-96 px-4 py-2 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {seasons.length === 0 ? (
+                <option value="">Không có mùa giải nào</option>
+              ) : (
+                seasons.map((season) => (
+                  <option key={season.id} value={season.id}>
+                    {season.name} ({season.start_date} - {season.end_date})
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          {/* Workflow Component */}
+          {selectedSeasonId ? (
+            <TeamRegistrationWorkflow 
+              seasonId={selectedSeasonId} 
+              refreshTrigger={registrationRefreshTrigger}
+            />
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center text-gray-500">
+              <CheckCircle2 size={48} className="mx-auto mb-4 opacity-50" />
+              <p>Vui lòng chọn mùa giải để xem quy trình đăng ký</p>
+            </div>
+          )}
+        </div>
       )}
 
       {showTeamModal && editingTeam && (
