@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Trophy, Download, Share2, TrendingUp, TrendingDown, Minus, Users, Target, Award, AlertCircle, RefreshCw, Shield } from 'lucide-react';
-import TeamsService from '../../../layers/application/services/TeamsService';
+import StandingsService from '../../../layers/application/services/StandingsService';
 import PlayerStatsPanel from '../components/PlayerStatsPanel';
 import DisciplinePanel from '../components/DisciplinePanel';
 import UpcomingMatches from '../components/UpcomingMatches';
@@ -33,13 +33,15 @@ const StandingsPage = () => {
     const loadSeasons = async () => {
       setIsLoadingSeasons(true);
       try {
-        const response = await TeamsService.getCompetitionSeasons();
-        // Handle both direct array and wrapped response
-        const data = Array.isArray(response) ? response : (response?.data || []);
-        setSeasons(data);
-        if (data.length) {
-          // Use year from season object
-          setSelectedSeason(String(data[0].year || data[0].id));
+        // TODO: Replace with proper seasons API
+        // For now, mock seasons data
+        const mockSeasons = [
+          { id: 1, year: 2024, label: '2024/2025' },
+          { id: 2, year: 2023, label: '2023/2024' }
+        ];
+        setSeasons(mockSeasons);
+        if (mockSeasons.length) {
+          setSelectedSeason(String(mockSeasons[0].id));
         }
       } catch (err) {
         logger.error('Không thể tải danh sách mùa giải', err);
@@ -56,31 +58,44 @@ const StandingsPage = () => {
     if (!selectedSeason) return;
 
     const loadStandings = async () => {
-      setIsLoadingStandings(true);
-      try {
-        const response = await TeamsService.getCompetitionStandings({ season: selectedSeason });
-        // Handle both direct object and wrapped response
-        const data = response?.data || response || null;
-        setStandings(data);
+      setIsLoadingStandings(truStandingsService.getSeasonStandings(
+          parseInt(selectedSeason), 
+          'live' // Use 'live' mode for in-season standings
+        );
+        
+        // Format response to match expected structure
+        const formattedData = {
+          season: {
+            year: parseInt(selectedSeason),
+            label: `Season ${selectedSeason}`,
+          },
+          updated: new Date().toISOString(),
+          table: response.data || []
+        };
+        
+        setStandings(formattedData);
         setError(null);
       } catch (err) {
         console.error('Không thể tải bảng xếp hạng', err);
-        setError('Không thể tải bảng xếp hạng.');
-        setStandings(null);
-      } finally {
-        setIsLoadingStandings(false);
-      }
-    };
-
-    loadStandings();
-  }, [selectedSeason]);
-
-  const formattedStandings = useMemo(() => {
-    if (!standings?.table) return [];
-    return standings.table.map((row) => ({
-      position: row.position,
+        setError('Không thể tải bảng xếp hạng từ hệ thống mới
+        console.error('Không thể tải bảng xếp hạng', err);
+        setError('Không thể tải bản, index) => ({
+      position: row.rank || index + 1,
       change: 0,
-      country: row.tla || row.shortName || '',
+      country: row.shortName || '',
+      logo: null, // TODO: Add team logos
+      team: row.teamName,
+      played: row.played,
+      won: row.wins,
+      drawn: row.draws,
+      lost: row.losses,
+      goalsFor: row.goalsFor,
+      goalsAgainst: row.goalsAgainst,
+      goalDifference: row.goalDifference,
+      points: row.points,
+      form: [], // TODO: Add form tracking
+      status: row.rank <= 8 ? 'qualified' : row.rank <= 24 ? 'playoff' : 'eliminated',
+      tieBreakInfo: row.tieBreakInfo| row.shortName || '',
       logo: row.crest,
       team: row.teamName,
       played: row.played,

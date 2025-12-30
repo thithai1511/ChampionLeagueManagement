@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Ban, XOctagon, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import StandingsService from '../../../layers/application/services/StandingsService';
 import logger from '../../../shared/utils/logger';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 const DisciplinePanel = ({ seasonId }) => {
   const [disciplineData, setDisciplineData] = useState(null);
@@ -16,8 +14,8 @@ const DisciplinePanel = ({ seasonId }) => {
     const loadDisciplineData = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(`${API_BASE_URL}/public/standings/season/${seasonId}/discipline`);
-        const data = response.data?.data || null;
+        const response = await StandingsService.getDisciplineOverview(seasonId);
+        const data = response?.data || null;
         setDisciplineData(data);
       } catch (error) {
         logger.error('Không thể tải dữ liệu kỷ luật', error);
@@ -27,6 +25,13 @@ const DisciplinePanel = ({ seasonId }) => {
     };
 
     loadDisciplineData();
+
+    // Auto-refresh every 60 seconds
+    const interval = setInterval(() => {
+      loadDisciplineData();
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, [seasonId]);
 
   const renderSkeletonRow = () => (

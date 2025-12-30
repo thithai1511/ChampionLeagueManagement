@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, Target, Award, Shield } from 'lucide-react';
-import axios from 'axios';
+import StandingsService from '../../../layers/application/services/StandingsService';
 import logger from '../../../shared/utils/logger';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 const PlayerStatsPanel = ({ seasonId }) => {
   const [topScorers, setTopScorers] = useState([]);
@@ -17,8 +15,8 @@ const PlayerStatsPanel = ({ seasonId }) => {
     const loadTopScorers = async () => {
       setIsLoadingScorers(true);
       try {
-        const response = await axios.get(`${API_BASE_URL}/public/standings/season/${seasonId}/top-scorers?limit=10`);
-        const data = response.data?.data || [];
+        const response = await StandingsService.getTopScorers(seasonId, 10);
+        const data = response?.data || [];
         setTopScorers(data);
       } catch (error) {
         logger.error('Không thể tải vua phá lưới', error);
@@ -30,8 +28,8 @@ const PlayerStatsPanel = ({ seasonId }) => {
     const loadTopMVP = async () => {
       setIsLoadingMVP(true);
       try {
-        const response = await axios.get(`${API_BASE_URL}/public/standings/season/${seasonId}/top-mvp`);
-        const data = response.data?.data || [];
+        const response = await StandingsService.getTopMVP(seasonId);
+        const data = response?.data || [];
         setTopMVP(data);
       } catch (error) {
         logger.error('Không thể tải MVP', error);
@@ -42,6 +40,14 @@ const PlayerStatsPanel = ({ seasonId }) => {
 
     loadTopScorers();
     loadTopMVP();
+
+    // Auto-refresh every 60 seconds
+    const interval = setInterval(() => {
+      loadTopScorers();
+      loadTopMVP();
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, [seasonId]);
 
   const renderSkeletonRow = () => (
