@@ -21,14 +21,11 @@ import ScheduleManagement from './pages/ScheduleManagement';
 import LiveMatchUpdatePage from './pages/LiveMatchUpdatePage';
 import AccessGuard from './components/AccessGuard';
 import MyTeamPage from './pages/MyTeamPage'
-import TeamAdminDashboard from './pages/TeamAdminDashboard'
-import PlayerRegistrationsPage from './pages/PlayerRegistrationsPage'
 import OfficialsManagement from './pages/OfficialsManagement'
 
 // Các trang tích hợp mới
 import StatisticsPage from './pages/StatisticsPage'
 import SeasonAndRulesPage from './pages/SeasonAndRulesPage'
-import ClubProfilePage from './pages/ClubProfilePage'
 import SeasonRegistrationWorkflowPage from './pages/SeasonRegistrationWorkflowPage'
 
 
@@ -152,49 +149,6 @@ const AdminApp = ({ onLogout, currentUser }) => {
             </AccessGuard>
           }
         />
-
-        <Route
-          path="my-team"
-          element={
-            <AccessGuard
-              permission="view_own_team"
-              allowedRoles={['team_admin']}
-              disallowedRoles={['super_admin']}
-              currentUser={currentUser}
-            >
-              <TeamAdminDashboard currentUser={currentUser} />
-            </AccessGuard>
-          }
-        />
-
-        <Route
-          path="club-profile"
-          element={
-            <AccessGuard
-              permission="view_own_team"
-              allowedRoles={['team_admin']}
-              disallowedRoles={['super_admin']}
-              currentUser={currentUser}
-            >
-              <ClubProfilePage currentUser={currentUser} />
-            </AccessGuard>
-          }
-        />
-
-        <Route
-          path="player-registrations"
-          element={
-            <AccessGuard
-              permission="manage_own_player_registrations"
-              allowedRoles={['team_admin']}
-              disallowedRoles={['super_admin']}
-              currentUser={currentUser}
-            >
-              <PlayerRegistrationsPage currentUser={currentUser} />
-            </AccessGuard>
-          }
-        />
-
 
         <Route
           path="schedule"

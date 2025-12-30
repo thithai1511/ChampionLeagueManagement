@@ -44,6 +44,7 @@ import matchOfficialRoutes from "./routes/matchOfficialRoutes";
 import participationFeeRoutes from "./routes/participationFeeRoutes";
 import playerOfMatchRoutes from "./routes/playerOfMatchRoutes";
 import stadiumRoutes from "./routes/stadiumRoutes";
+import playerPortalRoutes from "./routes/playerPortalRoutes";
 
 const app = express();
 
@@ -99,6 +100,9 @@ app.use("/api/settings", settingsRoutes);
 // Admin routes
 app.use("/api/admin/standings", adminStandingsRoutes);
 app.use("/api/officials", officialRoutes);
+
+// Player Portal routes
+app.use("/api/player-portal", playerPortalRoutes);
 
 // Match-related routes
 app.use("/api/schedule", scheduleRoutes);
