@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response, NextFunction } from "express";
 import { z } from "zod";
 import { requireAuth, requirePermission } from "../middleware/authMiddleware";
 import { query } from "../db/sqlServer";
@@ -22,7 +22,7 @@ import { createMatchEvent, deleteMatchEvent, disallowMatchEvent } from "../servi
 import { getMatchLineups, submitLineup, autoGenerateLineup } from "../services/matchLineupService";
 import * as lineupService from "../services/matchLineupService";
 const router = Router();
-const requireMatchManagement = [requireAuth, requirePermission("manage_matches")] as const;
+const requireMatchManagement = [requireAuth, requirePermission("manage_matches")];
 
 const isValidDate = (value: string): boolean => !Number.isNaN(Date.parse(value));
 
@@ -359,7 +359,7 @@ router.post(
   "/:matchId/auto-generate-lineup",
   requireAuth,
   requireMatchManagement,
-  async (req: any, res, next) => {
+  async (req: any, res: Response, next: NextFunction) => {
     try {
       const matchId = Number(req.params.matchId);
       const { seasonTeamId } = req.body;

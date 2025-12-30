@@ -7,7 +7,7 @@ import { query } from '../db/sqlServer';
  */
 export async function getPlayerProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.sub;
     
     if (!userId) {
       res.status(401).json({ message: 'Unauthorized' });
@@ -79,7 +79,7 @@ export async function getPlayerProfile(req: AuthenticatedRequest, res: Response)
  */
 export async function updatePlayerProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.sub;
     const { phoneNumber, email } = req.body;
 
     if (!userId) {
@@ -111,7 +111,7 @@ export async function updatePlayerProfile(req: AuthenticatedRequest, res: Respon
  */
 export async function getPlayerStatistics(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.sub;
     const season = req.query.season as string || '2025';
 
     if (!userId) {
@@ -222,7 +222,7 @@ export async function getPlayerStatistics(req: AuthenticatedRequest, res: Respon
  */
 export async function getPlayerMatches(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.sub;
 
     if (!userId) {
       res.status(401).json({ message: 'Unauthorized' });
