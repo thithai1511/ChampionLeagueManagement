@@ -644,11 +644,6 @@ const MatchesManagement = () => {
                             >
                               <Trash2 size={16} />
                             </button>
-                              onClick={() => handleDelete(match.id)}
-                              className="text-red-600 hover:text-red-900 transition-colors"
-                            >
-                              <Trash2 size={16} />
-                            </button>
                           </div>
                         </td>
                       </tr>
