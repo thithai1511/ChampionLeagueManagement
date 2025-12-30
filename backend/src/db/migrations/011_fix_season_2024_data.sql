@@ -1,9 +1,9 @@
 USE ChampionLeagueManagement;
 GO
 /*
-  Migration: Fix Season 2024 Data & Seed MVP
-  Purpose: Reset Season 2024 with complete data (matches, events, standings, MVPs)
-  Date: 2025-12-30 (Updated)
+  Migration: Fix Season 2024 Data, Seed MVP & Suspensions
+  Purpose: Reset Season 2024 with complete data (matches, events, standings, MVPs, suspensions)
+  Date: 2025-12-30 (Updated v3)
 */
 
 SET NOCOUNT ON;
@@ -772,4 +772,28 @@ BEGIN CATCH
     PRINT 'Error seeding MVP data: ' + ERROR_MESSAGE();
     ROLLBACK TRANSACTION;
 END CATCH;
+GO
+
+--------------------------------------------------------------
+-- PART 4: SEED SUSPENSIONS (Based on Cards)
+--------------------------------------------------------------
+PRINT '=== Seeding Suspensions based on Red Cards ===';
+
+INSERT INTO player_suspensions (season_id, season_player_id, season_team_id, reason, trigger_match_id, matches_banned, start_match_id, served_matches, status, notes)
+SELECT 
+    me.season_id,
+    me.season_player_id,
+    me.season_team_id,
+    'RED_CARD',
+    me.match_id,
+    1, -- Ban 1 match
+    (SELECT TOP 1 m_next.match_id FROM matches m_next WHERE m_next.season_id = me.season_id AND m_next.scheduled_kickoff > m.scheduled_kickoff ORDER BY m_next.scheduled_kickoff), -- Next match
+    1, -- Assume served since matches are "completed"
+    'served', -- Status
+    'Automatic suspension from seed script'
+FROM match_events me
+JOIN matches m ON me.match_id = m.match_id
+WHERE me.event_type = 'CARD' AND me.card_type = 'RED';
+
+PRINT 'Seeded ' + CAST(@@ROWCOUNT AS VARCHAR(10)) + ' suspensions.';
 GO
