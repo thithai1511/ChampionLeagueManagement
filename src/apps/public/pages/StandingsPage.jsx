@@ -58,7 +58,9 @@ const StandingsPage = () => {
     if (!selectedSeason) return;
 
     const loadStandings = async () => {
-      setIsLoadingStandings(truStandingsService.getSeasonStandings(
+      setIsLoadingStandings(true);
+      try {
+        const response = await StandingsService.getSeasonStandings(
           parseInt(selectedSeason), 
           'live' // Use 'live' mode for in-season standings
         );
@@ -77,13 +79,23 @@ const StandingsPage = () => {
         setError(null);
       } catch (err) {
         console.error('Không thể tải bảng xếp hạng', err);
-        setError('Không thể tải bảng xếp hạng từ hệ thống mới
-        console.error('Không thể tải bảng xếp hạng', err);
-        setError('Không thể tải bản, index) => ({
+        setError('Không thể tải bảng xếp hạng từ hệ thống.');
+      } finally {
+        setIsLoadingStandings(false);
+      }
+    };
+
+    loadStandings();
+  }, [selectedSeason]);
+
+  // Format standings for display
+  const formattedStandings = useMemo(() => {
+    if (!standings?.table) return [];
+    return standings.table.map((row, index) => ({
       position: row.rank || index + 1,
       change: 0,
       country: row.shortName || '',
-      logo: null, // TODO: Add team logos
+      logo: row.crest || null,
       team: row.teamName,
       played: row.played,
       won: row.wins,
@@ -93,21 +105,9 @@ const StandingsPage = () => {
       goalsAgainst: row.goalsAgainst,
       goalDifference: row.goalDifference,
       points: row.points,
-      form: [], // TODO: Add form tracking
-      status: row.rank <= 8 ? 'qualified' : row.rank <= 24 ? 'playoff' : 'eliminated',
-      tieBreakInfo: row.tieBreakInfo| row.shortName || '',
-      logo: row.crest,
-      team: row.teamName,
-      played: row.played,
-      won: row.won,
-      drawn: row.draw,
-      lost: row.lost,
-      goalsFor: row.goalsFor,
-      goalsAgainst: row.goalsAgainst,
-      goalDifference: row.goalDifference,
-      points: row.points,
       form: row.form || [],
-      status: row.status
+      status: row.rank <= 8 ? 'qualified' : row.rank <= 24 ? 'playoff' : 'eliminated',
+      tieBreakInfo: row.tieBreakInfo
     }));
   }, [standings]);
 
