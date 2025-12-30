@@ -52,6 +52,11 @@ SELECT
         AND ml.season_team_id = spr.season_team_id
       WHERE ml.match_id = @matchId
       ORDER BY ml.is_starting DESC, ml.jersey_number ASC
+    `,
+        { matchId }
+    );
+    return result.recordset;
+};
 
 export const upsertMatchLineup = async (input: Partial<MatchLineup>): Promise<void> => {
     // Check if player already in lineup for this match, then update, else insert.
