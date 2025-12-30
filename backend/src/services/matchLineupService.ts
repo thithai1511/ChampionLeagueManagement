@@ -29,25 +29,29 @@ export interface MatchLineup {
 export const getMatchLineups = async (matchId: number): Promise<MatchLineup[]> => {
     const result = await query(
         `
-      SELECT 
-        lineup_id as matchLineupId,
-        match_id as matchId,
-        season_id as seasonId,
-        season_team_id as seasonTeamId,
-        player_id as playerId,
-        jersey_number as jerseyNumber,
-        position,
-        COALESCE(is_starting, 0) as isStarting,
-        COALESCE(is_captain, 0) as isCaptain,
-        minutes_played as minutesPlayed,
-        COALESCE(status, 'pending') as status
-      FROM match_lineups
-      WHERE match_id = @matchId
-    `,
-        { matchId }
-    );
-    return result.recordset;
-};
+SELECT 
+        ml.lineup_id as matchLineupId,   -- Đổi tên alias này cho khớp với interface
+        ml.match_id as matchId,
+        ml.season_id as seasonId,
+        ml.season_team_id as seasonTeamId,
+        ml.player_id as playerId,
+        -- Ưu tiên lấy số áo trong trận, nếu không có thì lấy số áo đăng ký
+        COALESCE(ml.jersey_number, spr.shirt_number) as jerseyNumber,
+        COALESCE(ml.position, spr.position_code, p.preferred_position) as position,
+        COALESCE(ml.is_starting, 0) as isStarting,
+        COALESCE(ml.is_captain, 0) as isCaptain,
+        ml.minutes_played as minutesPlayed,
+        COALESCE(ml.status, 'pending') as status,
+        -- Lấy thêm tên cầu thủ để hiển thị
+        p.full_name as playerName,
+        spr.season_player_id as seasonPlayerId
+      FROM match_lineups ml
+      LEFT JOIN players p ON ml.player_id = p.player_id
+      LEFT JOIN season_player_registrations spr ON ml.player_id = spr.player_id 
+        AND ml.season_id = spr.season_id 
+        AND ml.season_team_id = spr.season_team_id
+      WHERE ml.match_id = @matchId
+      ORDER BY ml.is_starting DESC, ml.jersey_number ASC
 
 export const upsertMatchLineup = async (input: Partial<MatchLineup>): Promise<void> => {
     // Check if player already in lineup for this match, then update, else insert.

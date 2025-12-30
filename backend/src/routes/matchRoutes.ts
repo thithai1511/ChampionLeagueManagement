@@ -204,15 +204,20 @@ router.get("/:id/events", async (req, res, next) => {
       `SELECT
           me.match_event_id AS id,
           stp.team_id AS teamId,
+          me.season_team_id AS seasonTeamId,
           me.player_name AS player,
           me.event_type AS type,
           me.card_type AS cardType,
           me.event_minute AS minute,
-          me.description
+          me.stoppage_time AS stoppageTime,
+          me.description,
+          me.player_id AS playerId,
+          me.assist_player_id AS assistPlayerId,
+          me.goal_type_code AS goalTypeCode
         FROM match_events me
         INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
         WHERE me.match_id = @matchId
-        ORDER BY me.event_minute ASC, me.created_at ASC;`,
+        ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC;`,
       { matchId },
     );
 

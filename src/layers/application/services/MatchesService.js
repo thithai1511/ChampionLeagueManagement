@@ -27,13 +27,17 @@ class MatchesService {
         homeTeamShortName: match.homeTeamShortName,
         homeTeamLogo: match.homeTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : match.homeTeamLogo,
+          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder') 
+              ? match.homeTeamLogo 
+              : null),
         awayTeamId: match.awayTeamId, // Added ID
         awayTeamName: match.awayTeamName,
         awayTeamShortName: match.awayTeamShortName,
         awayTeamLogo: match.awayTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : match.awayTeamLogo,
+          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder') 
+              ? match.awayTeamLogo 
+              : null),
         utcDate: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') ? match.scheduledKickoff + 'Z' : match.scheduledKickoff,
         scheduledKickoff: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') ? match.scheduledKickoff + 'Z' : match.scheduledKickoff, // Explicitly mapped for edit modal
         status: match.status,
@@ -74,13 +78,17 @@ class MatchesService {
         homeTeamShortName: match.homeTeamShortName,
         homeTeamLogo: match.homeTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : match.homeTeamLogo,
+          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder') 
+              ? match.homeTeamLogo 
+              : null),
         awayTeamId: match.awayTeamId,
         awayTeamName: match.awayTeamName,
         awayTeamShortName: match.awayTeamShortName,
         awayTeamLogo: match.awayTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : match.awayTeamLogo,
+          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder') 
+              ? match.awayTeamLogo 
+              : null),
         utcDate: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') ? match.scheduledKickoff + 'Z' : match.scheduledKickoff,
         scheduledKickoff: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') ? match.scheduledKickoff + 'Z' : match.scheduledKickoff,
         status: match.status,
@@ -107,10 +115,56 @@ class MatchesService {
       const endpoint = APP_CONFIG.API.ENDPOINTS.MATCHES.DETAIL.replace(':id', matchId)
       const response = await ApiService.get(endpoint)
       const match = response?.data
-      if (match && match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z')) {
-        match.scheduledKickoff += 'Z'
+      
+      if (!match) {
+        return null
       }
-      return match
+
+      // Map backend structure to frontend format (same as getAllMatches)
+      const mappedMatch = {
+        ...match,
+        id: match.matchId,
+        homeTeamId: match.homeTeamId,
+        homeTeamName: match.homeTeamName,
+        homeTeamShortName: match.homeTeamShortName,
+        homeTeamLogo: match.homeTeamName?.includes("Monaco")
+          ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
+          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder') 
+              ? match.homeTeamLogo 
+              : null),
+        awayTeamId: match.awayTeamId,
+        awayTeamName: match.awayTeamName,
+        awayTeamShortName: match.awayTeamShortName,
+        awayTeamLogo: match.awayTeamName?.includes("Monaco")
+          ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
+          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder') 
+              ? match.awayTeamLogo 
+              : null),
+        utcDate: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') 
+          ? match.scheduledKickoff + 'Z' 
+          : match.scheduledKickoff,
+        scheduledKickoff: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') 
+          ? match.scheduledKickoff + 'Z' 
+          : match.scheduledKickoff,
+        status: match.status,
+        // Map scores to both formats for compatibility
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        scoreHome: match.homeScore,  // For frontend compatibility
+        scoreAway: match.awayScore,  // For frontend compatibility
+        home_score: match.homeScore,  // For frontend compatibility
+        away_score: match.awayScore,  // For frontend compatibility
+        venue: match.stadiumName,
+        matchday: match.matchdayNumber,
+        updatedAt: match.updatedAt,
+        seasonId: match.seasonId,
+        mvp: match.mvp,
+        events: match.events || [],
+        stats: match.stats || { home: null, away: null },
+        referee: match.referee
+      }
+
+      return mappedMatch
     } catch (error) {
       logger.error('Failed to fetch match:', error)
       throw error
