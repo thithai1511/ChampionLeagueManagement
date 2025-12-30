@@ -390,6 +390,7 @@ const MatchDetailPage = () => {
               <LineupDisplay 
                 lineup={homeLineup} 
                 teamName={match.homeTeamName || match.home_team_name}
+                teamColor="#3b82f6"
                 formation={match.homeFormation || '4-4-2'}
               />
             </div>
@@ -397,6 +398,7 @@ const MatchDetailPage = () => {
               <LineupDisplay 
                 lineup={awayLineup} 
                 teamName={match.awayTeamName || match.away_team_name}
+                teamColor="#ef4444"
                 formation={match.awayFormation || '4-4-2'}
               />
             </div>

@@ -35,7 +35,11 @@ const LoginPage = ({ onLogin, isAuthenticated }) => {
     setError('')
 
     try {
-      await onLogin(formData)
+      const user = await onLogin(formData)
+      // Check role and redirect match officials to referee portal
+      if (user?.role === 'match_official' || user?.roles?.includes('match_official')) {
+        window.location.href = '/referee/my-matches'
+      }
     } catch (err) {
       setError(err?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.')
     } finally {

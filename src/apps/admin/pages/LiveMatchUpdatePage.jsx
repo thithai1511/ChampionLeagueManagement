@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Clock, Goal, Play, Square, Replace, ShieldCheck,
-    ChevronLeft, Users, FileText, Activity, AlertCircle, CheckCircle, Trash2
+    ChevronLeft, Users, FileText, Activity, AlertCircle, CheckCircle, Trash2, Eye
 } from 'lucide-react';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import TeamsService from '../../../layers/application/services/TeamsService';
 import toast from 'react-hot-toast';
 import TeamLineupEditor from '../components/TeamLineupEditor';
+import LineupDisplay from '../components/LineupDisplay';
 
 const LiveMatchUpdatePage = () => {
     const { matchId } = useParams();
@@ -346,7 +347,8 @@ const LiveMatchUpdatePage = () => {
     if (!match) return <div className="p-8 text-center text-red-500">Match not found</div>;
 
     const tabs = [
-        { id: 'lineups', label: 'Lineups', icon: <Users size={18} /> },
+        { id: 'lineups', label: 'Edit Lineups', icon: <Users size={18} /> },
+        { id: 'view', label: 'View Lineups', icon: <Eye size={18} /> },
         { id: 'control', label: 'Live Control', icon: <Activity size={18} /> },
         { id: 'summary', label: 'Match Sheet', icon: <FileText size={18} /> },
     ];
@@ -532,6 +534,29 @@ const LiveMatchUpdatePage = () => {
                             initialLineup={awayLineup}
                             onSave={handleLineupSave}
                         />
+                    </div>
+                )}
+
+                {activeTab === 'view' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white rounded-xl p-6 shadow-sm border">
+                            <LineupDisplay
+                                lineup={homeLineup}
+                                squad={homeSquad}
+                                teamName={match.homeTeamName}
+                                teamColor="#3b82f6"
+                                formation={homeLineup?.formation || '4-4-2'}
+                            />
+                        </div>
+                        <div className="bg-white rounded-xl p-6 shadow-sm border">
+                            <LineupDisplay
+                                lineup={awayLineup}
+                                squad={awaySquad}
+                                teamName={match.awayTeamName}
+                                teamColor="#ef4444"
+                                formation={awayLineup?.formation || '4-4-2'}
+                            />
+                        </div>
                     </div>
                 )}
 

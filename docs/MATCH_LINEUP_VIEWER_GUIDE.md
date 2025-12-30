@@ -2,12 +2,75 @@
 
 ## 📋 Tổng Quan
 
-Khán giả giờ đây có thể xem đầy đủ thông tin chi tiết trận đấu bao gồm:
+Khán giả giờ đây có thể xem đầy đủ thông tin chi tiết trận đấu với giao diện đẹp và chuyên nghiệp:
 - ⚽ **Kết quả & Tỷ số**
-- 👥 **Đội hình ra sân** (11 cầu thủ chính + dự bị)
+- 👥 **Đội hình ra sân chuyên nghiệp** (sân bóng xanh, vị trí chính xác theo formation)
 - 🔄 **Thay người** 
 - 📊 **Diễn biến trận đấu** (ghi bàn, thẻ phạt, sự kiện)
 - 📈 **Thống kê trận đấu**
+
+## ✨ Tính Năng Mới - Đội Hình Chuyên Nghiệp
+
+### 🎨 Giao Diện Sân Bóng Đẹp Mắt
+- **Sân bóng gradient xanh** với hiệu ứng cỏ tự nhiên
+- **Vạch sân chuyên nghiệp**: vòng tròn giữa sân, vạch trung tâm, vùng cấm địa
+- **Viền bo tròn mượt mà** với shadow depth
+- **Responsive design**: tự động thu gọn đẹp trên mobile
+
+### 👤 Player Badge Chuyên Nghiệp
+Mỗi cầu thủ hiển thị với badge đầy đủ thông tin:
+
+#### 🔵 Áo số màu đội
+- Màu tùy chỉnh theo đội (Home: xanh dương, Away: đỏ)
+- Số áo lớn, rõ ràng với viền trắng nổi bật
+- Hiệu ứng glow khi hover
+
+#### 📛 Thông tin cầu thủ
+- Tên cầu thủ (rõ ràng, không bị chồng chéo)
+- Vị trí (GK, DF, MF, FW)
+- Badge bo tròn với viền màu đội
+
+#### 🏅 Biểu tượng trạng thái
+- **C** (Captain): Badge vàng kim cho đội trưởng
+- **⚽** Biểu tượng bóng nếu ghi bàn (animate bounce)
+- **🟨** Thẻ vàng
+- **🟥** Thẻ đỏ  
+- **⚠️** Chấn thương/cảnh báo
+
+### 📐 Formation System (Sơ đồ chiến thuật)
+
+Hỗ trợ các formation phổ biến với vị trí chính xác:
+
+#### ✅ Formations được hỗ trợ:
+- **4-4-2**: Cổ điển, cân bằng
+- **4-3-3**: Tấn công, pressing cao
+- **4-2-3-1**: Linh hoạt, hiện đại
+- **3-5-2**: Wingback, kiểm soát giữa sân
+- **3-4-3**: Tấn công toàn diện
+- **5-3-2**: Phòng ngự chắc chắn
+- **4-5-1**: Phòng thủ phản công
+
+#### 📍 Vị trí tự động
+- Goalkeeper (8% từ dưới)
+- Hàng thủ (25% từ dưới)
+- Tiền vệ phòng ngự (42%)
+- Tiền vệ tấn công (60%)
+- Tiền đạo (75-80%)
+
+### 🎯 Responsive Design
+
+#### 💻 Desktop
+- Sân bóng full size với aspect ratio 5:7
+- Player badges kích thước lớn (56x56px)
+- Font size rõ ràng
+- Grid 4 cột cho dự bị
+
+#### 📱 Mobile
+- Sân bóng tự động scale
+- Player badges nhỏ hơn (48x48px)
+- Font size điều chỉnh
+- Grid 2 cột cho dự bị
+- Touch-friendly sizing
 
 ## 🎯 Cách Sử Dụng
 

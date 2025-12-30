@@ -4,6 +4,7 @@ import { Users, ShieldCheck, UserX, AlertCircle, Target } from 'lucide-react';
 /**
  * LineupDisplay Component - Professional Football Match Lineup Display
  * Hiển thị đội hình ra sân chuyên nghiệp với sân bóng đẹp, vị trí chính xác
+ * (Copy from public app for admin use)
  */
 
 // Formation configurations with accurate positioning
@@ -64,11 +65,43 @@ const FORMATION_CONFIGS = {
       { name: 'MID', positions: [{ x: 10, y: 50 }, { x: 30, y: 50 }, { x: 50, y: 50 }, { x: 70, y: 50 }, { x: 90, y: 50 }] },
       { name: 'FWD', positions: [{ x: 50, y: 78 }] }
     ]
+  },
+  '4-1-4-1': {
+    lines: [
+      { name: 'GK', positions: [{ x: 50, y: 8 }] },
+      { name: 'DEF', positions: [{ x: 15, y: 25 }, { x: 38, y: 25 }, { x: 62, y: 25 }, { x: 85, y: 25 }] },
+      { name: 'CDM', positions: [{ x: 50, y: 42 }] },
+      { name: 'MID', positions: [{ x: 15, y: 60 }, { x: 38, y: 60 }, { x: 62, y: 60 }, { x: 85, y: 60 }] },
+      { name: 'FWD', positions: [{ x: 50, y: 78 }] }
+    ]
   }
 };
 
-const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4-4-2' }) => {
-  if (!lineup || lineup.length === 0) {
+const LineupDisplay = ({ 
+  lineup, 
+  squad = [], 
+  teamName, 
+  teamColor = '#3b82f6', 
+  formation = '4-4-2' 
+}) => {
+  // Handle both lineup format (public) and starters/substitutes format (admin)
+  let starters = [];
+  let substitutes = [];
+
+  if (Array.isArray(lineup)) {
+    // Public format: array with isStarting flag
+    starters = lineup.filter(p => p.isStarting);
+    substitutes = lineup.filter(p => !p.isStarting);
+  } else if (lineup && lineup.starters) {
+    // Admin format: object with starters array (IDs)
+    const starterIds = lineup.starters || [];
+    const subIds = lineup.substitutes || [];
+    
+    starters = squad.filter(p => starterIds.includes(p.id));
+    substitutes = squad.filter(p => subIds.includes(p.id));
+  }
+
+  if (starters.length === 0 && substitutes.length === 0) {
     return (
       <div className="text-center py-8 text-slate-400">
         <Users className="mx-auto mb-2" size={32} />
@@ -76,10 +109,6 @@ const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4
       </div>
     );
   }
-
-  // Phân loại cầu thủ
-  const starters = lineup.filter(p => p.isStarting);
-  const substitutes = lineup.filter(p => !p.isStarting);
 
   // Get formation config or fallback to 4-4-2
   const formationConfig = FORMATION_CONFIGS[formation] || FORMATION_CONFIGS['4-4-2'];
@@ -114,7 +143,7 @@ const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4
               }}
             >
               <span className="text-xl md:text-2xl font-black text-white drop-shadow-lg">
-                {player.jerseyNumber || player.jersey_number || '?'}
+                {player.jerseyNumber || player.jersey_number || player.shirtNumber || player.shirt_number || '?'}
               </span>
             </div>
             
@@ -142,7 +171,7 @@ const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4
             style={{ borderColor: teamColor }}
           >
             <p className="text-[10px] md:text-xs font-bold text-slate-900 truncate text-center leading-tight">
-              {player.playerName || player.full_name || 'Unknown'}
+              {player.playerName || player.full_name || player.name || 'Unknown'}
             </p>
             <p className="text-[8px] md:text-[10px] text-slate-500 uppercase text-center font-semibold">
               {player.position || 'N/A'}
@@ -169,7 +198,8 @@ const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">{/* Team Header */}
+    <div className="space-y-4 md:space-y-6">
+      {/* Team Header */}
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-3 md:p-4 border border-slate-200">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2 md:gap-3">
@@ -233,7 +263,7 @@ const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4
             const position = allPositions[index] || allPositions[0];
             return (
               <PlayerBadge 
-                key={player.playerId || player.player_id || index}
+                key={player.playerId || player.player_id || player.id || index}
                 player={player}
                 position={position}
                 index={index}
@@ -266,7 +296,7 @@ const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4
               
               return (
                 <div
-                  key={player.playerId || player.player_id}
+                  key={player.playerId || player.player_id || player.id}
                   className="flex items-center gap-2.5 bg-white p-3 rounded-xl border-2 border-slate-100 hover:border-slate-300 hover:shadow-lg transition-all duration-200 group"
                 >
                   <div 
@@ -278,12 +308,12 @@ const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4
                     }}
                   >
                     <span className="text-sm font-black">
-                      {player.jerseyNumber || player.jersey_number || '?'}
+                      {player.jerseyNumber || player.jersey_number || player.shirtNumber || player.shirt_number || '?'}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-slate-900 truncate leading-tight">
-                      {player.playerName || player.full_name || 'Unknown'}
+                      {player.playerName || player.full_name || player.name || 'Unknown'}
                     </p>
                     <p className="text-[10px] text-slate-500 uppercase font-semibold">
                       {player.position || 'SUB'}
@@ -298,54 +328,6 @@ const LineupDisplay = ({ lineup, teamName, teamColor = '#3b82f6', formation = '4
                 </div>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* Substitutions Made */}
-      {lineup.some(p => p.status === 'subbed_out' || p.status === 'subbed_in') && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 border-2 border-blue-200">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center shadow-md">
-              <UserX size={20} className="text-white" />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-blue-900">Thay người</h4>
-              <p className="text-xs text-blue-600">Substitutions</p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {lineup
-              .filter(p => p.status === 'subbed_out')
-              .map((player) => (
-                <div key={player.playerId} className="flex items-center gap-3 bg-white/60 p-3 rounded-lg">
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-red-600 font-bold text-lg">↓</span>
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-sm font-bold text-slate-800">
-                      #{player.jerseyNumber} {player.playerName}
-                    </span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      ({player.minutesPlayed || '?'} phút)
-                    </span>
-                  </div>
-                </div>
-              ))}
-            {lineup
-              .filter(p => p.status === 'subbed_in')
-              .map((player) => (
-                <div key={player.playerId} className="flex items-center gap-3 bg-white/60 p-3 rounded-lg">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-green-600 font-bold text-lg">↑</span>
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-sm font-bold text-slate-800">
-                      #{player.jerseyNumber} {player.playerName}
-                    </span>
-                  </div>
-                </div>
-              ))}
           </div>
         </div>
       )}
