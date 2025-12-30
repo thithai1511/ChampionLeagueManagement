@@ -400,9 +400,9 @@ const StatsPage = () => {
               </div>
               
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white mb-4 leading-tight">
-                <span className="block">Champions</span>
+                <span className="block">THỐNG KÊ</span>
                 <span className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400">
-                  League Stats
+                  KỶ NGUYÊN MỚI 
                 </span>
               </h1>
               

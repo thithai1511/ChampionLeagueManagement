@@ -83,9 +83,9 @@ const PublicFooter = () => {
                 </div>
                 <div>
                   <p className="text-white font-black text-2xl">
-                    CHAMPIONS LEAGUE
+                    KỶ NGUYÊN MỚI
                   </p>
-                  <p className="text-cyan-400 text-sm font-medium">UEFA Official Platform</p>
+                  <p className="text-cyan-400 text-sm font-medium">Liên đoàn bóng đá Việt Nam</p>
                 </div>
               </div>
               
@@ -159,7 +159,7 @@ const PublicFooter = () => {
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               {/* Copyright */}
               <p className="text-white/50 text-sm">
-                © 2025 UEFA Champions League. All rights reserved.
+                © 2026 KỶ NGUYÊN MỚI. All rights reserved.
               </p>
 
               {/* Bottom Links */}

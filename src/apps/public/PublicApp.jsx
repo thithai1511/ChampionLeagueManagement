@@ -7,6 +7,7 @@ import MatchesPage from './pages/MatchesPage';
 import TeamsPage from './pages/TeamsPage';
 import StatsPage from './pages/StatsPage';
 import NewsPage from './pages/NewsPage';
+import NewsDetailPage from './pages/NewsDetailPage';
 import VideoPage from './pages/VideoPage';
 import GamingPage from './pages/GamingPage';
 import TeamProfilePage from './pages/TeamProfilePage';
@@ -34,6 +35,7 @@ const PublicApp = () => {
         <Route path="stats" element={<StatsPage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="news" element={<NewsPage />} />
+        <Route path="news/:slug" element={<NewsDetailPage />} />
         <Route path="video" element={<VideoPage />} />
         <Route path="gaming" element={<GamingPage />} />
         <Route path="match-center" element={<MatchCenterPage />} />

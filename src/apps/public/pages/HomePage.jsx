@@ -264,7 +264,7 @@ const HomePage = () => {
                   loading="lazy"
                 />
                 <span className="text-[10px] uppercase tracking-[0.4em] text-cyan-300/60 font-semibold bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                  Trải nghiệm kỹ thuật số chính thức
+                  Trải nghiệm bóng đá đỉnh cao
                 </span>
               </div>
               
@@ -301,7 +301,8 @@ const HomePage = () => {
                         lineHeight: '1.2'
                       }}
                     >
-                      Giải vô địch bóng đá KỶ NGUYÊN MỚI
+                      Giải vô địch bóng đá 
+                         KỶ NGUYÊN MỚI
                     </span>
                   </span>
                   
@@ -1024,7 +1025,7 @@ const HomePage = () => {
 
             {/* Description */}
             <p className="text-white/70 text-lg leading-relaxed max-w-lg">
-              Quả bóng chính thức của Giải Bóng Đá Việt Nam mùa giải 2024/25. 
+              Quả bóng chính thức của Giải Bóng đá KỶ NGUYÊN MỚI 2024/25. 
               Thiết kế độc đáo với họa tiết <span className="text-rose-400 font-semibold">ngôi sao</span> biểu tượng 
               và công nghệ <span className="text-cyan-400 font-semibold">Connected Ball</span>.
             </p>

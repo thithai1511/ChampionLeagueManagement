@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Trophy, Download, Share2, TrendingUp, TrendingDown, Minus, Users, Target, Award, AlertCircle, RefreshCw, Shield } from 'lucide-react';
 import TeamsService from '../../../layers/application/services/TeamsService';
-import TopScorers from '../components/TopScorers';
+import PlayerStatsPanel from '../components/PlayerStatsPanel';
+import DisciplinePanel from '../components/DisciplinePanel';
 import UpcomingMatches from '../components/UpcomingMatches';
 import logger from '../../../shared/utils/logger';
 import fanAtmosphere from '@/assets/images/championleague_newcastle.webp';
@@ -491,9 +492,16 @@ const StandingsPage = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <TopScorers />
             <UpcomingMatches />
           </div>
+        </div>
+
+        {/* Player Statistics - Full Width Below */}
+        <div className="space-y-6">
+          <PlayerStatsPanel seasonId={selectedSeason} />
+          
+          {/* Discipline Panel */}
+          <DisciplinePanel seasonId={selectedSeason} />
         </div>
       </div>
     </div>
