@@ -17,7 +17,8 @@ import {
   Shield,
   UserPlus,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  ClipboardList
 } from 'lucide-react'
 import MatchesService from '../../../layers/application/services/MatchesService'
 import SeasonService from '../../../layers/application/services/SeasonService'
@@ -114,11 +115,11 @@ const MatchesManagement = () => {
   const [showOfficialModal, setShowOfficialModal] = useState(false)
   const [selectedMatchForOfficials, setSelectedMatchForOfficials] = useState(null)
 
-  // Today matches state
+// Today matches state
   const [todayMatches, setTodayMatches] = useState([])
   const [todayLoading, setTodayLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0) // Lấy thêm dòng này từ main
 
   const getTodayRange = () => {
     const start = new Date()
@@ -609,12 +610,23 @@ const MatchesManagement = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
+<button
+                              onClick={() => navigate(`/admin/matches/${match.id}/lineup-review`)}
+                              className="text-purple-600 hover:text-purple-900 transition-colors"
+                              title="Duyệt đội hình"
+                            >
+                              <ClipboardList size={16} />
+                            </button>
+                            
                             <button
                               onClick={() => setEditingMatch(match)}
                               className="text-blue-600 hover:text-blue-900 transition-colors"
+                              title="Xem chi tiết"
                             >
                               <Eye size={16} />
                             </button>
+
+                            {/* Chỉ hiện nút Sửa nếu trận đấu CHƯA kết thúc (Logic từ Main) */}
                             {!['FINISHED', 'COMPLETED'].includes(match.status?.toUpperCase()) && (
                               <button
                                 onClick={() => openEditModal(match)}
@@ -624,7 +636,14 @@ const MatchesManagement = () => {
                                 <Edit size={16} />
                               </button>
                             )}
+
                             <button
+                              onClick={() => handleDelete(match.id)}
+                              className="text-red-600 hover:text-red-900 transition-colors"
+                              title="Xóa trận đấu"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                               onClick={() => handleDelete(match.id)}
                               className="text-red-600 hover:text-red-900 transition-colors"
                             >

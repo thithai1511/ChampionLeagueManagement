@@ -26,17 +26,17 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userTeamIds = req.user?.teamIds || [];
-      
+
       if (userTeamIds.length === 0) {
         return res.json({ count: 0 });
       }
-      
+
       const teamIdPlaceholders = userTeamIds.map((_, i) => `@teamId${i}`).join(',');
       const params: Record<string, any> = {};
       userTeamIds.forEach((id, i) => {
         params[`teamId${i}`] = id;
       });
-      
+
       const result = await query<{ count: number }>(
         `SELECT COUNT(*) as count 
          FROM season_team_registrations 
@@ -44,10 +44,10 @@ router.get(
          AND registration_status = 'INVITED'`,
         params
       );
-      
+
       const count = result.recordset[0]?.count || 0;
       console.log(`[GET my-pending-count] user=${req.user?.sub}, teams=${userTeamIds}, count=${count}`);
-      
+
       res.json({ count });
     } catch (error: any) {
       console.error('[GET my-pending-count] Error:', error);
@@ -59,6 +59,16 @@ router.get(
 // ============================================================
 // ADMIN ROUTES - Season Registration Management
 // ============================================================
+
+/**
+ * GET /api/seasons/:seasonId/registrations/my
+ * Get MY registration for a specific season (Team Admin)
+ */
+router.get(
+  "/seasons/:seasonId/registrations/my",
+  requireAuth,
+  controller.getMyRegistrationForSeason
+);
 
 /**
  * GET /api/seasons/:seasonId/registrations
