@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, MapPin, Users, ChevronDown, ChevronUp, Trophy, Activity, Flag } from 'lucide-react';
 import { getLogoByTeamName } from '../data/teamLogos';
 import { formatDateGMT7, formatTimeGMT7 } from '../../../utils/timezone';
@@ -39,6 +40,14 @@ const TeamLogo = ({ src, alt, className }) => {
 
 const MatchCard = ({ match }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleViewDetails = (e) => {
+    e.stopPropagation();
+    if (match.id || match.match_id) {
+      navigate(`/matches/${match.id || match.match_id}`);
+    }
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -129,13 +138,20 @@ const MatchCard = ({ match }) => {
             {match.city}
           </span>
         </div>
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="text-[#0055FF] text-xs uppercase tracking-[0.4em] flex items-center gap-1 hover:text-[#0040BF] transition-colors"
-        >
-          Details
-          {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleViewDetails}
+            className="text-[#0055FF] text-xs uppercase tracking-[0.4em] font-semibold hover:text-[#0040BF] transition-colors px-3 py-1.5 rounded-lg hover:bg-blue-50"
+          >
+            Xem chi tiết
+          </button>
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="text-[#0055FF] text-xs uppercase tracking-[0.4em] flex items-center gap-1 hover:text-[#0040BF] transition-colors"
+          >
+            {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+        </div>
       </div>
 
       {/* DETAILS EXPANDABLE SECTION */}

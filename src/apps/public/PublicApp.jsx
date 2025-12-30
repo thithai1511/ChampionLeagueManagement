@@ -15,6 +15,7 @@ import LineupSubmissionPage from './pages/LineupSubmissionPage';
 import SignUpPage from './pages/SignUpPage';
 import ProfilePage from './pages/ProfilePage';
 import MatchCenterPage from './pages/MatchCenterPage';
+import MatchDetailPage from './pages/MatchDetailPage';
 import PlayerProfilePage from './pages/PlayerProfilePage';
 import PlayerLookup from '../../pages/PlayerLookup';
 import LoginPage from './pages/LoginPage';
@@ -39,6 +40,7 @@ const PublicApp = () => {
         <Route path="video" element={<VideoPage />} />
         <Route path="gaming" element={<GamingPage />} />
         <Route path="match-center" element={<MatchCenterPage />} />
+        <Route path="matches/:matchId" element={<MatchDetailPage />} />
         <Route path="submit-lineup" element={<LineupSubmissionPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<SignUpPage />} />
