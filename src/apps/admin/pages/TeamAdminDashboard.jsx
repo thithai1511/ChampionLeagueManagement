@@ -341,7 +341,10 @@ const TeamAdminDashboard = ({ currentUser }) => {
       try {
         // Use new endpoint that gets TOP 1 registration
         const response = await ApiService.get(`/seasons/${selectedSeasonId}/registrations/my`)
-        const registration = response?.data
+        console.log('[Dashboard] Raw registration:', response)
+
+        // FIX: Correctly parse payload { data: { ... } }
+        const registration = response?.data?.data || response?.data || null
 
         if (registration) {
           // Normalize for compatibility
@@ -349,14 +352,14 @@ const TeamAdminDashboard = ({ currentUser }) => {
             ...registration,
             invitationId: registration.registration_id,
             invitation_id: registration.registration_id,
-            status: String(registration.registration_status || '').toUpperCase(), // Normalize Uppercase
-            team_id: registration.team_id,
-            season_id: registration.season_id,
-            // Ensure fee status is normalized too if needed, but it's used in feeStatus state
+            status: String(registration.registration_status || registration.status || '').toUpperCase(),
+            fee_status: String(registration.fee_status || registration.feeStatus || 'unpaid').toLowerCase(),
+            team_id: registration.team_id || registration.teamId,
+            season_id: registration.season_id || registration.seasonId,
           }
-          setInvitations([normalized]) // Put in array to keep current structure working
+          console.log('[Dashboard] Normalized registration:', normalized)
 
-          // Also set fee status directly from this source of truth
+          setInvitations([normalized]) // Put in array to keep current structure working
           setFeeStatus(normalized)
         } else {
           setInvitations([])
@@ -376,29 +379,6 @@ const TeamAdminDashboard = ({ currentUser }) => {
     }
 
     loadRegistration()
-  }, [selectedSeasonId, teamIds])
-
-  // Load fees when season/team changes
-  useEffect(() => {
-    if (!selectedSeasonId || !teamIds.length) return
-
-    const loadFeeStatus = async () => {
-      console.log(`[FeeDebug] Loading fee for seasonId=${selectedSeasonId}, teamId=${teamIds[0]}`)
-      setFeeLoading(true)
-      try {
-        // Use the new MY fee endpoint
-        const response = await ApiService.get(`/participation-fees/my?seasonId=${selectedSeasonId}`)
-        console.log(`[FeeDebug] Fee response:`, response)
-        setFeeStatus(response || null)
-      } catch (err) {
-        console.error('[FeeDebug] Failed to load fee status', err)
-        setFeeStatus(null)
-      } finally {
-        setFeeLoading(false)
-      }
-    }
-
-    loadFeeStatus()
   }, [selectedSeasonId, teamIds])
 
   // Load players when season changes
@@ -780,7 +760,7 @@ const TeamAdminDashboard = ({ currentUser }) => {
             </div>
           )}
 
-          {participationStatus.current === 'complete' && (
+          {participationStatus.current === 'completed' && (
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={20} className="text-green-600" />
