@@ -33,14 +33,17 @@ export interface MatchRecord {
   seasonId: number;
   roundId: number;
   matchdayNumber: number;
+  homeSeasonTeamId?: number;
   homeTeamId: number;
   homeTeamName: string;
   homeTeamLogo: string | null;
   homeTeamShortName: string | null;
+  awaySeasonTeamId?: number;
   awayTeamId: number;
   awayTeamName: string;
   awayTeamLogo: string | null;
-  awayTeamShortName: string | null; stadiumId: number;
+  awayTeamShortName: string | null;
+  stadiumId: number;
   stadiumName: string | null;
   scheduledKickoff: string;
   status: string;
@@ -560,7 +563,7 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
 };
 
 // Helper: Validate pre-match conditions (Officials & Lineups)
-const validatePreMatchConditions = async (matchId: number, homeTeamId: number, awayTeamId: number) => {
+const validatePreMatchConditions = async (matchId: number, homeSeasonTeamId: number, awaySeasonTeamId: number) => {
   // 1. Officials Check
   const officials = await query<{ role_code: string }>(
     `SELECT role_code FROM match_official_assignments WHERE match_id = @matchId`,
@@ -583,23 +586,23 @@ const validatePreMatchConditions = async (matchId: number, homeTeamId: number, a
   }
 
   // 2. Lineup Check
-  const lineups = await query<{ team_id: number; is_starter: boolean }>(
-    `SELECT team_id, is_starter FROM match_lineups WHERE match_id = @matchId`,
+  const lineups = await query<{ season_team_id: number; is_starting: boolean }>(
+    `SELECT season_team_id, is_starting FROM match_lineups WHERE match_id = @matchId`,
     { matchId }
   );
 
-  const checkTeam = (teamId: number, teamName: string) => {
-    const teamLineup = lineups.recordset.filter(l => l.team_id === teamId);
-    const starters = teamLineup.filter(l => l.is_starter).length;
-    const subs = teamLineup.filter(l => !l.is_starter).length;
+  const checkTeam = (seasonTeamId: number, teamName: string) => {
+    const teamLineup = lineups.recordset.filter(l => l.season_team_id === seasonTeamId);
+    const starters = teamLineup.filter(l => l.is_starting).length;
+    const subs = teamLineup.filter(l => !l.is_starting).length;
 
     if (starters !== 11 || subs !== 5) {
       throw new Error(`Đội hình ${teamName} không hợp lệ. Yêu cầu: 11 chính thức, 5 dự bị. Hiện tại: ${starters} chính, ${subs} dự.`);
     }
   };
 
-  checkTeam(homeTeamId, 'Chủ nhà');
-  checkTeam(awayTeamId, 'Khách');
+  checkTeam(homeSeasonTeamId, 'Chủ nhà');
+  checkTeam(awaySeasonTeamId, 'Khách');
 };
 
 export const updateMatch = async (
@@ -628,7 +631,10 @@ export const updateMatch = async (
     currentMatch.status !== 'in_progress' && currentMatch.status !== 'live' && currentMatch.status !== 'in_play';
 
   if (isStarting) {
-    await validatePreMatchConditions(matchId, currentMatch.homeTeamId, currentMatch.awayTeamId);
+    if (!currentMatch.homeSeasonTeamId || !currentMatch.awaySeasonTeamId) {
+      throw new Error("Cannot start match: Missing season team IDs");
+    }
+    await validatePreMatchConditions(matchId, currentMatch.homeSeasonTeamId, currentMatch.awaySeasonTeamId);
   }
 
   const fields: string[] = [];
