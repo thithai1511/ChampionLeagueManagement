@@ -55,7 +55,7 @@ const filters = [
   { id: 'finished', name: 'Đã kết thúc' }
 ];
 
-import SeasonService from '../../../layers/application/services/SeasonService';
+import TeamsService from '../../../layers/application/services/TeamsService';
 
 const MatchesPage = () => {
   const [matches, setMatches] = useState([]);
@@ -66,14 +66,22 @@ const MatchesPage = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  // Load Seasons
+  // Load Seasons from public API
   useEffect(() => {
     const loadSeasons = async () => {
       try {
-        const data = await SeasonService.listSeasons();
-        setSeasons(data || []);
+        const data = await TeamsService.getCompetitionSeasons();
+        // Normalize seasons
+        const normalized = (data || []).map(s => ({
+          id: s.season_id ?? s.id,
+          seasonId: s.season_id ?? s.id,
+          name: s.name ?? s.label ?? `${s.year}-${s.year + 1}`,
+          is_active: s.is_active ?? s.status === 'in_progress',
+          isCurrent: s.is_active ?? s.status === 'in_progress'
+        }));
+        setSeasons(normalized);
         // Optional: auto-select current season
-        const current = (data || []).find(s => s.is_active || s.isCurrent) || (data || [])[0];
+        const current = normalized.find(s => s.is_active || s.isCurrent) || normalized[0];
         if (current) setSelectedSeason(current.seasonId || current.id);
       } catch (err) {
         console.error('Failed to load seasons', err);

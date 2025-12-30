@@ -7,6 +7,7 @@ import MatchesPage from './pages/MatchesPage';
 import TeamsPage from './pages/TeamsPage';
 import StatsPage from './pages/StatsPage';
 import NewsPage from './pages/NewsPage';
+import NewsDetailPage from './pages/NewsDetailPage';
 import VideoPage from './pages/VideoPage';
 import GamingPage from './pages/GamingPage';
 import TeamProfilePage from './pages/TeamProfilePage';
@@ -14,6 +15,7 @@ import LineupSubmissionPage from './pages/LineupSubmissionPage';
 import SignUpPage from './pages/SignUpPage';
 import ProfilePage from './pages/ProfilePage';
 import MatchCenterPage from './pages/MatchCenterPage';
+import MatchDetailPage from './pages/MatchDetailPage';
 import PlayerProfilePage from './pages/PlayerProfilePage';
 import PlayerLookup from '../../pages/PlayerLookup';
 import LoginPage from './pages/LoginPage';
@@ -34,9 +36,11 @@ const PublicApp = () => {
         <Route path="stats" element={<StatsPage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="news" element={<NewsPage />} />
+        <Route path="news/:slug" element={<NewsDetailPage />} />
         <Route path="video" element={<VideoPage />} />
         <Route path="gaming" element={<GamingPage />} />
         <Route path="match-center" element={<MatchCenterPage />} />
+        <Route path="matches/:matchId" element={<MatchDetailPage />} />
         <Route path="submit-lineup" element={<LineupSubmissionPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<SignUpPage />} />

@@ -13,9 +13,7 @@ import {
   Trophy,
   Star
 } from 'lucide-react';
-import PlayersService from '../../../layers/application/services/PlayersService';
 import StatsService from '../../../layers/application/services/StatsService';
-import SeasonService from '../../../layers/application/services/SeasonService';
 import TeamsService from '../../../layers/application/services/TeamsService';
 
 // Import stat background image
@@ -225,14 +223,21 @@ const StatsPage = () => {
   const [teamGoals, setTeamGoals] = useState([]);
   const [teamStats, setTeamStats] = useState([]);
 
-  // Load seasons
+  // Load seasons from public API
   useEffect(() => {
     const loadSeasons = async () => {
       try {
-        const list = await SeasonService.listSeasons();
-        if (list?.length > 0) {
-          setSeasons(list);
-          setSelectedSeasonId(list[0].season_id);
+        const list = await TeamsService.getCompetitionSeasons();
+        // Normalize seasons from public endpoint
+        const normalized = (list || []).map(s => ({
+          season_id: s.season_id ?? s.id,
+          name: s.name ?? s.label ?? `${s.year}-${s.year + 1}`,
+          year: s.year,
+          start_date: s.start_date ?? s.startDate
+        }));
+        if (normalized.length > 0) {
+          setSeasons(normalized);
+          setSelectedSeasonId(normalized[0].season_id);
         }
       } catch (error) {
         console.error('Failed to load seasons:', error);
@@ -243,76 +248,92 @@ const StatsPage = () => {
 
   // Load all stats data
   useEffect(() => {
+    if (!selectedSeasonId) {
+      setLoading(false);
+      return;
+    }
+
     const loadAllStats = async () => {
       setLoading(true);
       try {
-        // Fetch player stats
-        const [scorersRes, assistsRes] = await Promise.all([
-          PlayersService.listPlayers({ sortBy: 'goals', sortOrder: 'desc', limit: 20 }),
-          PlayersService.listPlayers({ sortBy: 'assists', sortOrder: 'desc', limit: 20 })
-        ]);
+        // Fetch top scorers using StatsService
+        const scorersData = await StatsService.getTopScorers(selectedSeasonId, 20);
         
-        setTopScorers((scorersRes?.players || []).map(p => ({
-          id: p.id,
-          name: p.name || p.displayName,
-          teamName: p.teamName,
-          nationality: p.nationality,
-          value: p.goals || 0,
-          assists: p.assists || 0
-        })));
+        // Map to frontend format
+        const mappedScorers = (scorersData || []).map(scorer => ({
+          id: scorer.playerId || scorer.seasonPlayerId,
+          name: scorer.playerName || scorer.name,
+          teamName: scorer.teamName || scorer.team_name,
+          nationality: scorer.nationality || '',
+          value: scorer.goals || 0,
+          assists: scorer.assists || 0,
+          matchesPlayed: scorer.matchesPlayed || scorer.matches_played || 0
+        }));
         
-        setTopAssists((assistsRes?.players || []).map(p => ({
-          id: p.id,
-          name: p.name || p.displayName,
+        setTopScorers(mappedScorers);
+        
+        // Extract top assists from the same data (since getTopScorers includes assists)
+        const mappedAssists = mappedScorers
+          .filter(p => (p.assists || 0) > 0)
+          .sort((a, b) => (b.assists || 0) - (a.assists || 0))
+          .slice(0, 20)
+          .map(p => ({
+            ...p,
+            value: p.assists || 0
+          }));
+        
+        setTopAssists(mappedAssists);
+
+        // Fetch card stats
+        const cards = await StatsService.getCardStats(selectedSeasonId);
+        setCardStats((cards || []).map(p => ({
+          id: p.playerId,
+          name: p.playerName,
           teamName: p.teamName,
-          nationality: p.nationality,
-          value: p.assists || 0,
-          goals: p.goals || 0
+          value: (p.yellowCards || 0) + (p.redCards || 0) * 2,
+          yellowCards: p.yellowCards || 0,
+          redCards: p.redCards || 0
         })));
 
-        // Fetch card stats if season selected
-        if (selectedSeasonId) {
-          const cards = await StatsService.getCardStats(selectedSeasonId);
-          setCardStats(cards.map(p => ({
-            id: p.playerId,
-            name: p.playerName,
-            teamName: p.teamName,
-            value: (p.yellowCards || 0) + (p.redCards || 0) * 2,
-            yellowCards: p.yellowCards || 0,
-            redCards: p.redCards || 0
-          })));
-        }
-
-        // Aggregate team goals from players
+        // Aggregate team goals from scorers data
         const teamGoalsMap = {};
-        (scorersRes?.players || []).forEach(p => {
+        mappedScorers.forEach(p => {
           if (p.teamName) {
             if (!teamGoalsMap[p.teamName]) {
               teamGoalsMap[p.teamName] = { name: p.teamName, value: 0, country: '', players: 0 };
             }
-            teamGoalsMap[p.teamName].value += p.goals || 0;
+            teamGoalsMap[p.teamName].value += p.value || 0;
             teamGoalsMap[p.teamName].players += 1;
           }
         });
         setTeamGoals(Object.values(teamGoalsMap).sort((a, b) => b.value - a.value));
 
-        // Try to get team standings for more team stats
+        // Get team standings for selected season
         try {
-          const standingsData = await TeamsService.getCompetitionStandings({ season: '2026' });
-          if (standingsData?.table) {
-            setTeamStats(standingsData.table.map(t => ({
-              id: t.teamId,
-              name: t.teamName,
-              logo: t.crest,
-              tla: t.tla || t.shortName,
-              value: t.goalsFor || 0,
-              played: t.played,
-              won: t.won,
-              points: t.points
-            })));
+          // Get season year from selected season
+          const selectedSeason = seasons.find(s => s.season_id === selectedSeasonId);
+          if (selectedSeason) {
+            const seasonYear = selectedSeason.start_date 
+              ? new Date(selectedSeason.start_date).getFullYear() 
+              : new Date().getFullYear();
+            
+            const standingsData = await TeamsService.getCompetitionStandings({ season: String(seasonYear) });
+            const standings = standingsData?.data || standingsData;
+            if (standings?.table) {
+              setTeamStats(standings.table.map(t => ({
+                id: t.teamId,
+                name: t.teamName,
+                logo: t.crest,
+                tla: t.tla || t.shortName,
+                value: t.goalsFor || 0,
+                played: t.played,
+                won: t.won,
+                points: t.points
+              })));
+            }
           }
         } catch (e) {
-          console.warn('Could not load team standings');
+          console.warn('Could not load team standings:', e);
         }
 
       } catch (error) {
@@ -323,7 +344,7 @@ const StatsPage = () => {
     };
 
     loadAllStats();
-  }, [selectedSeasonId]);
+  }, [selectedSeasonId, seasons]);
 
   // Additional derived stats
   const playerMinutes = useMemo(() => {
@@ -379,15 +400,33 @@ const StatsPage = () => {
               </div>
               
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white mb-4 leading-tight">
-                <span className="block">Champions</span>
+                <span className="block">THỐNG KÊ</span>
                 <span className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400">
-                  League Stats
+                  KỶ NGUYÊN MỚI 
                 </span>
               </h1>
               
               <p className="text-white/70 text-lg md:text-xl max-w-lg mb-6">
                 Khám phá những con số ấn tượng của mùa giải. Vua phá lưới, kiến tạo và nhiều hơn nữa.
               </p>
+
+              {/* Season Selector */}
+              {seasons.length > 0 && (
+                <div className="mb-4">
+                  <label className="block text-white/70 text-sm font-medium mb-2">Chọn mùa giải:</label>
+                  <select
+                    value={selectedSeasonId || ''}
+                    onChange={(e) => setSelectedSeasonId(Number(e.target.value))}
+                    className="px-4 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white font-medium focus:outline-none focus:ring-2 focus:ring-cyan-400/50"
+                  >
+                    {seasons.map((season) => (
+                      <option key={season.season_id} value={season.season_id} className="bg-[#0a1128]">
+                        {season.name || `${new Date(season.start_date).getFullYear()}/${new Date(season.start_date).getFullYear() + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Quick Stats Pills */}
               <div className="flex flex-wrap gap-3">

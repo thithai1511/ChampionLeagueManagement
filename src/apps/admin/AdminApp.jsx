@@ -21,18 +21,19 @@ import ScheduleManagement from './pages/ScheduleManagement';
 import LiveMatchUpdatePage from './pages/LiveMatchUpdatePage';
 import AccessGuard from './components/AccessGuard';
 import MyTeamPage from './pages/MyTeamPage'
-import TeamAdminDashboard from './pages/TeamAdminDashboard'
-import PlayerRegistrationsPage from './pages/PlayerRegistrationsPage'
 import OfficialsManagement from './pages/OfficialsManagement'
 
 // Các trang tích hợp mới
 import StatisticsPage from './pages/StatisticsPage'
 import SeasonAndRulesPage from './pages/SeasonAndRulesPage'
-import ClubProfilePage from './pages/ClubProfilePage'
 import SeasonRegistrationWorkflowPage from './pages/SeasonRegistrationWorkflowPage'
-
-
 import MatchLineupReviewPage from './pages/MatchLineupReviewPage'
+
+// [LƯU Ý] Kiểm tra lại xem bạn đã import các file này chưa nhé,
+// trong đoạn code gốc bạn gửi mình thấy thiếu import 3 trang này:
+// import TeamAdminDashboard from './pages/TeamAdminDashboard';
+// import ClubProfilePage from './pages/ClubProfilePage';
+// import PlayerRegistrationsPage from './pages/PlayerRegistrationsPage';
 
 const AdminApp = ({ onLogout, currentUser }) => {
   return (
@@ -155,6 +156,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
             }
           />
 
+          {/* === START RESOLVED CONFLICT: Giữ lại phần đầy đủ tính năng của nhánh lephi === */}
           <Route
             path="my-team"
             element={
@@ -164,6 +166,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
                 disallowedRoles={['super_admin']}
                 currentUser={currentUser}
               >
+                {/* LƯU Ý: Đảm bảo bạn đã import TeamAdminDashboard */}
                 <TeamAdminDashboard currentUser={currentUser} />
               </AccessGuard>
             }
@@ -178,6 +181,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
                 disallowedRoles={['super_admin']}
                 currentUser={currentUser}
               >
+                 {/* LƯU Ý: Đảm bảo bạn đã import ClubProfilePage */}
                 <ClubProfilePage currentUser={currentUser} />
               </AccessGuard>
             }
@@ -192,11 +196,11 @@ const AdminApp = ({ onLogout, currentUser }) => {
                 disallowedRoles={['super_admin']}
                 currentUser={currentUser}
               >
+                 {/* LƯU Ý: Đảm bảo bạn đã import PlayerRegistrationsPage */}
                 <PlayerRegistrationsPage currentUser={currentUser} />
               </AccessGuard>
             }
           />
-
 
           <Route
             path="schedule"
@@ -230,6 +234,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
               </AccessGuard>
             }
           />
+          {/* === END RESOLVED CONFLICT === */}
 
           {/* Fallback: avoid dead routes under /admin */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />

@@ -42,7 +42,7 @@ MERGE roles AS target
 USING (VALUES
     ('super_admin',    N'Super Administrator', N'Full system control', 1),
     ('admin',          N'Administrator',       N'Operational admin without system lock features', 0),
-    ('content_manager',N'Content Manager',     N'Editorial / CMS responsibilities', 0),
+    ('supervisor',     N'Match Supervisor',    N'Match supervision and evaluation responsibilities', 0),
     ('match_official', N'Match Official',      N'Live match operations team', 0),
     ('team_admin',     N'Team Administrator',  N'Manage player registrations for assigned teams', 0),
     ('viewer',         N'Read-only Viewer',    N'Analyst/reporting account', 0)
@@ -70,7 +70,8 @@ VALUES
     ('admin', 'manage_matches'),
     ('admin', 'manage_teams'),
     ('admin', 'approve_player_registrations'),
-    ('content_manager', 'manage_content'),
+    ('supervisor', 'manage_matches'),
+    ('supervisor', 'manage_discipline'),
     ('match_official', 'manage_matches'),
     ('team_admin', 'manage_own_player_registrations'),
     ('team_admin', 'view_own_team'),

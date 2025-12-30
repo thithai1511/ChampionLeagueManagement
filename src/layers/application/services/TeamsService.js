@@ -154,15 +154,30 @@ class TeamsService {
   }
 
   async getCompetitionSeasons(fromYear = 2020) {
-    const response = await ApiService.get(APP_CONFIG.API.ENDPOINTS.TEAMS.SEASONS, { fromYear })
-    return response.data || []
+    try {
+      const response = await ApiService.get(APP_CONFIG.API.ENDPOINTS.TEAMS.SEASONS, { fromYear })
+      // ApiService wraps arrays in {data: array}, extract it
+      const seasonsArray = Array.isArray(response) ? response : (response?.data || [])
+      return seasonsArray
+    } catch (error) {
+      logger.error('Failed to fetch competition seasons:', error)
+      return []
+    }
   }
 
   async getCompetitionStandings(filters = {}) {
-    const response = await ApiService.get(APP_CONFIG.API.ENDPOINTS.TEAMS.STANDINGS, {
-      season: filters.season || ''
-    })
-    return response.data
+    try {
+      const response = await ApiService.get(APP_CONFIG.API.ENDPOINTS.TEAMS.STANDINGS, {
+        season: filters.season || '',
+        seasonId: filters.seasonId || undefined
+      })
+      // ApiService wraps objects in {data: object}, extract it
+      const standings = response?.data || response || null
+      return standings
+    } catch (error) {
+      logger.error('Failed to fetch competition standings:', error)
+      throw error
+    }
   }
 
   // --- New Methods for Season Player Queries ---

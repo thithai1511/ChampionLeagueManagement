@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Clock, Activity, Users, Shield, Calendar, Trophy, Play, ChevronRight, Filter, RefreshCw, Star, Zap } from 'lucide-react';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import ApiService from '../../../layers/application/services/ApiService';
@@ -7,6 +7,7 @@ import { toMatchStatusLabel, toCompetitionStageLabel } from '../../../shared/uti
 import bannerC1 from '@/assets/images/banner_c1.jpg';
 
 const MatchCenterPage = () => {
+  const navigate = useNavigate();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, live, upcoming, finished
@@ -123,7 +124,7 @@ const MatchCenterPage = () => {
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 backdrop-blur-sm">
               <Star size={14} className="text-cyan-400" />
-              <span className="text-cyan-400 text-xs uppercase tracking-[0.2em] font-bold">Mùa giải 2025/26</span>
+              <span className="text-cyan-400 text-xs uppercase tracking-[0.2em] font-bold">Mùa giải 2026</span>
             </div>
             {liveMatches.length > 0 && (
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 border border-red-500/30 backdrop-blur-sm">
@@ -255,7 +256,7 @@ const MatchCenterPage = () => {
                   ? 'bg-red-500/10 border-red-500/30 hover:border-red-400/50'
                   : 'bg-white/[0.05] border-white/[0.1] hover:border-cyan-400/30'
                   }`}
-                onClick={() => setSelectedMatch(selectedMatch?.id === match.id ? null : match)}
+                onClick={() => navigate(`/matches/${match.id}`)}
               >
                 {/* Status badge */}
                 <div className="absolute top-4 right-4 z-10">

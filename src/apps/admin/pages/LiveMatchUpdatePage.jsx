@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Clock, Goal, Play, Square, Replace, ShieldCheck,
-    ChevronLeft, Users, FileText, Activity, AlertCircle, CheckCircle, Trash2
+    ChevronLeft, Users, FileText, Activity, AlertCircle, CheckCircle, Trash2, Eye
 } from 'lucide-react';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import TeamsService from '../../../layers/application/services/TeamsService';
 import toast from 'react-hot-toast';
 import TeamLineupEditor from '../components/TeamLineupEditor';
+import LineupDisplay from '../components/LineupDisplay';
 
 const LiveMatchUpdatePage = () => {
     const { matchId } = useParams();
@@ -68,22 +69,11 @@ const LiveMatchUpdatePage = () => {
 
             // Fetch Lineups
             const lineups = await MatchesService.getMatchLineups(matchId);
-            console.log('[FETCH] getMatchLineups returned:', lineups, 'length:', lineups?.length);
+
 
             // Transform lineups for editor
             const processLineup = (type, seasonTeamId) => {
-                console.log(`[DEBUG] Processing ${type}, looking for seasonTeamId=${seasonTeamId} (type: ${typeof seasonTeamId})`);
-                console.log(`[DEBUG] First lineup item:`, lineups[0]);
-
-                const teamLineups = lineups.filter(l => {
-                    const match = Number(l.seasonTeamId) === Number(seasonTeamId);
-                    if (!match && lineups.indexOf(l) === 0) {
-                        console.log(`[DEBUG] No match: ${l.seasonTeamId} (${typeof l.seasonTeamId}) !== ${seasonTeamId} (${typeof seasonTeamId})`);
-                    }
-                    return match;
-                });
-
-                console.log(`[DEBUG] ${type} team lineups (seasonTeamId=${seasonTeamId}):`, teamLineups);
+                const teamLineups = lineups.filter(l => Number(l.seasonTeamId) === Number(seasonTeamId));
 
                 const starters = teamLineups.filter(l => Boolean(l.isStarting)).map(l => l.playerId);
                 const substitutes = teamLineups.filter(l => !Boolean(l.isStarting)).map(l => l.playerId);
@@ -151,12 +141,14 @@ const LiveMatchUpdatePage = () => {
     const [selectedEventType, setSelectedEventType] = useState(null);
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [selectedPlayerId, setSelectedPlayerId] = useState('');
+    const [selectedSubstituteId, setSelectedSubstituteId] = useState(''); // For SUB event: player coming IN
 
     // Open Modal logic
     const openEventModal = (type, teamId) => {
         setSelectedEventType(type);
         setSelectedTeamId(teamId);
         setSelectedPlayerId(''); // Reset selection
+        setSelectedSubstituteId(''); // Reset substitute selection
         setShowModal(true);
     };
 
@@ -164,6 +156,18 @@ const LiveMatchUpdatePage = () => {
     const submitEvent = async () => {
         if (!selectedPlayerId) {
             toast.error('Please select a player');
+            return;
+        }
+
+        // For SUBSTITUTION, require both players
+        if (selectedEventType === 'SUBSTITUTION' && !selectedSubstituteId) {
+            toast.error('Please select the player coming IN');
+            return;
+        }
+
+        // Prevent substituting same player
+        if (selectedEventType === 'SUBSTITUTION' && selectedPlayerId === selectedSubstituteId) {
+            toast.error('Cannot substitute a player with themselves');
             return;
         }
 
@@ -176,6 +180,11 @@ const LiveMatchUpdatePage = () => {
                 type: selectedEventType,
                 minute: time,
             };
+
+            // For SUBSTITUTION: add assistPlayerId (player coming IN)
+            if (selectedEventType === 'SUBSTITUTION') {
+                payload.assistPlayerId = parseInt(selectedSubstituteId);
+            }
 
             await MatchesService.createMatchEvent(matchId, payload);
             toast.success(`${selectedEventType} recorded!`);
@@ -199,12 +208,104 @@ const LiveMatchUpdatePage = () => {
         }
     };
 
-    // Helper to get squad for selected team
-    const getActiveSquad = () => {
-        if (selectedTeamId === match?.homeTeamId) return homeSquad;
-        if (selectedTeamId === match?.awayTeamId) return awaySquad;
+
+
+    // Get only starters (11 players) who haven't been substituted out yet
+    const getStarters = () => {
+        let squad = [];
+        let lineup = null;
+
+        if (selectedTeamId === match?.homeTeamId) {
+            squad = homeSquad;
+            lineup = homeLineup;
+        } else if (selectedTeamId === match?.awayTeamId) {
+            squad = awaySquad;
+            lineup = awayLineup;
+        }
+
+        if (lineup && lineup.starters?.length > 0) {
+            // Get players who were substituted OUT
+            const substitutedOutIds = (matchEvents || [])
+                .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
+                .map(e => Number(e.playerId));
+
+            // Return starters who haven't been subbed out
+            return squad.filter(player =>
+                lineup.starters.includes(player.id) && !substitutedOutIds.includes(player.id)
+            );
+        }
         return [];
     };
+
+    // Get only substitutes (5 players) who haven't entered the pitch yet
+    const getSubstitutes = () => {
+        let squad = [];
+        let lineup = null;
+
+        if (selectedTeamId === match?.homeTeamId) {
+            squad = homeSquad;
+            lineup = homeLineup;
+        } else if (selectedTeamId === match?.awayTeamId) {
+            squad = awaySquad;
+            lineup = awayLineup;
+        }
+
+        if (lineup && lineup.substitutes?.length > 0) {
+            // Get players who already came IN (can't come in again)
+            const substitutedInIds = (matchEvents || [])
+                .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
+                .map(e => Number(e.assistPlayerId))
+                .filter(id => id);
+
+            // Return subs who haven't entered the pitch yet
+            return squad.filter(player =>
+                lineup.substitutes.includes(player.id) && !substitutedInIds.includes(player.id)
+            );
+        }
+        return [];
+    };
+
+    // Get currently active players on the pitch (for GOAL, CARD events)
+    // = 11 starters - subbed out + subbed in
+    const getActivePlayers = () => {
+        let squad = [];
+        let lineup = null;
+
+        if (selectedTeamId === match?.homeTeamId) {
+            squad = homeSquad;
+            lineup = homeLineup;
+        } else if (selectedTeamId === match?.awayTeamId) {
+            squad = awaySquad;
+            lineup = awayLineup;
+        }
+
+        if (!lineup || !lineup.starters || lineup.starters.length === 0) {
+            return [];
+        }
+
+        // Start with 11 starters only
+        const starterIds = lineup.starters || [];
+
+        // Get players who were substituted OUT
+        const substitutedOutIds = (matchEvents || [])
+            .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
+            .map(e => Number(e.playerId));
+
+        // Get players who came IN
+        const substitutedInIds = (matchEvents || [])
+            .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
+            .map(e => Number(e.assistPlayerId))
+            .filter(id => id);
+
+        // Active = starters - subbed out + subbed in
+        const activePlayerIds = [
+            ...starterIds.filter(id => !substitutedOutIds.includes(id)),
+            ...substitutedInIds
+        ];
+
+        return squad.filter(player => activePlayerIds.includes(player.id));
+    };
+
 
     const handleDeleteEvent = async (event) => {
         const isGoal = event.type === 'GOAL' || event.type === 'OWN_GOAL';
@@ -246,7 +347,8 @@ const LiveMatchUpdatePage = () => {
     if (!match) return <div className="p-8 text-center text-red-500">Match not found</div>;
 
     const tabs = [
-        { id: 'lineups', label: 'Lineups', icon: <Users size={18} /> },
+        { id: 'lineups', label: 'Edit Lineups', icon: <Users size={18} /> },
+        { id: 'view', label: 'View Lineups', icon: <Eye size={18} /> },
         { id: 'control', label: 'Live Control', icon: <Activity size={18} /> },
         { id: 'summary', label: 'Match Sheet', icon: <FileText size={18} /> },
     ];
@@ -435,6 +537,29 @@ const LiveMatchUpdatePage = () => {
                     </div>
                 )}
 
+                {activeTab === 'view' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white rounded-xl p-6 shadow-sm border">
+                            <LineupDisplay
+                                lineup={homeLineup}
+                                squad={homeSquad}
+                                teamName={match.homeTeamName}
+                                teamColor="#3b82f6"
+                                formation={homeLineup?.formation || '4-4-2'}
+                            />
+                        </div>
+                        <div className="bg-white rounded-xl p-6 shadow-sm border">
+                            <LineupDisplay
+                                lineup={awayLineup}
+                                squad={awaySquad}
+                                teamName={match.awayTeamName}
+                                teamColor="#ef4444"
+                                formation={awayLineup?.formation || '4-4-2'}
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'summary' && (
                     <div className="bg-white p-8 rounded-lg shadow-sm border text-center text-gray-500">
                         <FileText size={48} className="mx-auto mb-4 text-gray-300" />
@@ -454,20 +579,39 @@ const LiveMatchUpdatePage = () => {
                         </div>
                         <div className="p-6 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Select Player</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{selectedEventType === 'SUBSTITUTION' ? 'Player Going OUT' : 'Select Player'}</label>
                                 <select
                                     className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
                                     value={selectedPlayerId}
                                     onChange={(e) => setSelectedPlayerId(e.target.value)}
                                 >
                                     <option value="">-- Choose Player --</option>
-                                    {getActiveSquad().map(player => (
+                                    {(selectedEventType === 'SUBSTITUTION' ? getStarters() : getActivePlayers()).map(player => (
                                         <option key={player.id} value={player.id}>
-                                            #{player.shirtNumber} - {player.name} ({player.position})
+                                            #{player.shirt_number || '?'} - {player.full_name || player.name} ({player.position || 'N/A'})
                                         </option>
                                     ))}
                                 </select>
                             </div>
+
+                            {/* For SUBSTITUTION: Show second dropdown for player coming IN */}
+                            {selectedEventType === 'SUBSTITUTION' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Player Coming IN</label>
+                                    <select
+                                        className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
+                                        value={selectedSubstituteId}
+                                        onChange={(e) => setSelectedSubstituteId(e.target.value)}
+                                    >
+                                        <option value="">-- Choose Player --</option>
+                                        {getSubstitutes().map(player => (
+                                            <option key={player.id} value={player.id}>
+                                                #{player.shirt_number || '?'} - {player.full_name || player.name} ({player.position || 'N/A'})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             <div className="flex justify-end gap-3 pt-4">
                                 <button

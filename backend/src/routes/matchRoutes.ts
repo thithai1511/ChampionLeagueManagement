@@ -189,6 +189,7 @@ const createEventSchema = z.object({
   minute: z.number().int().min(0).max(130),
   description: z.string().trim().max(255).optional().nullable(),
   playerId: z.number().int().positive().optional().nullable(),
+  assistPlayerId: z.number().int().positive().optional().nullable(),
   playerName: z.string().trim().max(100).optional().nullable(),
 });
 
@@ -610,7 +611,8 @@ router.post("/:id/events", ...requireMatchManagement, async (req: any, res, next
       type: eventType as any,
       minute: payload.minute,
       description: payload.description ?? undefined,
-      playerId: payload.playerId ?? undefined // Pass raw player ID, service resolves name/seasonPlayerId
+      playerId: payload.playerId ?? undefined, // Pass raw player ID
+      assistPlayerId: payload.assistPlayerId ?? undefined
     });
 
     let playerName: string | null = payload.playerName ? payload.playerName.trim() : null;

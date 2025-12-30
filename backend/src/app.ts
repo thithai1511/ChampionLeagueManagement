@@ -34,6 +34,8 @@ import settingsRoutes from "./routes/settingsRoutes";
 import officialRoutes from "./routes/officialRoutes";
 import awardsRoutes from "./routes/awardsRoutes";
 import disciplineRoutes from "./routes/disciplineRoutes";
+import disciplinaryRoutes from "./routes/disciplinaryRoutes";
+import publicStandingsRoutes from "./routes/publicStandingsRoutes";
 import scheduleRoutes from "./routes/scheduleRoutes";
 import lineupValidationRoutes from "./routes/lineupValidationRoutes";
 import matchReportRoutes from "./routes/matchReportRoutes";
@@ -42,6 +44,7 @@ import matchOfficialRoutes from "./routes/matchOfficialRoutes";
 import participationFeeRoutes from "./routes/participationFeeRoutes";
 import playerOfMatchRoutes from "./routes/playerOfMatchRoutes";
 import stadiumRoutes from "./routes/stadiumRoutes";
+import playerPortalRoutes from "./routes/playerPortalRoutes";
 
 const app = express();
 
@@ -70,6 +73,8 @@ app.use("/api/rulesets", rulesetRoutes);
 // to prevent /:id from matching /:seasonId/awards or /:seasonId/discipline
 app.use("/api/seasons", awardsRoutes);
 app.use("/api/seasons", disciplineRoutes);
+app.use("/api/disciplinary", disciplinaryRoutes); // Disciplinary management
+app.use("/api/public/standings", publicStandingsRoutes); // Public standings (no auth)
 app.use("/api", seasonTeamRegistrationRoutes); // Team registration workflow
 app.use("/api", matchLifecycleRoutes); // Match lifecycle workflow
 app.use("/api/seasons", seasonRoutes);
@@ -95,6 +100,9 @@ app.use("/api/settings", settingsRoutes);
 // Admin routes
 app.use("/api/admin/standings", adminStandingsRoutes);
 app.use("/api/officials", officialRoutes);
+
+// Player Portal routes
+app.use("/api/player-portal", playerPortalRoutes);
 
 // Match-related routes
 app.use("/api/schedule", scheduleRoutes);

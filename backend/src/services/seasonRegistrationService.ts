@@ -752,9 +752,9 @@ export async function deleteRegistration(registrationId: number): Promise<void> 
 /**
  * Generate suggested invitations for a season
  * Logic theo quy định:
- * - 8 đội top 8 BXH mùa giải trước
+ * - 8 đội top 8 BXH mùa giải trước (giữ hạng)
  * - 2 đội thăng hạng từ giải dưới
- * Tổng: 10 đội tham gia
+ * Tổng: đúng 10 đội tham gia
  */
 export async function generateSuggestedInvitations(
   seasonId: number
@@ -764,12 +764,16 @@ export async function generateSuggestedInvitations(
   errors: string[];
   teams: { team_id: number; team_name: string; invite_type: string }[] 
 }> {
+  const MAX_RETAINED = 8; // Số đội giữ hạng từ mùa trước
+  const MAX_PROMOTED = 2; // Số đội thăng hạng
+  const MAX_TOTAL = MAX_RETAINED + MAX_PROMOTED; // Tổng 10 đội
+
   const errors: string[] = [];
   const createdTeams: { team_id: number; team_name: string; invite_type: string }[] = [];
   let created = 0;
   let skipped = 0;
 
-  // 1. Get previous season info
+  // 1. Validate season exists
   const seasonResult = await query<{ season_id: number; start_year: number }>(
     `SELECT season_id, YEAR(start_date) as start_year FROM seasons WHERE season_id = @seasonId`,
     { seasonId }
@@ -780,7 +784,25 @@ export async function generateSuggestedInvitations(
     return { created: 0, skipped: 0, errors, teams: [] };
   }
 
-  // 2. Find previous season
+  // 2. Get teams that already have registrations for this season
+  const existingResult = await query<{ team_id: number }>(
+    `SELECT team_id FROM season_team_registrations WHERE season_id = @seasonId`,
+    { seasonId }
+  );
+  const existingTeamIds = new Set(existingResult.recordset.map(r => r.team_id));
+  
+  // Check if we already have enough registrations
+  if (existingTeamIds.size >= MAX_TOTAL) {
+    errors.push(`Đã có ${existingTeamIds.size} đội đăng ký. Không cần tạo thêm lời mời.`);
+    return { created: 0, skipped: existingTeamIds.size, errors, teams: [] };
+  }
+
+  // Calculate how many more invitations we can create
+  const slotsAvailable = MAX_TOTAL - existingTeamIds.size;
+  const retainedSlotsAvailable = Math.min(MAX_RETAINED, slotsAvailable);
+  const promotedSlotsAvailable = Math.min(MAX_PROMOTED, slotsAvailable - retainedSlotsAvailable);
+
+  // 3. Find previous season for retained teams
   const previousSeasonResult = await query<{ season_id: number; name: string }>(
     `SELECT TOP 1 season_id, name FROM seasons 
      WHERE season_id < @seasonId 
@@ -788,63 +810,60 @@ export async function generateSuggestedInvitations(
     { seasonId }
   );
   
-  let top8Teams: { team_id: number; name: string }[] = [];
+  let retainedTeams: { team_id: number; name: string }[] = [];
   
   if (previousSeasonResult.recordset.length === 0) {
-    errors.push("Không tìm thấy mùa giải trước. Sẽ mời tất cả đội trong hệ thống.");
+    errors.push("Không tìm thấy mùa giải trước. Sẽ lấy 8 đội đầu tiên trong hệ thống làm đội giữ hạng.");
     
-    // Fallback: get all teams if no previous season
-    const allTeamsResult = await query<{ team_id: number; name: string }>(
-      `SELECT TOP 10 team_id, name FROM teams ORDER BY name`
+    // Fallback: get first 8 teams (excluding already registered)
+    const fallbackResult = await query<{ team_id: number; name: string }>(
+      `SELECT TOP ${retainedSlotsAvailable} team_id, name FROM teams 
+       WHERE team_id NOT IN (SELECT team_id FROM season_team_registrations WHERE season_id = @seasonId)
+       ORDER BY name`,
+      { seasonId }
     );
-    top8Teams = allTeamsResult.recordset;
+    retainedTeams = fallbackResult.recordset;
   } else {
     const prevSeasonId = previousSeasonResult.recordset[0].season_id;
     const prevSeasonName = previousSeasonResult.recordset[0].name;
     
-    // 3. Get top 8 from previous season standings
+    // Get top 8 from previous season standings (excluding already registered)
     const standingsResult = await query<{ team_id: number; name: string; position: number }>(
-      `SELECT TOP 8 
+      `SELECT TOP ${retainedSlotsAvailable}
          s.team_id, 
          t.name,
          s.position
        FROM standings s
        INNER JOIN teams t ON s.team_id = t.team_id
        WHERE s.season_id = @prevSeasonId
+         AND s.team_id NOT IN (SELECT team_id FROM season_team_registrations WHERE season_id = @seasonId)
        ORDER BY s.position ASC`,
-      { prevSeasonId }
+      { prevSeasonId, seasonId }
     );
     
     if (standingsResult.recordset.length === 0) {
       errors.push(`Không có dữ liệu BXH mùa giải ${prevSeasonName}. Sẽ lấy 8 đội đầu tiên trong hệ thống.`);
       
-      // Fallback: get first 8 teams
+      // Fallback: get first teams not already registered
       const fallbackResult = await query<{ team_id: number; name: string }>(
-        `SELECT TOP 8 team_id, name FROM teams ORDER BY name`
+        `SELECT TOP ${retainedSlotsAvailable} team_id, name FROM teams 
+         WHERE team_id NOT IN (SELECT team_id FROM season_team_registrations WHERE season_id = @seasonId)
+         ORDER BY name`,
+        { seasonId }
       );
-      top8Teams = fallbackResult.recordset;
-    } else if (standingsResult.recordset.length < 8) {
-      errors.push(`BXH mùa trước chỉ có ${standingsResult.recordset.length} đội, cần 8 đội.`);
-      top8Teams = standingsResult.recordset;
+      retainedTeams = fallbackResult.recordset;
     } else {
-      top8Teams = standingsResult.recordset;
+      if (standingsResult.recordset.length < retainedSlotsAvailable) {
+        errors.push(`BXH mùa trước chỉ có ${standingsResult.recordset.length} đội đủ điều kiện.`);
+      }
+      retainedTeams = standingsResult.recordset;
     }
   }
-  
-  // 4. Get teams that already have registrations for this season
-  const existingResult = await query<{ team_id: number }>(
-    `SELECT team_id FROM season_team_registrations WHERE season_id = @seasonId`,
-    { seasonId }
-  );
-  const existingTeamIds = new Set(existingResult.recordset.map(r => r.team_id));
 
-  // 5. Create invitations for top 8 (retained teams)
-  for (const team of top8Teams) {
-    if (existingTeamIds.has(team.team_id)) {
-      skipped++;
-      continue;
-    }
-
+  // 4. Create invitations for retained teams (max 8)
+  for (const team of retainedTeams) {
+    if (created >= retainedSlotsAvailable) break; // Ensure we don't exceed limit
+    
     try {
       await createRegistration(seasonId, team.team_id, undefined, "DRAFT_INVITE");
       created++;
@@ -860,43 +879,49 @@ export async function generateSuggestedInvitations(
     }
   }
 
-  // 6. For promoted teams - currently we don't have lower league data
-  // So we'll note this as a limitation
-  if (top8Teams.length < 10) {
-    const neededPromoted = 10 - top8Teams.length - created;
-    if (neededPromoted > 0) {
-      errors.push(`Cần thêm ${neededPromoted} đội thăng hạng từ giải dưới. Hiện chưa có dữ liệu giải hạng dưới.`);
+  // 5. Get promoted teams (teams not in previous season standings or new teams)
+  // Currently we select from remaining teams in the system
+  if (promotedSlotsAvailable > 0 && created < slotsAvailable) {
+    const retainedTeamIds = retainedTeams.map(t => t.team_id);
+    const excludeIds = [...existingTeamIds, ...retainedTeamIds, ...createdTeams.map(t => t.team_id)];
+    
+    const promotedTeamsResult = await query<{ team_id: number; name: string }>(
+      `SELECT TOP ${promotedSlotsAvailable} team_id, name FROM teams 
+       WHERE team_id NOT IN (${excludeIds.length > 0 ? excludeIds.join(',') : '0'})
+         AND status = 'active'
+       ORDER BY name`,
+      {}
+    );
+    
+    if (promotedTeamsResult.recordset.length === 0) {
+      errors.push(`Không tìm thấy đội thăng hạng. Cần thêm ${promotedSlotsAvailable} đội thăng hạng từ giải dưới.`);
+    } else {
+      for (const team of promotedTeamsResult.recordset) {
+        if (created + existingTeamIds.size >= MAX_TOTAL) break; // Hard stop at 10 total
+        
+        try {
+          await createRegistration(seasonId, team.team_id, undefined, "DRAFT_INVITE");
+          created++;
+          createdTeams.push({ 
+            team_id: team.team_id, 
+            team_name: team.name, 
+            invite_type: "promoted"
+          });
+        } catch (error: any) {
+          console.error(`Failed to create invitation for team ${team.team_id}:`, error);
+          errors.push(`Lỗi khi tạo lời mời cho ${team.name}: ${error.message || "Unknown error"}`);
+        }
+      }
     }
   }
 
-  // 7. If we still need more teams, get additional teams (for demo purposes)
-  const totalInvited = created + existingTeamIds.size;
-  if (totalInvited < 10) {
-    const neededMore = 10 - totalInvited;
-    const additionalTeamsResult = await query<{ team_id: number; name: string }>(
-      `SELECT TOP (@needed) team_id, name FROM teams 
-       WHERE team_id NOT IN (
-         SELECT team_id FROM season_team_registrations WHERE season_id = @seasonId
-       )
-       AND team_id NOT IN (${top8Teams.map(t => t.team_id).join(',') || '0'})
-       ORDER BY name`,
-      { needed: neededMore, seasonId }
-    );
-    
-    for (const team of additionalTeamsResult.recordset) {
-      try {
-        await createRegistration(seasonId, team.team_id, undefined, "DRAFT_INVITE");
-        created++;
-        createdTeams.push({ 
-          team_id: team.team_id, 
-          team_name: team.name, 
-          invite_type: "promoted" // Mark as promoted for display
-        });
-      } catch (error: any) {
-        console.error(`Failed to create invitation for team ${team.team_id}:`, error);
-        errors.push(`Lỗi khi tạo lời mời cho ${team.name}: ${error.message || "Unknown error"}`);
-      }
-    }
+  // Final summary
+  const retainedCount = createdTeams.filter(t => t.invite_type === "retained").length;
+  const promotedCount = createdTeams.filter(t => t.invite_type === "promoted").length;
+  
+  if (retainedCount + existingTeamIds.size + promotedCount < MAX_TOTAL) {
+    const missing = MAX_TOTAL - (retainedCount + existingTeamIds.size + promotedCount);
+    errors.push(`Còn thiếu ${missing} đội để đủ 10 đội tham gia.`);
   }
 
   return { created, skipped, errors, teams: createdTeams };

@@ -44,7 +44,9 @@ class RoleService {
   async getRolePermissions(roleId) {
     const endpoint = withParams(ENDPOINTS.PERMISSIONS, { id: roleId })
     const response = await ApiService.get(endpoint)
-    return Array.isArray(response) ? response.map(normalizePermission) : []
+    // ApiService wraps arrays in {data: array}, extract it
+    const permissionsArray = Array.isArray(response) ? response : (response?.data || [])
+    return Array.isArray(permissionsArray) ? permissionsArray.map(normalizePermission) : []
   }
 
   async setRolePermissions(roleId, permissionIds = []) {

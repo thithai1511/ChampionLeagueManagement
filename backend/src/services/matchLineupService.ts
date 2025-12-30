@@ -1,5 +1,5 @@
 import { query } from "../db/sqlServer";
-import { canTeamParticipate } from "./participationFeeService";
+// import { canTeamParticipate } from "./participationFeeService"; // Giữ lại nếu cần, hoặc xóa nếu không dùng
 
 /**
  * BTC Requirements for Match Lineup - Quy định khi thi đấu
@@ -356,16 +356,6 @@ export const submitLineup = async (
 ): Promise<{ success: boolean; errors?: string[] }> => {
     // 0. Check Participation Fee (via season_team_registrations source of truth)
     // Need to resolve team_id from season_team_id first.
-    // Assuming season_teams table maps season_team_id to (season_id, team_id) or equivalent.
-
-    // User Mentioned: "match chỉ có home_season_team_id / away_season_team_id, cần JOIN: season_team_participants để ra team_id"
-    // However, I previously used 'season_teams'. 
-    // To be safe and follow instruction about JOINing, I'll attempt to verify if I can just use season_teams or if I must use season_team_participants.
-    // Given the context of "Team Submit", input.seasonTeamId is likely the season_team_id.
-
-    // Let's stick to what we know: Query season_team_registrations.
-    // We need team_id and season_id.
-    // We can get them from season_teams if that exists (as used before).
 
     const teamInfo = await query<{ team_id: number; season_id: number }>(`
         SELECT team_id, season_id FROM season_teams WHERE season_team_id = @seasonTeamId
@@ -398,8 +388,8 @@ export const submitLineup = async (
     }
 
     // Determine team type based on match info
-    const matchInfo = await query<{ home_season_team_id: number; away_season_team_id: number }>(`
-        SELECT home_season_team_id, away_season_team_id
+    const matchInfo = await query<{ home_season_team_id: number; away_season_team_id: number; status: string }>(`
+        SELECT home_season_team_id, away_season_team_id, status
         FROM matches
         WHERE match_id = @matchId
     `, { matchId: input.matchId });
@@ -408,13 +398,20 @@ export const submitLineup = async (
         return { success: false, errors: ['Không tìm thấy thông tin trận đấu'] };
     }
 
-    const { home_season_team_id, away_season_team_id } = matchInfo.recordset[0];
+    // === START RESOLVED CONFLICT ===
+    const { home_season_team_id, away_season_team_id, status: matchStatus } = matchInfo.recordset[0];
 
+    // Check from MAIN: Prevent editing if match is completed
+    if (matchStatus === 'completed') {
+        return { success: false, errors: ['Không thể sửa đội hình của trận đấu đã kết thúc'] };
+    }
+
+    // Logic from LEPHI: Determine Home/Away safely
     let teamType: 'home' | 'away';
     if (home_season_team_id === input.seasonTeamId) teamType = 'home';
     else if (away_season_team_id === input.seasonTeamId) teamType = 'away';
     else return { success: false, errors: ['Đội không thuộc trận đấu này'] };
-
+    // === END RESOLVED CONFLICT ===
 
     // Clear existing lineup for this team
     await query(`
