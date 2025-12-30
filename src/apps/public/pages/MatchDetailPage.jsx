@@ -209,8 +209,12 @@ const MatchDetailPage = () => {
                       src={match.homeTeamLogo || match.home_team_logo} 
                       alt={match.homeTeamName || match.home_team_name} 
                       className="w-16 h-16 md:w-20 md:h-20 object-contain"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
                     />
-                  ) : (
+                  ) : null}
+                  {(!match.homeTeamLogo && !match.home_team_logo) && (
                     <Shield size={48} className="text-white/40" />
                   )}
                 </div>
@@ -259,8 +263,12 @@ const MatchDetailPage = () => {
                       src={match.awayTeamLogo || match.away_team_logo} 
                       alt={match.awayTeamName || match.away_team_name} 
                       className="w-16 h-16 md:w-20 md:h-20 object-contain"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
                     />
-                  ) : (
+                  ) : null}
+                  {(!match.awayTeamLogo && !match.away_team_logo) && (
                     <Shield size={48} className="text-white/40" />
                   )}
                 </div>
