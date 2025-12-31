@@ -25,6 +25,7 @@ import OfficialsManagement from './pages/OfficialsManagement'
 import StatisticsPage from './pages/StatisticsPage'
 import SeasonAndRulesPage from './pages/SeasonAndRulesPage'
 import MatchLineupReviewPage from './pages/MatchLineupReviewPage'
+import SeasonRegistrationWorkflowPage from './pages/SeasonRegistrationWorkflowPage'
 
 // Team Admin pages
 import TeamAdminDashboard from './pages/TeamAdminDashboard';
@@ -89,32 +90,6 @@ const AdminApp = ({ onLogout, currentUser }) => {
           }
         />
         <Route path="standings/view" element={<StandingsPage />} />
-        
-        {/* Các route CMS từ feature/auth-fix */}
-        <Route
-          path="news"
-          element={
-            <AccessGuard permission="manage_content" currentUser={currentUser}>
-              <NewsManagement />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="media"
-          element={
-            <AccessGuard permission="manage_content" currentUser={currentUser}>
-              <MediaLibrary />
-            </AccessGuard>
-          }
-        />
-        <Route
-          path="content"
-          element={
-            <AccessGuard permission="manage_content" currentUser={currentUser}>
-              <CMSManagement />
-            </AccessGuard>
-          }
-        />
 
         <Route
           path="users"
