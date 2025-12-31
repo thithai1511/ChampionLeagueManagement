@@ -143,6 +143,69 @@ class UserService {
       throw error
     }
   }
+
+  async getUserOfficial(userId) {
+    console.log('UserService.getUserOfficial: Getting official for user:', userId)
+    const endpoint = withParams(ENDPOINTS.OFFICIAL, { id: userId })
+    console.log('UserService.getUserOfficial: Endpoint:', endpoint)
+    
+    try {
+      const response = await ApiService.get(endpoint)
+      console.log('UserService.getUserOfficial: Raw response:', response)
+      
+      // If no official found, return null
+      if (!response || !response.data) {
+        return null
+      }
+      
+      const official = response.data
+      return {
+        officialId: official.official_id ?? official.officialId ?? official.id,
+        fullName: official.full_name ?? official.fullName ?? '',
+        roleSpecialty: official.role_specialty ?? official.roleSpecialty ?? '',
+        licenseNumber: official.license_number ?? official.licenseNumber ?? null,
+        federationLevel: official.federation_level ?? official.federationLevel ?? null,
+        status: official.status ?? 'active'
+      }
+    } catch (error) {
+      console.error('UserService.getUserOfficial: Error:', error)
+      // If 404, return null (no official assigned)
+      if (error?.status === 404) {
+        return null
+      }
+      throw error
+    }
+  }
+
+  async assignOfficialToUser(userId, officialId) {
+    console.log('UserService.assignOfficialToUser:', { userId, officialId })
+    const endpoint = withParams(ENDPOINTS.OFFICIAL, { id: userId })
+    console.log('UserService.assignOfficialToUser: Endpoint:', endpoint)
+    
+    try {
+      const response = await ApiService.post(endpoint, { officialId })
+      console.log('UserService.assignOfficialToUser: Success response:', response)
+      return response
+    } catch (error) {
+      console.error('UserService.assignOfficialToUser: Error:', error)
+      throw error
+    }
+  }
+
+  async removeOfficialFromUser(userId) {
+    console.log('UserService.removeOfficialFromUser:', { userId })
+    const endpoint = withParams(ENDPOINTS.REMOVE_OFFICIAL, { id: userId })
+    console.log('UserService.removeOfficialFromUser: Endpoint:', endpoint)
+    
+    try {
+      const response = await ApiService.delete(endpoint)
+      console.log('UserService.removeOfficialFromUser: Success response:', response)
+      return response
+    } catch (error) {
+      console.error('UserService.removeOfficialFromUser: Error:', error)
+      throw error
+    }
+  }
 }
 
 export default new UserService()

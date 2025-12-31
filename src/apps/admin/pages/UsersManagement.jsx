@@ -18,6 +18,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import UserFormModal from '../components/UserFormModal'
 import ConfirmationModal from '../components/ConfirmationModal'
 import TeamAssignmentModal from '../components/TeamAssignmentModal'
+import OfficialAssignmentModal from '../components/OfficialAssignmentModal'
 import UserService from '../../../layers/application/services/UserService'
 import RoleService from '../../../layers/application/services/RoleService'
 import { useAuth } from '../../../layers/application/context/AuthContext'
@@ -87,6 +88,8 @@ const UsersManagement = () => {
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false)
   const [selectedUserForTeam, setSelectedUserForTeam] = useState(null)
   const [userTeamsMap, setUserTeamsMap] = useState({})
+  const [isOfficialModalOpen, setIsOfficialModalOpen] = useState(false)
+  const [selectedUserForOfficial, setSelectedUserForOfficial] = useState(null)
 
   const isSuperAdmin = useMemo(() => {
     return Array.isArray(currentUser?.roles) && currentUser.roles.includes('super_admin')
@@ -397,6 +400,21 @@ const UsersManagement = () => {
     }
   }
 
+  const handleOpenOfficialModal = (user) => {
+    setSelectedUserForOfficial(user)
+    setIsOfficialModalOpen(true)
+  }
+
+  const handleCloseOfficialModal = () => {
+    setIsOfficialModalOpen(false)
+    setSelectedUserForOfficial(null)
+  }
+
+  const handleOfficialAssignmentSuccess = async () => {
+    // Refresh user list to show updated official info
+    await loadUsers()
+  }
+
   const renderStatusBadge = (status) => (
     <span
       className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
@@ -637,14 +655,26 @@ const UsersManagement = () => {
                           <Edit size={16} />
                         </button>
                         {isSuperAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenTeamModal(user)}
-                            className="text-gray-600 hover:text-cyan-600"
-                            title="Gán đội bóng"
-                          >
-                            <Users size={16} />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTeamModal(user)}
+                              className="text-gray-600 hover:text-cyan-600"
+                              title="Gán đội bóng"
+                            >
+                              <Users size={16} />
+                            </button>
+                            {(pickPrimaryRole(user)?.code === 'match_official' || pickPrimaryRole(user)?.code === 'supervisor') && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenOfficialModal(user)}
+                                className="text-gray-600 hover:text-emerald-600"
+                                title="Gán trọng tài"
+                              >
+                                <Shield size={16} />
+                              </button>
+                            )}
+                          </>
                         )}
                         <button
                           type="button"
@@ -724,6 +754,16 @@ const UsersManagement = () => {
           userId={selectedUserForTeam.id}
           userName={`${selectedUserForTeam.firstName} ${selectedUserForTeam.lastName}`}
           onSuccess={handleTeamAssignmentSuccess}
+        />
+      )}
+
+      {isSuperAdmin && selectedUserForOfficial && (
+        <OfficialAssignmentModal
+          isOpen={isOfficialModalOpen}
+          onClose={handleCloseOfficialModal}
+          userId={selectedUserForOfficial.id}
+          userName={`${selectedUserForOfficial.firstName} ${selectedUserForOfficial.lastName}`}
+          onSuccess={handleOfficialAssignmentSuccess}
         />
       )}
     </div>

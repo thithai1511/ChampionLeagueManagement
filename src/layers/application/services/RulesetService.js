@@ -183,10 +183,12 @@ const buildRankingPayload = (parameters = {}) => {
 class RulesetService {
   async listRulesets() {
     const response = await ApiService.get(ENDPOINTS.LIST)
-    if (!Array.isArray(response)) {
+    // ApiService.get() returns { data: ... } or array wrapped in { data: ... }
+    const data = response?.data ?? response
+    if (!Array.isArray(data)) {
       return []
     }
-    return response.map(normalizeRulesetSummary)
+    return data.map(normalizeRulesetSummary)
   }
 
   async getRulesetById(rulesetId) {
@@ -212,34 +214,43 @@ class RulesetService {
     }
 
     let rulesetId = id
-    if (rulesetId) {
-      const endpoint = withParams(ENDPOINTS.UPDATE, { id: rulesetId })
-      await ApiService.put(endpoint, baseBody)
-    } else {
-      const response = await ApiService.post(ENDPOINTS.CREATE, baseBody)
-      rulesetId = response?.rulesetId ?? response?.data?.rulesetId
+    try {
+      if (rulesetId) {
+        const endpoint = withParams(ENDPOINTS.UPDATE, { id: rulesetId })
+        await ApiService.put(endpoint, baseBody)
+      } else {
+        const response = await ApiService.post(ENDPOINTS.CREATE, baseBody)
+        rulesetId = response?.rulesetId ?? response?.data?.rulesetId
+      }
+
+      if (!rulesetId) {
+        throw new Error('Ruleset identifier missing after save')
+      }
+
+      await ApiService.put(
+        withParams(ENDPOINTS.PLAYER_CONSTRAINTS, { id: rulesetId }),
+        buildConstraintsPayload(parameters)
+      )
+
+      await ApiService.put(
+        withParams(ENDPOINTS.SCORING_RULES, { id: rulesetId }),
+        buildScoringPayload(parameters)
+      )
+
+      await ApiService.put(
+        withParams(ENDPOINTS.RANKING_RULES, { id: rulesetId }),
+        buildRankingPayload(parameters)
+      )
+
+      return this.getRulesetById(rulesetId)
+    } catch (error) {
+      // Extract error message properly from ApiService error object
+      const errorMessage = error?.message || error?.error || 'Không thể lưu bộ quy tắc'
+      const enhancedError = new Error(errorMessage)
+      enhancedError.status = error?.status
+      enhancedError.originalError = error
+      throw enhancedError
     }
-
-    if (!rulesetId) {
-      throw new Error('Ruleset identifier missing after save')
-    }
-
-    await ApiService.put(
-      withParams(ENDPOINTS.PLAYER_CONSTRAINTS, { id: rulesetId }),
-      buildConstraintsPayload(parameters)
-    )
-
-    await ApiService.put(
-      withParams(ENDPOINTS.SCORING_RULES, { id: rulesetId }),
-      buildScoringPayload(parameters)
-    )
-
-    await ApiService.put(
-      withParams(ENDPOINTS.RANKING_RULES, { id: rulesetId }),
-      buildRankingPayload(parameters)
-    )
-
-    return this.getRulesetById(rulesetId)
   }
 
   async publishRuleset(rulesetId) {

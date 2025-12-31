@@ -260,26 +260,65 @@ export async function getReportsForDisciplinaryReview(
 
 /**
  * Review supervisor report (BTC)
+ * @param reportId - Report ID
+ * @param reviewedBy - User ID of reviewer
+ * @param action - 'approve' | 'rejected' | 'request_changes'
+ * @param feedback - Review notes/feedback
  */
 export async function reviewSupervisorReport(
   reportId: number,
   reviewedBy: number,
-  notes?: string
+  action: 'approve' | 'rejected' | 'request_changes' = 'approve',
+  feedback?: string
 ): Promise<void> {
+  // Map action to review_status
+  const reviewStatus = action === 'approve' ? 'approved' : 
+                       action === 'rejected' ? 'rejected' : 
+                       'changes_requested';
+
   await query(
     `
     UPDATE supervisor_reports
     SET reviewed_by = @reviewedBy,
         reviewed_at = SYSUTCDATETIME(),
+        review_status = @reviewStatus,
+        review_feedback = @feedback,
         recommendations = CASE 
-          WHEN @notes IS NOT NULL 
-          THEN CONCAT(ISNULL(recommendations, ''), CHAR(13) + CHAR(10) + 'BTC Review: ', @notes)
+          WHEN @feedback IS NOT NULL AND LEN(@feedback) > 0
+          THEN CONCAT(ISNULL(recommendations, ''), CHAR(13) + CHAR(10) + 'BTC Review (', @reviewStatus, '): ', @feedback)
           ELSE recommendations
         END
-    WHERE id = @reportId
+    WHERE id = @reportId OR report_id = @reportId
     `,
-    { reportId, reviewedBy, notes: notes || null }
+    { reportId, reviewedBy, reviewStatus, feedback: feedback || null }
   );
+
+  // Send notification to the report submitter
+  try {
+    const report = await query<{ supervisor_id: number; match_id: number }>(
+      `SELECT supervisor_id, match_id FROM supervisor_reports WHERE id = @reportId OR report_id = @reportId`,
+      { reportId }
+    );
+    
+    if (report.recordset.length > 0) {
+      const { supervisor_id, match_id } = report.recordset[0];
+      const notificationService = new NotificationService();
+      
+      await notificationService.createNotification(
+        supervisor_id,
+        'report_reviewed',
+        action === 'approve' ? '✅ Báo cáo đã được duyệt' : 
+        action === 'rejected' ? '❌ Báo cáo bị từ chối' :
+        '📝 Yêu cầu sửa đổi báo cáo',
+        feedback ? `Phản hồi: ${feedback}` : undefined,
+        'match',
+        match_id,
+        `/referee/match/${match_id}`
+      );
+    }
+  } catch (notifError) {
+    console.error('Failed to send review notification:', notifError);
+  }
 }
 
 /**

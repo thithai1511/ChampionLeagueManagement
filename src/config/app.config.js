@@ -91,7 +91,9 @@ export const APP_CONFIG = {
         ROLES: '/users/:id/roles',
         REMOVE_ROLE: '/users/:id/roles/:roleId',
         TEAMS: '/users/:id/teams',
-        REMOVE_TEAM: '/users/:id/teams/:teamId'
+        REMOVE_TEAM: '/users/:id/teams/:teamId',
+        OFFICIAL: '/users/:id/official',
+        REMOVE_OFFICIAL: '/users/:id/official'
       },
       ROLES: {
         LIST: '/roles',

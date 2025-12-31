@@ -1,8 +1,73 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, requirePermission } from "../middleware/authMiddleware";
 import * as matchReportService from "../services/matchReportService";
+import { query } from "../db/sqlServer";
 
 const router = Router();
+
+/**
+ * GET /api/match-reports
+ * Get all referee match reports (Admin only)
+ */
+router.get("/", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const seasonId = req.query.seasonId ? parseInt(req.query.seasonId as string, 10) : undefined;
+    
+    let whereClause = '';
+    const params: Record<string, unknown> = {};
+    
+    if (seasonId) {
+      whereClause = 'WHERE m.season_id = @seasonId';
+      params.seasonId = seasonId;
+    }
+    
+    const result = await query<{
+      report_id: number;
+      match_id: number;
+      home_team_name: string;
+      away_team_name: string;
+      home_score: number | null;
+      away_score: number | null;
+      match_date: string;
+      weather: string | null;
+      attendance: number | null;
+      notes: string | null;
+      submitted_at: string;
+      official_name: string | null;
+    }>(
+      `
+      SELECT 
+        mr.match_report_id AS report_id,
+        mr.match_id,
+        ht.name AS home_team_name,
+        at.name AS away_team_name,
+        mr.home_score,
+        mr.away_score,
+        CONVERT(VARCHAR(33), m.scheduled_kickoff, 127) AS match_date,
+        mr.weather,
+        mr.attendance,
+        mr.additional_notes AS notes,
+        CONVERT(VARCHAR(23), mr.submitted_at, 126) AS submitted_at,
+        o.full_name AS official_name
+      FROM match_reports mr
+      INNER JOIN matches m ON mr.match_id = m.match_id
+      INNER JOIN season_team_participants hstp ON m.home_season_team_id = hstp.season_team_id
+      INNER JOIN teams ht ON hstp.team_id = ht.team_id
+      INNER JOIN season_team_participants astp ON m.away_season_team_id = astp.season_team_id
+      INNER JOIN teams at ON astp.team_id = at.team_id
+      LEFT JOIN officials o ON mr.reporting_official_id = o.official_id
+      ${whereClause}
+      ORDER BY mr.submitted_at DESC
+      `,
+      params
+    );
+    
+    res.json({ data: result.recordset || [] });
+  } catch (error: any) {
+    console.error("Get all match reports error:", error);
+    res.status(500).json({ error: "Failed to fetch match reports" });
+  }
+});
 
 /**
  * GET /api/match-reports/:matchId

@@ -14,6 +14,7 @@ import RolesPermissions from './pages/RolesPermissions'
 import SettingsPage from './pages/SettingsPage'
 import ReportsPage from './pages/ReportsPage'
 import SupervisorReportsPage from './pages/SupervisorReportsPage'
+import RefereeReportsPage from './pages/RefereeReportsPage'
 import StandingsPage from "../public/pages/StandingsPage";
 import ScheduleManagement from './pages/ScheduleManagement';
 import LiveMatchUpdatePage from './pages/LiveMatchUpdatePage';
@@ -113,6 +114,14 @@ const AdminApp = ({ onLogout, currentUser }) => {
           element={
             <AccessGuard permission="manage_matches" currentUser={currentUser}>
               <SupervisorReportsPage />
+            </AccessGuard>
+          }
+        />
+        <Route
+          path="referee-reports"
+          element={
+            <AccessGuard permission="manage_matches" currentUser={currentUser}>
+              <RefereeReportsPage />
             </AccessGuard>
           }
         />

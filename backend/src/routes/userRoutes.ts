@@ -13,6 +13,7 @@ import {
   updateUser,
 } from "../services/userService";
 import { assignTeamToUser, listUserTeams, removeTeamFromUser } from "../services/userTeamService";
+import { assignOfficialToUser, getUserOfficial, removeOfficialFromUser } from "../services/userOfficialService";
 import { AuthenticatedRequest } from "../types";
 
 const router = Router();
@@ -173,6 +174,44 @@ router.delete(
   requirePermission("manage_users"),
   async (req: AuthenticatedRequest, res) => {
     await removeTeamFromUser(Number(req.params.id), Number(req.params.teamId), req.user!.sub);
+    res.status(204).send();
+  }
+);
+
+router.get(
+  "/:id/official",
+  requireAuth,
+  requirePermission("manage_users"),
+  async (req, res) => {
+    const official = await getUserOfficial(Number(req.params.id));
+    if (!official) {
+      return res.status(404).json({ error: "No official assigned to this user" });
+    }
+    res.json({ data: official });
+  }
+);
+
+const officialAssignmentSchema = z.object({
+  officialId: z.number().int().positive(),
+});
+
+router.post(
+  "/:id/official",
+  requireAuth,
+  requirePermission("manage_users"),
+  validate({ schema: officialAssignmentSchema }),
+  async (req: AuthenticatedRequest, res) => {
+    await assignOfficialToUser(Number(req.params.id), req.body.officialId, req.user!.sub);
+    res.status(204).send();
+  }
+);
+
+router.delete(
+  "/:id/official",
+  requireAuth,
+  requirePermission("manage_users"),
+  async (req: AuthenticatedRequest, res) => {
+    await removeOfficialFromUser(Number(req.params.id), req.user!.sub);
     res.status(204).send();
   }
 );

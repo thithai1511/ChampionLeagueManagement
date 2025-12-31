@@ -336,7 +336,11 @@ const SeasonAndRulesPage = () => {
       const saved = await RulesetService.saveRuleset(payload)
       toast.success(payload.id ? 'Đã cập nhật bộ quy tắc.' : 'Đã tạo bộ quy tắc mới.')
       closeRulesetForm()
-      await loadRulesets({ preferredId: saved.id, silent: true })
+      // Reload both rulesets list and metadata (for dropdown in season form)
+      await Promise.all([
+        loadRulesets({ preferredId: saved.id, silent: true }),
+        loadMetadata()
+      ])
       setSelectedRulesetId(saved.id)
       refreshSelectedRuleset()
     } catch (error) {
@@ -353,7 +357,10 @@ const SeasonAndRulesPage = () => {
     try {
       await RulesetService.publishRuleset(selectedRulesetId)
       toast.success('Đã xuất bản bộ quy tắc.')
-      await loadRulesets({ preferredId: selectedRulesetId, silent: true })
+      await Promise.all([
+        loadRulesets({ preferredId: selectedRulesetId, silent: true }),
+        loadMetadata()
+      ])
       refreshSelectedRuleset()
     } catch (error) {
       console.error(error)
@@ -374,7 +381,10 @@ const SeasonAndRulesPage = () => {
       await RulesetService.deleteRuleset(selectedRulesetId)
       toast.success('Đã xóa bộ quy tắc.')
       setSelectedRuleset(null)
-      await loadRulesets()
+      await Promise.all([
+        loadRulesets(),
+        loadMetadata()
+      ])
     } catch (error) {
       console.error(error)
       toast.error('Không thể xóa bộ quy tắc.')

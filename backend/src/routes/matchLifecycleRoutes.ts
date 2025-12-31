@@ -86,6 +86,49 @@ router.post(
 );
 
 // ============================================================
+// REFEREE ROUTES - Match Reporting
+// ============================================================
+
+/**
+ * POST /api/matches/:matchId/referee-report
+ * Submit referee match report (after match ends)
+ * Body: {
+ *   weather?, attendance?, matchSummary?, notes?, incidents?,
+ *   mvpPlayerId?, mvpPlayerName?, mvpTeamName?,
+ *   homeScore?, awayScore?, goalScorers?, cardDetails?,
+ *   totalYellowCards?, totalRedCards?
+ * }
+ */
+router.post(
+  "/matches/:matchId/referee-report",
+  requireAuth,
+  requireAnyPermission("manage_matches", "official_role", "submit_match_reports"),
+  controller.submitRefereeReport
+);
+
+/**
+ * POST /api/matches/:matchId/mark-referee-report
+ * Mark that referee has submitted their report
+ */
+router.post(
+  "/matches/:matchId/mark-referee-report",
+  requireAuth,
+  requireAnyPermission("manage_matches", "official_role", "submit_match_reports"),
+  controller.markRefereeReportSubmitted
+);
+
+/**
+ * POST /api/matches/:matchId/mark-supervisor-report
+ * Mark that supervisor has submitted their report
+ */
+router.post(
+  "/matches/:matchId/mark-supervisor-report",
+  requireAuth,
+  requireAnyPermission("manage_matches", "official_role"),
+  controller.markSupervisorReportSubmitted
+);
+
+// ============================================================
 // SUPERVISOR ROUTES
 // ============================================================
 

@@ -54,6 +54,7 @@ import seasonInvitationRoutes from "./routes/seasonInvitationRoutes";
 import playerStatsDisplayRoutes from "./routes/playerStatsDisplayRoutes";
 import playerPortalRoutes from "./routes/playerPortalRoutes";
 import goalTypeRoutes from "./routes/goalTypeRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 
 const app = express();
 
@@ -134,6 +135,9 @@ app.use("/api/match-details", matchDetailRoutes);
 
 // --- Player Portal ---
 app.use("/api/player-portal", playerPortalRoutes);
+
+// --- Notifications ---
+app.use("/api/notifications", notificationRoutes);
 
 // Sync and Import utilities (keep for future use if needed)
 app.use("/api/sync", syncRoutes);

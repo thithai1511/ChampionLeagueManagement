@@ -224,14 +224,19 @@ const RulesetManagement = () => {
     setIsSaving(true)
     try {
       const saved = await RulesetService.saveRuleset(payload)
-      toast.success(payload.id ? 'Ruleset updated.' : 'Ruleset created.')
+      toast.success(payload.id ? 'Bộ quy tắc đã được cập nhật.' : 'Bộ quy tắc đã được tạo thành công.')
       closeForm()
       await loadRulesets({ preferredId: saved.id, silent: true })
       setSelectedRulesetId(saved.id)
       refreshSelectedRuleset()
     } catch (error) {
-      console.error(error)
-      const message = error?.message ?? 'Unable to save ruleset.'
+      console.error('Error saving ruleset:', error)
+      // Extract error message from various possible error formats
+      const message = error?.message || 
+                      error?.error || 
+                      error?.originalError?.message ||
+                      error?.originalError?.error ||
+                      'Không thể lưu bộ quy tắc. Vui lòng thử lại.'
       toast.error(message)
     } finally {
       setIsSaving(false)

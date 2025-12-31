@@ -22,6 +22,21 @@ const LoginPage = () => {
   }, [status])
 
   const resolveRedirect = (signedInUser) => {
+    const userRoles = Array.isArray(signedInUser?.roles) ? signedInUser.roles : []
+    const isSupervisor = signedInUser?.role === 'supervisor' || userRoles.includes('supervisor')
+    const isMatchOfficial = signedInUser?.role === 'match_official' || userRoles.includes('match_official')
+    const isReferee = signedInUser?.role === 'referee' || userRoles.includes('referee')
+    
+    // Redirect supervisor to supervisor portal
+    if (isSupervisor) {
+      return '/supervisor/my-assignments'
+    }
+    
+    // Redirect match_official/referee to referee portal
+    if (isMatchOfficial || isReferee) {
+      return '/referee/my-matches'
+    }
+    
     const preferred = hasAdminPortalAccess(signedInUser) ? '/admin' : '/portal'
     const requested = location.state?.from
     const authPages = ['/login', '/register', '/signup']
