@@ -38,7 +38,7 @@ export interface TopMVP {
  */
 export async function getTopScorers(seasonId: number, limit: number = 10): Promise<TopScorer[]> {
   const pool = await getPool();
-  
+
   const result = await pool.request()
     .input('seasonId', sql.Int, seasonId)
     .input('limit', sql.Int, limit)
@@ -56,22 +56,21 @@ export async function getTopScorers(seasonId: number, limit: number = 10): Promi
       ),
       MatchesPlayed AS (
         SELECT 
-          pms.season_player_id,
-          COUNT(DISTINCT pms.match_id) as matches_played
-        FROM player_match_stats pms
-        INNER JOIN matches m ON pms.match_id = m.match_id
-        WHERE pms.season_id = @seasonId
-          AND pms.minutes_played > 0
+          me.season_player_id,
+          COUNT(DISTINCT me.match_id) as matches_played
+        FROM match_events me
+        INNER JOIN matches m ON me.match_id = m.match_id
+        WHERE me.season_id = @seasonId
           AND m.status = 'COMPLETED'
-        GROUP BY pms.season_player_id
+        GROUP BY me.season_player_id
       )
       SELECT TOP (@limit)
         gc.season_player_id,
         spr.player_id,
         p.full_name as player_name,
         spr.shirt_number,
-        stp.internal_team_id as team_id,
-        it.name as team_name,
+        stp.team_id as team_id,
+        t.name as team_name,
         p.nationality,
         gc.goals,
         ISNULL(mp.matches_played, 0) as matches_played
@@ -79,7 +78,7 @@ export async function getTopScorers(seasonId: number, limit: number = 10): Promi
       INNER JOIN season_player_registrations spr ON gc.season_player_id = spr.season_player_id
       INNER JOIN players p ON spr.player_id = p.player_id
       INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
-      INNER JOIN internal_teams it ON stp.internal_team_id = it.internal_team_id
+      INNER JOIN teams t ON stp.team_id = t.team_id
       LEFT JOIN MatchesPlayed mp ON gc.season_player_id = mp.season_player_id
       ORDER BY gc.goals DESC, mp.matches_played ASC, p.full_name ASC
     `);
@@ -104,7 +103,7 @@ export async function getTopScorers(seasonId: number, limit: number = 10): Promi
  */
 export async function getTopMVPs(seasonId: number, limit: number = 10): Promise<TopMVP[]> {
   const pool = await getPool();
-  
+
   // First try player_of_match table (the dedicated table for MOTM selections)
   const pomResult = await pool.request()
     .input('seasonId', sql.Int, seasonId)
@@ -123,21 +122,27 @@ export async function getTopMVPs(seasonId: number, limit: number = 10): Promise<
       ),
       MatchesPlayed AS (
         SELECT 
-          ml.season_player_id,
-          COUNT(DISTINCT ml.match_id) as matches_played
-        FROM match_lineups ml
-        INNER JOIN matches m ON ml.match_id = m.match_id
-        WHERE m.season_id = @seasonId
-          AND m.status = 'COMPLETED'
-        GROUP BY ml.season_player_id
+          id_list.season_player_id,
+          COUNT(DISTINCT id_list.match_id) as matches_played
+        FROM (
+          SELECT season_player_id, match_id FROM match_events WHERE season_id = @seasonId
+          UNION
+          SELECT spr.season_player_id, pom.match_id 
+          FROM player_of_match pom
+          INNER JOIN season_player_registrations spr ON pom.player_id = spr.player_id AND spr.season_id = @seasonId
+          WHERE pom.match_id IN (SELECT match_id FROM matches WHERE season_id = @seasonId)
+        ) id_list
+        INNER JOIN matches m ON id_list.match_id = m.match_id
+        WHERE m.status = 'COMPLETED'
+        GROUP BY id_list.season_player_id
       )
       SELECT TOP (@limit)
         mvc.season_player_id,
         spr.player_id,
         p.full_name as player_name,
         spr.shirt_number,
-        stp.internal_team_id as team_id,
-        it.name as team_name,
+        stp.team_id as team_id,
+        t.name as team_name,
         p.nationality,
         mvc.mvp_count,
         ISNULL(mp.matches_played, 0) as matches_played
@@ -145,7 +150,7 @@ export async function getTopMVPs(seasonId: number, limit: number = 10): Promise<
       INNER JOIN season_player_registrations spr ON mvc.season_player_id = spr.season_player_id
       INNER JOIN players p ON spr.player_id = p.player_id
       INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
-      INNER JOIN internal_teams it ON stp.internal_team_id = it.internal_team_id
+      INNER JOIN teams t ON stp.team_id = t.team_id
       LEFT JOIN MatchesPlayed mp ON mvc.season_player_id = mp.season_player_id
       ORDER BY mvc.mvp_count DESC, mp.matches_played ASC, p.full_name ASC
     `);
@@ -184,22 +189,21 @@ export async function getTopMVPs(seasonId: number, limit: number = 10): Promise<
       ),
       MatchesPlayed AS (
         SELECT 
-          pms.season_player_id,
-          COUNT(DISTINCT pms.match_id) as matches_played
-        FROM player_match_stats pms
-        INNER JOIN matches m ON pms.match_id = m.match_id
-        WHERE pms.season_id = @seasonId
-          AND pms.minutes_played > 0
+          me.season_player_id,
+          COUNT(DISTINCT me.match_id) as matches_played
+        FROM match_events me
+        INNER JOIN matches m ON me.match_id = m.match_id
+        WHERE me.season_id = @seasonId
           AND m.status = 'COMPLETED'
-        GROUP BY pms.season_player_id
+        GROUP BY me.season_player_id
       )
       SELECT TOP (@limit)
         mvc.season_player_id,
         spr.player_id,
         p.full_name as player_name,
         spr.shirt_number,
-        stp.internal_team_id as team_id,
-        it.name as team_name,
+        stp.team_id as team_id,
+        t.name as team_name,
         p.nationality,
         mvc.mvp_count,
         ISNULL(mp.matches_played, 0) as matches_played
@@ -207,7 +211,7 @@ export async function getTopMVPs(seasonId: number, limit: number = 10): Promise<
       INNER JOIN season_player_registrations spr ON mvc.season_player_id = spr.season_player_id
       INNER JOIN players p ON spr.player_id = p.player_id
       INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
-      INNER JOIN internal_teams it ON stp.internal_team_id = it.internal_team_id
+      INNER JOIN teams t ON stp.team_id = t.team_id
       LEFT JOIN MatchesPlayed mp ON mvc.season_player_id = mp.season_player_id
       ORDER BY mvc.mvp_count DESC, mp.matches_played ASC, p.full_name ASC
     `);

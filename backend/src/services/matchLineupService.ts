@@ -29,8 +29,8 @@ export interface MatchLineup {
 export const getMatchLineups = async (matchId: number): Promise<MatchLineup[]> => {
     const result = await query(
         `
-SELECT 
-        ml.lineup_id as matchLineupId,   -- Đổi tên alias này cho khớp với interface
+      SELECT 
+        ml.lineup_id as matchLineupId,
         ml.match_id as matchId,
         ml.season_id as seasonId,
         ml.season_team_id as seasonTeamId,

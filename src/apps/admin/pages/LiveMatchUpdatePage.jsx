@@ -12,6 +12,7 @@ import { useAuth } from '../../../layers/application/context/AuthContext';
 import { hasPermission } from '../utils/accessControl';
 import toast from 'react-hot-toast';
 import TeamLineupEditor from '../components/TeamLineupEditor';
+import InteractiveFormationPitch from '../components/InteractiveFormationPitch';
 import LineupDisplay from '../components/LineupDisplay';
 
 const LiveMatchUpdatePage = () => {
@@ -19,6 +20,7 @@ const LiveMatchUpdatePage = () => {
     const navigate = useNavigate();
     const [match, setMatch] = useState(null);
     const [activeTab, setActiveTab] = useState('control');
+    const [editorMode, setEditorMode] = useState('list'); // 'list' or 'interactive'
     const [loading, setLoading] = useState(true);
 
     const { user: currentUser } = useAuth();
@@ -196,7 +198,7 @@ const LiveMatchUpdatePage = () => {
         try {
             // Use eventMinute from modal, fallback to matchTime, or require input
             const time = eventMinute !== null && eventMinute !== undefined ? eventMinute : (matchTime || null);
-            
+
             if (time === null || time === undefined) {
                 toast.error('Vui lòng nhập phút xảy ra sự kiện');
                 return;
@@ -216,12 +218,12 @@ const LiveMatchUpdatePage = () => {
 
             await MatchesService.createMatchEvent(matchId, payload);
             toast.success(`${selectedEventType} recorded!`);
-            
+
             // Reset selections after successful submission
             setSelectedPlayerId('');
             setSelectedSubstituteId('');
             setEventMinute(null);
-            
+
             fetchMatchData();
             setShowModal(false); // Close modal
         } catch (error) {
@@ -505,10 +507,10 @@ const LiveMatchUpdatePage = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/admin/matches-today')} className="text-gray-600 hover:text-gray-900 flex items-center gap-2">
+                    <button onClick={() => navigate('/admin/matches', { state: { activeTab: 'today' } })} className="text-gray-600 hover:text-gray-900 flex items-center gap-2">
                         <ChevronLeft size={20} /> Back to Match Day
                     </button>
-                    <button 
+                    <button
                         onClick={() => navigate(`/admin/matches/${matchId}/lineup-review`)}
                         className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center gap-2 transition-colors"
                     >
@@ -697,24 +699,77 @@ const LiveMatchUpdatePage = () => {
                 )}
 
                 {activeTab === 'lineups' && (
-                    <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-4">
                         {!canEdit && (
-                            <div className="col-span-2 p-3 bg-yellow-50 text-yellow-800 rounded mb-2">Bạn chỉ có quyền xem đội hình (giám sát).</div>
+                            <div className="p-3 bg-yellow-50 text-yellow-800 rounded mb-2">Bạn chỉ có quyền xem đội hình (giám sát).</div>
                         )}
-                        <TeamLineupEditor
-                            teamId={match.homeTeamId}
-                            teamName={match.homeTeamName}
-                            squad={homeSquad}
-                            initialLineup={homeLineup}
-                            onSave={canEdit ? handleLineupSave : undefined}
-                        />
-                        <TeamLineupEditor
-                            teamId={match.awayTeamId}
-                            teamName={match.awayTeamName}
-                            squad={awaySquad}
-                            initialLineup={awayLineup}
-                            onSave={canEdit ? handleLineupSave : undefined}
-                        />
+                        {/* Editor Mode Toggle */}
+                        <div className="flex justify-center">
+                            <div className="bg-gray-100 rounded-lg p-1 inline-flex">
+                                <button
+                                    onClick={() => setEditorMode('list')}
+                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${editorMode === 'list'
+                                        ? 'bg-white shadow text-blue-600'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                >
+                                    📋 List Editor
+                                </button>
+                                <button
+                                    onClick={() => setEditorMode('interactive')}
+                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${editorMode === 'interactive'
+                                        ? 'bg-white shadow text-blue-600'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                >
+                                    ⚽ Interactive Builder
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Editors */}
+                        <div className="grid grid-cols-2 gap-8">
+                            {(() => {
+                                console.log('[Render] Current editorMode:', editorMode);
+                                return editorMode === 'list' ? (
+                                    <>
+                                        <TeamLineupEditor
+                                            teamId={match.homeTeamId}
+                                            teamName={match.homeTeamName}
+                                            squad={homeSquad}
+                                            initialLineup={homeLineup}
+                                            onSave={canEdit ? handleLineupSave : undefined}
+                                        />
+                                        <TeamLineupEditor
+                                            teamId={match.awayTeamId}
+                                            teamName={match.awayTeamName}
+                                            squad={awaySquad}
+                                            initialLineup={awayLineup}
+                                            onSave={canEdit ? handleLineupSave : undefined}
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <InteractiveFormationPitch
+                                            teamId={match.homeTeamId}
+                                            teamName={match.homeTeamName}
+                                            squad={homeSquad}
+                                            initialLineup={homeLineup}
+                                            onSave={canEdit ? handleLineupSave : undefined}
+                                            teamColor="#3b82f6"
+                                        />
+                                        <InteractiveFormationPitch
+                                            teamId={match.awayTeamId}
+                                            teamName={match.awayTeamName}
+                                            squad={awaySquad}
+                                            initialLineup={awayLineup}
+                                            onSave={canEdit ? handleLineupSave : undefined}
+                                            teamColor="#ef4444"
+                                        />
+                                    </>
+                                );
+                            })()}
+                        </div>
                     </div>
                 )}
 
