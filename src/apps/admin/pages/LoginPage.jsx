@@ -35,7 +35,13 @@ const LoginPage = ({ onLogin, isAuthenticated }) => {
     setError('')
 
     try {
-      await onLogin(formData)
+      const user = await onLogin(formData)
+      // Check role and redirect accordingly
+      if (user?.role === 'match_official' || user?.roles?.includes('match_official')) {
+        window.location.href = '/referee/my-matches'
+      } else if (user?.role === 'supervisor' || user?.roles?.includes('supervisor')) {
+        window.location.href = '/supervisor/my-assignments'
+      }
     } catch (err) {
       setError(err?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.')
     } finally {

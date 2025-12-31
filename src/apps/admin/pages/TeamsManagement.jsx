@@ -26,6 +26,7 @@ import {
 import TeamsService from '../../../layers/application/services/TeamsService'
 import ApiService from '../../../layers/application/services/ApiService'
 import SeasonService from '../../../layers/application/services/SeasonService'
+import TeamRegistrationWorkflow from '../components/TeamRegistrationWorkflow'
 
 const EMPTY_TEAM = {
   id: null,
@@ -55,7 +56,10 @@ const TeamsManagement = () => {
   const navigate = useNavigate()
 
   // Tab state
-  const [activeTab, setActiveTab] = useState('teams') // 'teams' | 'invitations'
+  const [activeTab, setActiveTab] = useState('teams') // 'teams' | 'invitations' | 'registration'
+  
+  // Registration workflow state
+  const [registrationRefreshTrigger, setRegistrationRefreshTrigger] = useState(0)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [teams, setTeams] = useState([])
@@ -653,6 +657,15 @@ const TeamsManagement = () => {
                 <span>Làm mới</span>
               </button>
             )}
+            {activeTab === 'registration' && selectedSeasonId && (
+              <button
+                onClick={() => setRegistrationRefreshTrigger(prev => prev + 1)}
+                className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <Loader2 size={16} />
+                <span>Làm mới</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -680,6 +693,17 @@ const TeamsManagement = () => {
         >
           <Mail size={18} />
           <span>Lời mời đội bóng</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('registration')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'registration'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <CheckCircle2 size={18} />
+          <span>Đăng ký đội</span>
         </button>
       </div>
 
@@ -1329,6 +1353,154 @@ const TeamsManagement = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Registration Workflow Tab Content */}
+      {activeTab === 'registration' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-600 rounded-lg">
+                <Users size={28} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Quy trình đăng ký đội tham gia mùa giải
+                </h2>
+                <p className="text-gray-600 text-sm mt-1">
+                  Quản lý toàn bộ quy trình từ mời đội → nộp hồ sơ → duyệt → xếp lịch
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Season Selector */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Chọn mùa giải
+            </label>
+            <select
+              value={selectedSeasonId || ''}
+              onChange={(e) => setSelectedSeasonId(parseInt(e.target.value, 10))}
+              className="w-full md:w-96 px-4 py-2 bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {seasons.length === 0 ? (
+                <option value="">Không có mùa giải nào</option>
+              ) : (
+                seasons.map((season) => (
+                  <option key={season.id} value={season.id}>
+                    {season.name} ({season.start_date} - {season.end_date})
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          {/* Workflow Diagram */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-cyan-600 mb-4">Quy trình Workflow</h3>
+            <div className="flex items-center justify-between text-sm overflow-x-auto pb-2">
+              <div className="flex flex-col items-center min-w-[100px]">
+                <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mb-2">
+                  <span className="text-2xl">📝</span>
+                </div>
+                <span className="font-medium text-gray-900">Bản nháp</span>
+                <span className="text-xs text-gray-500">DRAFT_INVITE</span>
+              </div>
+              
+              <div className="text-blue-400 text-2xl">→</div>
+              
+              <div className="flex flex-col items-center min-w-[100px]">
+                <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-2">
+                  <span className="text-2xl">📧</span>
+                </div>
+                <span className="font-medium text-gray-900">Gửi lời mời</span>
+                <span className="text-xs text-gray-500">INVITED</span>
+              </div>
+              
+              <div className="text-blue-400 text-2xl">→</div>
+              
+              <div className="flex flex-col items-center min-w-[100px]">
+                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-2">
+                  <span className="text-2xl">👍</span>
+                </div>
+                <span className="font-medium text-gray-900">Chấp nhận</span>
+                <span className="text-xs text-gray-500">ACCEPTED</span>
+              </div>
+              
+              <div className="text-blue-400 text-2xl">→</div>
+              
+              <div className="flex flex-col items-center min-w-[100px]">
+                <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mb-2">
+                  <span className="text-2xl">📄</span>
+                </div>
+                <span className="font-medium text-gray-900">Nộp hồ sơ</span>
+                <span className="text-xs text-gray-500">SUBMITTED</span>
+              </div>
+              
+              <div className="text-blue-400 text-2xl">→</div>
+              
+              <div className="flex flex-col items-center min-w-[100px]">
+                <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mb-2">
+                  <span className="text-2xl">✅</span>
+                </div>
+                <span className="font-medium text-gray-900">Duyệt</span>
+                <span className="text-xs text-gray-500">APPROVED</span>
+              </div>
+              
+              <div className="text-blue-400 text-2xl">→</div>
+              
+              <div className="flex flex-col items-center min-w-[100px]">
+                <div className="w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center mb-2">
+                  <span className="text-2xl">📅</span>
+                </div>
+                <span className="font-medium text-gray-900">Xếp lịch</span>
+                <span className="text-xs text-gray-500">≥10 đội</span>
+              </div>
+            </div>
+            
+            {/* Alternative Flow */}
+            <div className="mt-4 pt-4 border-t border-gray-300">
+              <p className="text-xs text-yellow-600 mb-2 font-semibold">
+                <strong>Luồng xử lý khác:</strong>
+              </p>
+              <div className="flex gap-4 text-xs text-gray-600">
+                <span>• DECLINED: Đội từ chối → Tìm đội thay thế</span>
+                <span>• REQUEST_CHANGE: BTC yêu cầu sửa → SUBMITTED (lại)</span>
+                <span>• REJECTED: Không đạt → Loại → Tìm đội thay thế</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Workflow Component */}
+          {selectedSeasonId ? (
+            <TeamRegistrationWorkflow 
+              seasonId={selectedSeasonId} 
+              refreshTrigger={registrationRefreshTrigger}
+            />
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center text-gray-500">
+              <CheckCircle2 size={48} className="mx-auto mb-4 opacity-50" />
+              <p>Vui lòng chọn mùa giải để xem quy trình đăng ký</p>
+            </div>
+          )}
+
+          {/* Help Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              📖 Hướng dẫn sử dụng
+            </h3>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p><strong>Bước 1:</strong> BTC tạo danh sách lời mời (Top 8 + 2 đội thăng hạng) → Trạng thái DRAFT_INVITE</p>
+              <p><strong>Bước 2:</strong> BTC bấm "Gửi tất cả lời mời" → Gửi thông báo cho các đội → Trạng thái INVITED</p>
+              <p><strong>Bước 3:</strong> Đội bóng chấp nhận/từ chối trong vòng 2 tuần → ACCEPTED hoặc DECLINED</p>
+              <p><strong>Bước 4:</strong> Đội nộp hồ sơ (sân, áo, cầu thủ) → SUBMITTED</p>
+              <p><strong>Bước 5:</strong> BTC duyệt hồ sơ → APPROVED (hoặc REQUEST_CHANGE / REJECTED)</p>
+              <p><strong>Bước 6:</strong> Khi đủ 10 đội APPROVED → Hệ thống sẵn sàng xếp lịch thi đấu</p>
+            </div>
+          </div>
+        </div>
       )}
 
       {showTeamModal && editingTeam && (

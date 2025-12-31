@@ -228,10 +228,10 @@ router.get("/:id/avatar", async (req, res, next) => {
 });
 
 /**
- * GET /internal/players/:id - Get player by internal ID
- * ClubManager: only see players of their managed team
+ * GET /api/players/:id - Get player by ID (Public access)
+ * Public route for viewing player profiles
  */
-router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
+router.get("/:id", async (req: any, res, next) => {
   try {
     const playerId = parseInt(req.params.id, 10);
     if (isNaN(playerId)) {
@@ -241,15 +241,25 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
     const result = await query(
       `
         SELECT 
-          player_id,
-          full_name,
-          display_name,
-          CONVERT(VARCHAR(10), date_of_birth, 23) as date_of_birth,
-          nationality,
-          preferred_position,
-          current_team_id
-        FROM players
-        WHERE player_id = @playerId;
+          p.player_id,
+          p.full_name,
+          p.display_name,
+          CONVERT(VARCHAR(10), p.date_of_birth, 23) as date_of_birth,
+          p.place_of_birth,
+          p.nationality,
+          p.preferred_position,
+          p.secondary_position,
+          p.height_cm,
+          p.weight_kg,
+          p.dominant_foot,
+          p.biography,
+          p.current_team_id,
+          p.avatar_url,
+          t.name as current_team_name,
+          t.logo_url as current_team_logo
+        FROM players p
+        LEFT JOIN teams t ON p.current_team_id = t.team_id
+        WHERE p.player_id = @playerId;
       `,
       { playerId },
     );
@@ -259,20 +269,40 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
       return res.status(404).json({ error: "Player not found" });
     }
 
-    // Check permissions
-    const isSuperAdmin = req.user?.roles?.includes('super_admin');
-    const hasManageTeams = req.user?.permissions?.includes("manage_teams");
-    const canSeeAll = isSuperAdmin || hasManageTeams;
-    
-    if (!canSeeAll) {
-      // Team admin: check if player belongs to their assigned teams
-      const userTeamIds = req.user?.teamIds || [];
-      if (!userTeamIds.includes(player.current_team_id)) {
-        return res.status(403).json({ error: "This player does not belong to your assigned team" });
+    // Public access - no permission check needed
+    // Return formatted data
+    res.json({ 
+      data: {
+        id: player.player_id,
+        player_id: player.player_id,
+        fullName: player.full_name,
+        full_name: player.full_name,
+        displayName: player.display_name,
+        display_name: player.display_name,
+        dateOfBirth: player.date_of_birth,
+        date_of_birth: player.date_of_birth,
+        placeOfBirth: player.place_of_birth,
+        place_of_birth: player.place_of_birth,
+        nationality: player.nationality,
+        preferredPosition: player.preferred_position,
+        preferred_position: player.preferred_position,
+        secondaryPosition: player.secondary_position,
+        secondary_position: player.secondary_position,
+        heightCm: player.height_cm,
+        height_cm: player.height_cm,
+        weightKg: player.weight_kg,
+        weight_kg: player.weight_kg,
+        dominantFoot: player.dominant_foot,
+        dominant_foot: player.dominant_foot,
+        biography: player.biography,
+        currentTeamId: player.current_team_id,
+        current_team_id: player.current_team_id,
+        currentTeamName: player.current_team_name,
+        current_team_name: player.current_team_name,
+        avatarUrl: player.avatar_url,
+        avatar_url: player.avatar_url
       }
-    }
-
-    res.json({ data: player });
+    });
   } catch (error) {
     next(error);
   }

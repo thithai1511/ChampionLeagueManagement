@@ -309,10 +309,19 @@ class StatsService {
    */
   async getTopScorers(seasonId, limit = 20) {
     try {
+      if (!seasonId) {
+        logger.warn('getTopScorers called without seasonId')
+        return []
+      }
       const response = await ApiService.get(`/stats/season/${seasonId}/top-scorers`, { limit })
-      return response?.data ?? []
+      console.log('[StatsService] getTopScorers response:', response)
+      // Handle both { data: [...] } and direct array response
+      const data = Array.isArray(response) ? response : (response?.data ?? [])
+      console.log('[StatsService] getTopScorers parsed data:', data)
+      return data
     } catch (error) {
       logger.error('Failed to load top scorers', error)
+      console.error('[StatsService] getTopScorers error:', error)
       return []
     }
   }
@@ -322,10 +331,18 @@ class StatsService {
    */
   async getCardStats(seasonId) {
     try {
+      if (!seasonId) {
+        logger.warn('getCardStats called without seasonId')
+        return []
+      }
       const response = await ApiService.get(`/stats/season/${seasonId}/cards`)
-      return response?.data ?? []
+      console.log('[StatsService] getCardStats response:', response)
+      // Handle both { data: [...] } and direct array response
+      const data = Array.isArray(response) ? response : (response?.data ?? [])
+      return data
     } catch (error) {
       logger.error('Failed to load card stats', error)
+      console.error('[StatsService] getCardStats error:', error)
       return []
     }
   }

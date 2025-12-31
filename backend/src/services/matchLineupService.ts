@@ -1,4 +1,5 @@
 import { query } from "../db/sqlServer";
+// import { canTeamParticipate } from "./participationFeeService"; // Giữ lại nếu cần, hoặc xóa nếu không dùng
 
 /**
  * BTC Requirements for Match Lineup - Quy định khi thi đấu
@@ -28,27 +29,41 @@ export interface MatchLineup {
 export const getMatchLineups = async (matchId: number): Promise<MatchLineup[]> => {
     const result = await query(
         `
-      SELECT 
-        lineup_id as lineupId,
-        match_id as matchId,
-        season_id as seasonId,
-        season_team_id as seasonTeamId,
-        player_id as playerId,
-        jersey_number as jerseyNumber,
-        position,
-        COALESCE(is_starting, 1) as isStarting,
-        COALESCE(is_captain, 0) as isCaptain,
-        minutes_played as minutesPlayed,
-        COALESCE(status, 'pending') as status
-      FROM match_lineups
-      WHERE match_id = @matchId
+SELECT 
+        ml.lineup_id as matchLineupId,   -- Đổi tên alias này cho khớp với interface
+        ml.match_id as matchId,
+        ml.season_id as seasonId,
+        ml.season_team_id as seasonTeamId,
+        ml.player_id as playerId,
+        -- Ưu tiên lấy số áo trong trận, nếu không có thì lấy số áo đăng ký
+        COALESCE(ml.jersey_number, spr.shirt_number) as jerseyNumber,
+        COALESCE(ml.position, spr.position_code, p.preferred_position) as position,
+        COALESCE(ml.is_starting, 0) as isStarting,
+        COALESCE(ml.is_captain, 0) as isCaptain,
+        ml.minutes_played as minutesPlayed,
+        COALESCE(ml.status, 'pending') as status,
+        -- Lấy thêm tên cầu thủ để hiển thị
+        p.full_name as playerName,
+        spr.season_player_id as seasonPlayerId
+      FROM match_lineups ml
+      LEFT JOIN players p ON ml.player_id = p.player_id
+      LEFT JOIN season_player_registrations spr ON ml.player_id = spr.player_id 
+        AND ml.season_id = spr.season_id 
+        AND ml.season_team_id = spr.season_team_id
+      WHERE ml.match_id = @matchId
+      ORDER BY ml.is_starting DESC, ml.jersey_number ASC
     `,
         { matchId }
     );
     return result.recordset;
 };
 
-export const upsertMatchLineup = async (input: Partial<MatchLineup>): Promise<void> => {
+export const upsertMatchLineup = async (input: Partial<MatchLineup> & { submittedBy?: number }): Promise<void> => {
+    // Validate required fields
+    if (!input.matchId || !input.seasonId || !input.seasonTeamId || !input.playerId) {
+        throw new Error('Missing required fields: matchId, seasonId, seasonTeamId, playerId');
+    }
+
     // Check if player already in lineup for this match, then update, else insert.
     const checkSql = `SELECT lineup_id FROM match_lineups WHERE match_id = @matchId AND player_id = @playerId`;
     const existing = await query(checkSql, { matchId: input.matchId, playerId: input.playerId });
@@ -76,7 +91,8 @@ export const upsertMatchLineup = async (input: Partial<MatchLineup>): Promise<vo
             status: input.status
         });
     } else {
-        // Insert
+        // Insert - submitted_by is required (NOT NULL constraint)
+        const submittedBy = input.submittedBy || 1; // Fallback to 1 if not provided
         await query(`
       INSERT INTO match_lineups (
         match_id, season_id, season_team_id, player_id, 
@@ -95,7 +111,7 @@ export const upsertMatchLineup = async (input: Partial<MatchLineup>): Promise<vo
             isStarting: input.isStarting,
             isCaptain: input.isCaptain,
             status: input.status,
-            submittedBy: 1 // Default user ID
+            submittedBy: submittedBy
         });
     }
 };
@@ -201,6 +217,8 @@ export interface LineupValidationInput {
     seasonTeamId: number;
     startingPlayerIds: number[];
     substitutePlayerIds: number[];
+    formation?: string;   // e.g. '4-4-2', '4-3-3'
+    kitType?: string;     // 'HOME' (Chính thức) | 'AWAY' (Dự bị)
 }
 
 export interface LineupValidationResult {
@@ -246,6 +264,14 @@ export const validateLineup = async (input: LineupValidationInput): Promise<Line
     if (suspendedPlayers.length > 0) {
         const names = suspendedPlayers.map(p => p.player_name).join(', ');
         errors.push(`Cầu thủ đang bị treo giò không được thi đấu: ${names}`);
+    }
+
+    if (input.kitType && !['HOME', 'AWAY'].includes(input.kitType)) {
+        errors.push("kitType chỉ được HOME hoặc AWAY");
+    }
+
+    if (input.formation && !/^\d(-\d){2,3}$/.test(input.formation)) {
+        errors.push("formation không hợp lệ (vd: 4-4-2, 4-3-3, 4-2-3-1)");
     }
 
     // 6. Check if players belong to the team
@@ -343,67 +369,334 @@ export const submitLineup = async (
     input: LineupValidationInput,
     submittedBy: number
 ): Promise<{ success: boolean; errors?: string[] }> => {
-    // Validate first
-    const validation = await validateLineup(input);
-    if (!validation.valid) {
-        return { success: false, errors: validation.errors };
+    try {
+        // Validate submittedBy
+        if (!submittedBy || !Number.isInteger(submittedBy)) {
+            return { success: false, errors: ['User ID is required to submit lineup'] };
+        }
+
+        // 0. Check Participation Fee (via season_team_registrations source of truth)
+        // Need to resolve team_id from season_team_id first.
+
+        const teamInfo = await query<{ team_id: number; season_id: number }>(`
+            SELECT team_id, season_id FROM season_team_participants WHERE season_team_id = @seasonTeamId
+        `, { seasonTeamId: input.seasonTeamId });
+
+        if (!teamInfo.recordset[0]) {
+            return { success: false, errors: ['Không tìm thấy thông tin đội bóng mùa giải'] };
+        }
+        const { team_id, season_id } = teamInfo.recordset[0];
+
+        const feeInfo = await query<{ fee_status: string }>(`
+            SELECT fee_status FROM season_team_registrations 
+            WHERE season_id = @seasonId AND team_id = @teamId
+        `, { seasonId: season_id, teamId: team_id });
+
+        const status = feeInfo.recordset[0]?.fee_status;
+
+        if (!feeInfo.recordset[0]) {
+            return { success: false, errors: ['Đội bóng chưa đăng ký tham gia mùa giải (Registration not found)'] };
+        }
+
+        if (status !== 'paid' && status !== 'waived') {
+            return { success: false, errors: [`Đội bóng chưa hoàn thành nghĩa vụ lệ phí (Status: ${status || 'unknown'})`] };
+        }
+
+        // Validate first
+        const validation = await validateLineup(input);
+        if (!validation.valid) {
+            return { success: false, errors: validation.errors };
+        }
+
+        // Determine team type based on match info
+        const matchInfo = await query<{ home_season_team_id: number; away_season_team_id: number; status: string }>(`
+            SELECT home_season_team_id, away_season_team_id, status
+            FROM matches
+            WHERE match_id = @matchId
+        `, { matchId: input.matchId });
+
+        if (!matchInfo.recordset[0]) {
+            return { success: false, errors: ['Không tìm thấy thông tin trận đấu'] };
+        }
+
+        // === START RESOLVED CONFLICT ===
+        const { home_season_team_id, away_season_team_id, status: matchStatus } = matchInfo.recordset[0];
+
+        // Check from MAIN: Prevent editing if match is completed
+        if (matchStatus === 'completed') {
+            return { success: false, errors: ['Không thể sửa đội hình của trận đấu đã kết thúc'] };
+        }
+
+        // Logic from LEPHI: Determine Home/Away safely
+        let teamType: 'home' | 'away';
+        if (home_season_team_id === input.seasonTeamId) teamType = 'home';
+        else if (away_season_team_id === input.seasonTeamId) teamType = 'away';
+        else return { success: false, errors: ['Đội không thuộc trận đấu này'] };
+        // === END RESOLVED CONFLICT ===
+
+        // Clear existing lineup for this team
+        await query(`
+            DELETE FROM match_lineups
+            WHERE match_id = @matchId
+            AND season_team_id = @seasonTeamId
+        `, { matchId: input.matchId, seasonTeamId: input.seasonTeamId });
+
+        // Insert starting players
+        for (const playerId of input.startingPlayerIds) {
+            if (!playerId || !Number.isInteger(playerId)) {
+                throw new Error(`Invalid playerId in startingPlayerIds: ${playerId}`);
+            }
+            await upsertMatchLineup({
+                matchId: input.matchId,
+                seasonId: input.seasonId,
+                seasonTeamId: input.seasonTeamId,
+                playerId,
+                isStarting: true,
+                isCaptain: false,
+                status: 'pending',
+                submittedBy: submittedBy
+            });
+        }
+
+        // Insert substitutes
+        for (const playerId of input.substitutePlayerIds) {
+            if (!playerId || !Number.isInteger(playerId)) {
+                throw new Error(`Invalid playerId in substitutePlayerIds: ${playerId}`);
+            }
+            await upsertMatchLineup({
+                matchId: input.matchId,
+                seasonId: input.seasonId,
+                seasonTeamId: input.seasonTeamId,
+                playerId,
+                isStarting: false,
+                isCaptain: false,
+                status: 'pending',
+                submittedBy: submittedBy
+            });
+        }
+
+        // Save Team Info (Formation & Kit) - always upsert on submit
+        await upsertMatchTeamInfo({
+            matchId: input.matchId,
+            seasonTeamId: input.seasonTeamId,
+            formation: input.formation || '4-4-2',
+            kitType: input.kitType || 'HOME'
+        });
+
+        // Update team_type and set status to SUBMITTED
+        await query(`
+            UPDATE match_lineups
+            SET team_type = @teamType,
+            approval_status = 'SUBMITTED',
+                submitted_at = GETDATE()
+            WHERE match_id = @matchId
+            AND season_team_id = @seasonTeamId
+        `, { matchId: input.matchId, seasonTeamId: input.seasonTeamId, teamType });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("[matchLineupService] Error in submitLineup:", error);
+        console.error("[matchLineupService] Error details:", {
+            message: error.message,
+            code: error.code,
+            number: error.number,
+            state: error.state,
+            class: error.class,
+            serverName: error.serverName,
+            procName: error.procName,
+            lineNumber: error.lineNumber
+        });
+        
+        // Return user-friendly error message
+        if (error.message) {
+            return { success: false, errors: [error.message] };
+        }
+        return { success: false, errors: ['Lỗi khi lưu đội hình. Vui lòng thử lại.'] };
+    }
+};
+
+export const upsertMatchTeamInfo = async (info: {
+    matchId: number;
+    seasonTeamId: number;
+    formation: string;
+    kitType: string;
+}): Promise<void> => {
+    const checkSql = `SELECT info_id FROM match_team_infos WHERE match_id = @matchId AND season_team_id = @seasonTeamId`;
+    const existing = await query(checkSql, { matchId: info.matchId, seasonTeamId: info.seasonTeamId });
+
+    if (existing.recordset.length > 0) {
+        await query(`
+            UPDATE match_team_infos
+            SET formation = @formation,
+                kit_type = @kitType,
+                updated_at = GETDATE()
+            WHERE info_id = @id
+        `, {
+            id: existing.recordset[0].info_id,
+            formation: info.formation,
+            kitType: info.kitType
+        });
+    } else {
+        await query(`
+            INSERT INTO match_team_infos (match_id, season_team_id, formation, kit_type)
+            VALUES (@matchId, @seasonTeamId, @formation, @kitType)
+        `, {
+            matchId: info.matchId,
+            seasonTeamId: info.seasonTeamId,
+            formation: info.formation,
+            kitType: info.kitType
+        });
+    }
+};
+
+export const getMatchTeamInfo = async (matchId: number, seasonTeamId: number) => {
+    const result = await query<{ formation: string; kitType: string }>(`
+        SELECT formation, kit_type as kitType
+        FROM match_team_infos
+        WHERE match_id = @matchId AND season_team_id = @seasonTeamId
+    `, { matchId, seasonTeamId });
+    return result.recordset[0] || null;
+};
+
+/**
+ * Auto generate lineup for a team if not exists (Super Admin only)
+ * Selects first 11 players as starting, next 5 as substitutes
+ */
+export async function autoGenerateLineup(
+    matchId: number,
+    seasonTeamId: number,
+    submittedBy: number
+): Promise<{
+    success: boolean;
+    created: number;
+    message: string;
+}> {
+    // Check if lineup already exists
+    const existing = await query(
+        `SELECT COUNT(*) as count FROM match_lineups 
+         WHERE match_id = @matchId AND season_team_id = @seasonTeamId`,
+        { matchId, seasonTeamId }
+    );
+
+    if (existing.recordset[0]?.count > 0) {
+        return {
+            success: false,
+            created: 0,
+            message: 'Đội hình đã tồn tại cho đội này'
+        };
     }
 
-    // Determine team type based on match info
-    const matchInfo = await query<{ home_season_team_id: number; away_season_team_id: number }>(`
-        SELECT home_season_team_id, away_season_team_id
-        FROM matches
-        WHERE match_id = @matchId
-    `, { matchId: input.matchId });
+    // Get match info
+    const matchInfo = await query<{
+        season_id: number;
+        home_season_team_id: number;
+        away_season_team_id: number;
+    }>(
+        `SELECT season_id, home_season_team_id, away_season_team_id 
+         FROM matches WHERE match_id = @matchId`,
+        { matchId }
+    );
 
     if (!matchInfo.recordset[0]) {
-        return { success: false, errors: ['Không tìm thấy thông tin trận đấu'] };
+        throw new Error('Match not found');
     }
 
-    const teamType = matchInfo.recordset[0].home_season_team_id === input.seasonTeamId ? 'home' : 'away';
+    const seasonId = matchInfo.recordset[0].season_id;
+    const teamType = matchInfo.recordset[0].home_season_team_id === seasonTeamId ? 'home' : 'away';
 
-    // Clear existing lineup for this team
-    await query(`
-        DELETE FROM match_lineups
-        WHERE match_id = @matchId
-        AND season_team_id = @seasonTeamId
-    `, { matchId: input.matchId, seasonTeamId: input.seasonTeamId });
+    // Get approved players for this team in this season
+    const players = await query<{
+        player_id: number;
+        season_player_id: number;
+        shirt_number: number;
+        position_code: string;
+    }>(
+        `SELECT 
+            spr.player_id,
+            spr.season_player_id,
+            spr.shirt_number,
+            spr.position_code
+         FROM season_player_registrations spr
+         WHERE spr.season_id = @seasonId
+           AND spr.season_team_id = @seasonTeamId
+           AND spr.registration_status = 'approved'
+         ORDER BY spr.shirt_number ASC, spr.player_id ASC`,
+        { seasonId, seasonTeamId }
+    );
+
+    if (players.recordset.length < LINEUP_REQUIREMENTS.STARTING_PLAYERS) {
+        return {
+            success: false,
+            created: 0,
+            message: `Không đủ cầu thủ. Cần tối thiểu ${LINEUP_REQUIREMENTS.STARTING_PLAYERS} cầu thủ, hiện có ${players.recordset.length}`
+        };
+    }
+
+    const playerList = players.recordset;
+    const startingPlayers = playerList.slice(0, LINEUP_REQUIREMENTS.STARTING_PLAYERS);
+    const substitutePlayers = playerList.slice(
+        LINEUP_REQUIREMENTS.STARTING_PLAYERS,
+        LINEUP_REQUIREMENTS.STARTING_PLAYERS + LINEUP_REQUIREMENTS.MAX_SUBSTITUTES
+    );
+
+    let created = 0;
 
     // Insert starting players
-    for (const playerId of input.startingPlayerIds) {
+    for (const player of startingPlayers) {
         await upsertMatchLineup({
-            matchId: input.matchId,
-            seasonId: input.seasonId,
-            seasonTeamId: input.seasonTeamId,
-            playerId,
+            matchId,
+            seasonId,
+            seasonTeamId,
+            playerId: player.player_id,
+            jerseyNumber: player.shirt_number,
+            position: player.position_code || undefined,
             isStarting: true,
             isCaptain: false,
-            status: 'pending'
+            status: 'approved',
+            submittedBy
         });
+        created++;
     }
 
     // Insert substitutes
-    for (const playerId of input.substitutePlayerIds) {
+    for (const player of substitutePlayers) {
         await upsertMatchLineup({
-            matchId: input.matchId,
-            seasonId: input.seasonId,
-            seasonTeamId: input.seasonTeamId,
-            playerId,
+            matchId,
+            seasonId,
+            seasonTeamId,
+            playerId: player.player_id,
+            jerseyNumber: player.shirt_number,
+            position: player.position_code || undefined,
             isStarting: false,
             isCaptain: false,
-            status: 'pending'
+            status: 'approved',
+            submittedBy
         });
+        created++;
     }
 
-    // Update team_type and set status to SUBMITTED
-    await query(`
-        UPDATE match_lineups
-        SET team_type = @teamType,
-            approval_status = 'SUBMITTED',
-            submitted_at = GETDATE()
-        WHERE match_id = @matchId
-        AND season_team_id = @seasonTeamId
-    `, { matchId: input.matchId, seasonTeamId: input.seasonTeamId, teamType });
+    // Set team_type and approval_status
+    await query(
+        `UPDATE match_lineups
+         SET team_type = @teamType,
+             approval_status = 'APPROVED',
+             submitted_at = GETDATE()
+         WHERE match_id = @matchId
+           AND season_team_id = @seasonTeamId`,
+        { matchId, seasonTeamId, teamType }
+    );
 
-    return { success: true };
-};
+    // Set default formation and kit
+    await upsertMatchTeamInfo({
+        matchId,
+        seasonTeamId,
+        formation: '4-4-2',
+        kitType: teamType === 'home' ? 'HOME' : 'AWAY'
+    });
+
+    return {
+        success: true,
+        created,
+        message: `Đã tạo đội hình: ${startingPlayers.length} chính thức, ${substitutePlayers.length} dự bị`
+    };
+}

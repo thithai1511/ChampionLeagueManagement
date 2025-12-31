@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Trophy, Download, Share2, TrendingUp, TrendingDown, Minus, Users, Target, Award, AlertCircle, RefreshCw, Shield } from 'lucide-react';
-import TeamsService from '../../../layers/application/services/TeamsService';
-import TopScorers from '../components/TopScorers';
+import StandingsService from '../../../layers/application/services/StandingsService';
+import ApiService from '../../../layers/application/services/ApiService';
+import PlayerStatsPanel from '../components/PlayerStatsPanel';
+import DisciplinePanel from '../components/DisciplinePanel';
 import UpcomingMatches from '../components/UpcomingMatches';
 import logger from '../../../shared/utils/logger';
 import fanAtmosphere from '@/assets/images/championleague_newcastle.webp';
@@ -32,14 +34,46 @@ const StandingsPage = () => {
     const loadSeasons = async () => {
       setIsLoadingSeasons(true);
       try {
-        const data = await TeamsService.getCompetitionSeasons(2020);
-        setSeasons(data);
-        if (data.length) {
-          setSelectedSeason(String(data[0].year));
+        // Fetch seasons from API
+        const response = await ApiService.get('/teams/seasons');
+        const seasonsData = response?.data || [];
+        
+        // Map seasons to format: { id, year, label: year only }
+        const formattedSeasons = seasonsData.map(season => {
+          // Extract year from startDate or use year field
+          const startYear = season.year || (season.startDate || season.start_date ? new Date(season.startDate || season.start_date).getFullYear() : null);
+          
+          // If label exists and is in format "2024/2025" or "2024-2025", extract first year
+          let displayYear = startYear;
+          if (season.label && !startYear) {
+            const yearMatch = season.label.match(/^(\d{4})/);
+            if (yearMatch) {
+              displayYear = parseInt(yearMatch[1], 10);
+            }
+          }
+          
+          return {
+            id: season.id || season.season_id,
+            year: displayYear || new Date().getFullYear(),
+            label: String(displayYear || new Date().getFullYear())
+          };
+        }).sort((a, b) => b.year - a.year); // Sort descending (newest first)
+        
+        setSeasons(formattedSeasons);
+        if (formattedSeasons.length) {
+          setSelectedSeason(String(formattedSeasons[0].id));
         }
       } catch (err) {
         logger.error('Không thể tải danh sách mùa giải', err);
         setError('Không thể tải danh sách mùa giải.');
+        // Fallback to default seasons if API fails
+        const fallbackSeasons = [
+          { id: 1, year: 2026, label: '2026' },
+          { id: 2, year: 2025, label: '2025' },
+          { id: 3, year: 2024, label: '2024' }
+        ];
+        setSeasons(fallbackSeasons);
+        setSelectedSeason(String(fallbackSeasons[0].id));
       } finally {
         setIsLoadingSeasons(false);
       }
@@ -54,12 +88,26 @@ const StandingsPage = () => {
     const loadStandings = async () => {
       setIsLoadingStandings(true);
       try {
-        const data = await TeamsService.getCompetitionStandings({ season: selectedSeason });
-        setStandings(data);
+        const response = await StandingsService.getSeasonStandings(
+          parseInt(selectedSeason), 
+          'live' // Use 'live' mode for in-season standings
+        );
+        
+        // Format response to match expected structure
+        const formattedData = {
+          season: {
+            year: parseInt(selectedSeason),
+            label: `Season ${selectedSeason}`,
+          },
+          updated: new Date().toISOString(),
+          table: response.data || []
+        };
+        
+        setStandings(formattedData);
         setError(null);
       } catch (err) {
         console.error('Không thể tải bảng xếp hạng', err);
-        setError('Không thể tải bảng xếp hạng.');
+        setError('Không thể tải bảng xếp hạng từ hệ thống.');
       } finally {
         setIsLoadingStandings(false);
       }
@@ -68,24 +116,26 @@ const StandingsPage = () => {
     loadStandings();
   }, [selectedSeason]);
 
+  // Format standings for display
   const formattedStandings = useMemo(() => {
     if (!standings?.table) return [];
-    return standings.table.map((row) => ({
-      position: row.position,
+    return standings.table.map((row, index) => ({
+      position: row.rank || index + 1,
       change: 0,
-      country: row.tla || row.shortName || '',
-      logo: row.crest,
+      country: row.shortName || '',
+      logo: row.crest || null,
       team: row.teamName,
       played: row.played,
-      won: row.won,
-      drawn: row.draw,
-      lost: row.lost,
+      won: row.wins,
+      drawn: row.draws,
+      lost: row.losses,
       goalsFor: row.goalsFor,
       goalsAgainst: row.goalsAgainst,
       goalDifference: row.goalDifference,
       points: row.points,
       form: row.form || [],
-      status: row.status
+      status: row.rank <= 8 ? 'qualified' : row.rank <= 24 ? 'playoff' : 'eliminated',
+      tieBreakInfo: row.tieBreakInfo
     }));
   }, [standings]);
 
@@ -151,16 +201,23 @@ const StandingsPage = () => {
                 Theo dõi suất đi tiếp, nhóm tranh vé và phong độ gần đây dựa trên dữ liệu giải đấu.
               </p>
               
-              {selectedSeason && standings?.updated && (
+              {selectedSeason && standings && (
                 <div className="flex flex-wrap gap-4 text-sm text-white/60">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-lg shadow-cyan-400/60"></div>
-                    <span>Mùa {selectedSeason}/{Number(selectedSeason) + 1}</span>
+                    <span>
+                      {(() => {
+                        const season = seasons.find(s => String(s.id) === String(selectedSeason));
+                        return season?.label || `Mùa ${selectedSeason}`;
+                      })()}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp size={16} className="text-cyan-400" />
-                    <span>Cập nhật {new Date(standings.updated).toLocaleString('vi-VN')}</span>
-                  </div>
+                  {standings.updated && (
+                    <div className="flex items-center gap-2">
+                      <TrendingUp size={16} className="text-cyan-400" />
+                      <span>Cập nhật {new Date(standings.updated).toLocaleString('vi-VN')}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -173,10 +230,13 @@ const StandingsPage = () => {
                 disabled={isLoadingSeasons || seasons.length === 0}
               >
                 {isLoadingSeasons && <option className="text-slate-900">Đang tải...</option>}
+                {!isLoadingSeasons && seasons.length === 0 && (
+                  <option className="text-slate-900">Không có mùa giải</option>
+                )}
                 {!isLoadingSeasons &&
                   seasons.map((season) => (
-                    <option key={season.id} value={season.year} className="text-slate-900">
-                      {season.year}/{season.year + 1}
+                    <option key={season.id || season.year} value={String(season.id || season.year)} className="text-slate-900">
+                      {season.label || String(season.year)}
                     </option>
                   ))}
               </select>
@@ -478,9 +538,16 @@ const StandingsPage = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <TopScorers />
             <UpcomingMatches />
           </div>
+        </div>
+
+        {/* Player Statistics - Full Width Below */}
+        <div className="space-y-6">
+          <PlayerStatsPanel seasonId={selectedSeason} />
+          
+          {/* Discipline Panel */}
+          <DisciplinePanel seasonId={selectedSeason} />
         </div>
       </div>
     </div>

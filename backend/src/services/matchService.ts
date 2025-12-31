@@ -1,6 +1,7 @@
 import { query } from "../db/sqlServer";
 import { getCompetitionMatches, type MatchSummary } from "./footballDataService";
 import { calculateStandings } from "./standingsAdminService";
+import { BadRequestError } from "../utils/httpError";
 
 class NotificationService {
   static async notifyMatchScheduleChange(
@@ -335,10 +336,12 @@ export const listMatches = async (filters: MatchFilters = {}): Promise<Paginated
         m.season_id AS seasonId,
         m.round_id AS roundId,
         m.matchday_number AS matchdayNumber,
+        m.home_season_team_id AS homeSeasonTeamId,
         hstp.team_id AS homeTeamId,
         ht.name AS homeTeamName,
         ht.short_name AS homeTeamShortName,
         ht.logo_url AS homeTeamLogo,
+        m.away_season_team_id AS awaySeasonTeamId,
         astp.team_id AS awayTeamId,
         at.name AS awayTeamName,
         at.short_name AS awayTeamShortName,
@@ -352,30 +355,48 @@ export const listMatches = async (filters: MatchFilters = {}): Promise<Paginated
         m.attendance,
         m.match_code AS matchCode,
         CONVERT(VARCHAR(33), m.updated_at, 127) AS updatedAt,
+        (
+          SELECT TOP 1 o.full_name
+          FROM match_official_assignments moa
+          INNER JOIN officials o ON moa.official_id = o.official_id
+          WHERE moa.match_id = m.match_id
+          AND moa.role_code = 'referee'
+        ) AS referee,
         (SELECT TOP 1 JSON_QUERY((SELECT player_name AS playerName, team_name AS teamName FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)) FROM match_mvps WHERE match_id = m.match_id) AS mvpJson,
         (SELECT (
             SELECT 
-                match_event_id AS id,
+                me.match_event_id AS id,
                 stp.team_id AS teamId,
-                player_name AS player,
-                event_type AS type,
-                card_type AS cardType,
-                event_minute AS minute,
-                description
+                me.season_team_id AS seasonTeamId,
+                me.player_name AS player,
+                me.event_type AS type,
+                me.card_type AS cardType,
+                me.event_minute AS minute,
+                me.stoppage_time AS stoppageTime,
+                me.description,
+                me.player_id AS playerId,
+                me.assist_player_id AS assistPlayerId,
+                me.goal_type_code AS goalTypeCode,
+                rgt.name AS goalTypeName,
+                rgt.description AS goalTypeDescription
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+            LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
             WHERE me.match_id = m.match_id 
-            ORDER BY me.event_minute ASC 
+            ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
             FOR JSON PATH
         )) AS eventsJson,
         (SELECT (
             SELECT 
                 stp.team_id AS teamId,
+                stp.season_team_id AS seasonTeamId,
                 mts.possession_percent AS possession,
                 mts.shots_total AS shots,
                 mts.shots_on_target AS onTarget,
                 mts.corners,
-                mts.fouls_committed AS fouls
+                mts.fouls_committed AS fouls,
+                mts.offsides,
+                mts.passes_completed AS passesCompleted
             FROM match_team_statistics mts
             INNER JOIN season_team_participants stp ON mts.season_team_id = stp.season_team_id
             WHERE mts.match_id = m.match_id
@@ -386,6 +407,7 @@ export const listMatches = async (filters: MatchFilters = {}): Promise<Paginated
       INNER JOIN teams ht ON hstp.team_id = ht.team_id
       INNER JOIN season_team_participants astp ON m.away_season_team_id = astp.season_team_id
       INNER JOIN teams at ON astp.team_id = at.team_id
+      LEFT JOIN season_rounds sr ON m.round_id = sr.round_id
       LEFT JOIN stadiums s ON m.stadium_id = s.stadium_id
       ${whereClause}
       ORDER BY m.scheduled_kickoff ASC
@@ -480,25 +502,36 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
             SELECT 
                 me.match_event_id AS id,
                 stp.team_id AS teamId,
+                me.season_team_id AS seasonTeamId,
                 me.player_name AS player,
                 me.event_type AS type,
                 me.card_type AS cardType,
                 me.event_minute AS minute,
-                me.description
+                me.stoppage_time AS stoppageTime,
+                me.description,
+                me.player_id AS playerId,
+                me.assist_player_id AS assistPlayerId,
+                me.goal_type_code AS goalTypeCode,
+                rgt.name AS goalTypeName,
+                rgt.description AS goalTypeDescription
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+            LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
             WHERE me.match_id = m.match_id 
-            ORDER BY me.event_minute ASC 
+            ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
             FOR JSON PATH
         )) AS eventsJson,
         (SELECT (
             SELECT 
                 stp.team_id AS teamId,
+                stp.season_team_id AS seasonTeamId,
                 mts.possession_percent AS possession,
                 mts.shots_total AS shots,
                 mts.shots_on_target AS onTarget,
                 mts.corners,
-                mts.fouls_committed AS fouls
+                mts.fouls_committed AS fouls,
+                mts.offsides,
+                mts.passes_completed AS passesCompleted
             FROM match_team_statistics mts
             INNER JOIN season_team_participants stp ON mts.season_team_id = stp.season_team_id
             WHERE mts.match_id = m.match_id
@@ -509,6 +542,7 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
       INNER JOIN teams ht ON hstp.team_id = ht.team_id
       INNER JOIN season_team_participants astp ON m.away_season_team_id = astp.season_team_id
       INNER JOIN teams at ON astp.team_id = at.team_id
+      LEFT JOIN season_rounds sr ON m.round_id = sr.round_id
       LEFT JOIN stadiums s ON m.stadium_id = s.stadium_id
       WHERE m.match_id = @matchId;
     `,
@@ -546,6 +580,52 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
   } as MatchRecord;
 };
 
+// Helper: Validate pre-match conditions (Officials & Lineups)
+const validatePreMatchConditions = async (matchId: number, homeTeamId: number, awayTeamId: number) => {
+  // 1. Officials Check
+  const officials = await query<{ role_code: string }>(
+    `SELECT role_code FROM match_official_assignments WHERE match_id = @matchId`,
+    { matchId }
+  );
+
+  const requiredRoles = ['referee', 'assistant_1', 'assistant_2', 'fourth_official'];
+  const assignedRoles = officials.recordset.map(o => o.role_code);
+  const missingRoles = requiredRoles.filter(role => !assignedRoles.includes(role));
+
+  if (missingRoles.length > 0) {
+    const roleNames: Record<string, string> = {
+      'referee': 'Trọng tài chính',
+      'assistant_1': 'Trọng tài biên 1',
+      'assistant_2': 'Trọng tài biên 2',
+      'fourth_official': 'Trọng tài bàn'
+    };
+    const missingNames = missingRoles.map(r => roleNames[r] || r).join(', ');
+    throw BadRequestError(`Không thể bắt đầu trận đấu. Thiếu trọng tài: ${missingNames}`);
+  }
+
+  // 2. Lineup Check
+  const lineups = await query<{ team_id: number; is_starting: boolean }>(
+    `SELECT stp.team_id, ml.is_starting 
+     FROM match_lineups ml
+     INNER JOIN season_team_participants stp ON ml.season_team_id = stp.season_team_id
+     WHERE ml.match_id = @matchId`,
+    { matchId }
+  );
+
+  const checkTeam = (teamId: number, teamName: string) => {
+    const teamLineup = lineups.recordset.filter(l => l.team_id === teamId);
+    const starters = teamLineup.filter(l => l.is_starting).length;
+    const subs = teamLineup.filter(l => !l.is_starting).length;
+
+    if (starters !== 11 || subs !== 5) {
+      throw BadRequestError(`Đội hình ${teamName} không hợp lệ. Yêu cầu: 11 chính thức, 5 dự bị. Hiện tại: ${starters} chính, ${subs} dự.`);
+    }
+  };
+
+  checkTeam(homeTeamId, 'Chủ nhà');
+  checkTeam(awayTeamId, 'Khách');
+};
+
 export const updateMatch = async (
   matchId: number,
   payload: Partial<{
@@ -560,6 +640,20 @@ export const updateMatch = async (
 ): Promise<MatchRecord | null> => {
   const currentMatch = await getMatchById(matchId);
   if (!currentMatch) return null;
+
+  // Strict Lock: Cannot modify completed matches
+  if (currentMatch.status === 'completed') {
+    throw new Error("Match is completed and locked. No further edits allowed.");
+  }
+
+  // Pre-match Validation: If starting match, require Officials & Lineups
+  const targetStatus = payload.status?.toUpperCase();
+  const isStarting = (targetStatus === 'IN_PROGRESS' || targetStatus === 'LIVE' || targetStatus === 'IN_PLAY') &&
+    currentMatch.status !== 'in_progress' && currentMatch.status !== 'live' && currentMatch.status !== 'in_play';
+
+  if (isStarting) {
+    await validatePreMatchConditions(matchId, currentMatch.homeTeamId, currentMatch.awayTeamId);
+  }
 
   const fields: string[] = [];
   const params: Record<string, unknown> = { matchId };
@@ -648,14 +742,15 @@ export const updateMatch = async (
 
   const updatedMatch = await getMatchById(matchId);
 
-  // Auto-update standings if match is completed and has scores
-  if (updatedMatch &&
-    payload.status === 'completed' &&
-    payload.homeScore !== undefined &&
-    payload.awayScore !== undefined) {
+  // Auto-update standings if match is completed and event triggered status/score change
+  const isStatusCompleted = updatedMatch && updatedMatch.status === 'completed';
+  const hasScores = updatedMatch && updatedMatch.homeScore !== null && updatedMatch.awayScore !== null;
+  const isRelevantUpdate = payload.status === 'completed' || payload.homeScore !== undefined || payload.awayScore !== undefined;
+
+  if (isStatusCompleted && hasScores && isRelevantUpdate) {
     try {
-      console.log(`[updateMatch] Auto-calculating standings for season ${updatedMatch.seasonId}`);
-      await calculateStandings(updatedMatch.seasonId);
+      console.log(`[updateMatch] Auto-calculating standings for season ${updatedMatch!.seasonId}`);
+      await calculateStandings(updatedMatch!.seasonId);
     } catch (error) {
       console.error('[updateMatch] Failed to auto-calculate standings:', error);
       // Don't fail the match update if standings calculation fails
@@ -691,10 +786,12 @@ export const listLiveMatches = async (): Promise<MatchRecord[]> => {
         m.season_id AS seasonId,
         m.round_id AS roundId,
         m.matchday_number AS matchdayNumber,
+        m.home_season_team_id AS homeSeasonTeamId,
         hstp.team_id AS homeTeamId,
         ht.name AS homeTeamName,
         ht.short_name AS homeTeamShortName,
         ht.logo_url AS homeTeamLogo,
+        m.away_season_team_id AS awaySeasonTeamId,
         astp.team_id AS awayTeamId,
         at.name AS awayTeamName,
         at.short_name AS awayTeamShortName,
@@ -717,7 +814,9 @@ export const listLiveMatches = async (): Promise<MatchRecord[]> => {
                 event_type AS type,
                 card_type AS cardType,
                 event_minute AS minute,
-                description
+                description,
+                player_id AS playerId,
+                assist_player_id AS assistPlayerId
             FROM match_events me
             INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
             WHERE me.match_id = m.match_id 
@@ -727,11 +826,14 @@ export const listLiveMatches = async (): Promise<MatchRecord[]> => {
         (SELECT (
             SELECT 
                 stp.team_id AS teamId,
+                stp.season_team_id AS seasonTeamId,
                 mts.possession_percent AS possession,
                 mts.shots_total AS shots,
                 mts.shots_on_target AS onTarget,
                 mts.corners,
-                mts.fouls_committed AS fouls
+                mts.fouls_committed AS fouls,
+                mts.offsides,
+                mts.passes_completed AS passesCompleted
             FROM match_team_statistics mts
             INNER JOIN season_team_participants stp ON mts.season_team_id = stp.season_team_id
             WHERE mts.match_id = m.match_id
@@ -742,6 +844,7 @@ export const listLiveMatches = async (): Promise<MatchRecord[]> => {
       INNER JOIN teams ht ON hstp.team_id = ht.team_id
       INNER JOIN season_team_participants astp ON m.away_season_team_id = astp.season_team_id
       INNER JOIN teams at ON astp.team_id = at.team_id
+      LEFT JOIN season_rounds sr ON m.round_id = sr.round_id
       LEFT JOIN stadiums s ON m.stadium_id = s.stadium_id
       WHERE m.status = 'in_progress'
       ORDER BY m.scheduled_kickoff DESC;

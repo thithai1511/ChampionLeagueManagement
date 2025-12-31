@@ -15,6 +15,7 @@ import { query } from "../db/sqlServer";
 import { NotificationService } from "./notificationService";
 import * as matchOfficialService from "./matchOfficialService";
 import * as matchLineupService from "./matchLineupService";
+import { processMatchCompletion } from "./matchResultProcessingService";
 
 // Match lifecycle statuses
 export type MatchStatus =
@@ -182,6 +183,34 @@ export async function changeMatchStatus(
     }
   }
 
+  if (newStatus === "IN_PROGRESS") {
+    // Must have all officials assigned before starting match
+    const officials = await query<{ role_code: string }>(
+      `SELECT role_code FROM match_official_assignments WHERE match_id = @matchId`,
+      { matchId }
+    );
+
+    const requiredRoles = ['referee', 'assistant_1', 'assistant_2', 'fourth_official'];
+    const assignedRoles = officials.recordset.map(o => o.role_code);
+    const missingRoles = requiredRoles.filter(role => !assignedRoles.includes(role));
+
+    if (missingRoles.length > 0) {
+      const roleNames: Record<string, string> = {
+        'referee': 'Trọng tài chính',
+        'assistant_1': 'Trọng tài biên 1',
+        'assistant_2': 'Trọng tài biên 2',
+        'fourth_official': 'Trọng tài bàn'
+      };
+      const missingNames = missingRoles.map(r => roleNames[r] || r).join(', ');
+      throw new Error(`Không thể bắt đầu trận đấu. Thiếu trọng tài: ${missingNames}`);
+    }
+
+    // Must have both lineups approved
+    if (match.home_lineup_status !== "APPROVED" || match.away_lineup_status !== "APPROVED") {
+      throw new Error("Cannot start match without both lineups approved");
+    }
+  }
+
   if (newStatus === "REPORTED") {
     // Must have both reports submitted
     if (!match.referee_report_submitted || !match.supervisor_report_submitted) {
@@ -209,10 +238,26 @@ export async function changeMatchStatus(
     payload?.note
   );
 
-  // 6. Trigger notifications
+  // 6. Process match completion (update standings, disciplinary, etc.)
+  if (newStatus === "COMPLETED") {
+    try {
+      console.log(`[changeMatchStatus] Processing match completion for match ${matchId}`);
+      const processingResult = await processMatchCompletion(matchId);
+      if (!processingResult.success) {
+        console.warn(`[changeMatchStatus] Match completion processing had errors:`, processingResult.errors);
+      } else {
+        console.log(`[changeMatchStatus] Match completion processed successfully`);
+      }
+    } catch (err) {
+      console.error(`[changeMatchStatus] Error processing match completion:`, err);
+      // Don't throw - we still want to complete the status change
+    }
+  }
+
+  // 7. Trigger notifications
   await triggerNotification(match, newStatus, payload?.note);
 
-  // 7. Return updated match
+  // 8. Return updated match
   return (await getMatchDetails(matchId)) as MatchDetails;
 }
 
@@ -244,10 +289,10 @@ export async function assignOfficials(
   await matchOfficialService.assignOfficialToMatch(matchId, mainRefereeId, 'referee', assigner);
   
   if (assistantReferee1Id) {
-    await matchOfficialService.assignOfficialToMatch(matchId, assistantReferee1Id, 'assistant_referee', assigner);
+    await matchOfficialService.assignOfficialToMatch(matchId, assistantReferee1Id, 'assistant_1', assigner);
   }
   if (assistantReferee2Id) {
-    await matchOfficialService.assignOfficialToMatch(matchId, assistantReferee2Id, 'assistant_referee', assigner);
+    await matchOfficialService.assignOfficialToMatch(matchId, assistantReferee2Id, 'assistant_2', assigner);
   }
   if (fourthOfficialId) {
     await matchOfficialService.assignOfficialToMatch(matchId, fourthOfficialId, 'fourth_official', assigner);

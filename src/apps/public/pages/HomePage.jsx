@@ -4,9 +4,9 @@ import { Play, ArrowRight, Trophy, Users, Activity, CalendarDays, Shield, Star, 
 import uefaWordmark from '@/assets/images/UEFA_CHAMPIONS_LEAGUE.png';
 import trophyImage from '@/assets/images/cup.avif';
 import footballImage from '@/assets/images/trai_bong.jpg';
-import PlayersService from '../../../layers/application/services/PlayersService';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import TeamsService from '../../../layers/application/services/TeamsService';
+import StatsService from '../../../layers/application/services/StatsService';
 import { toCompetitionStageLabel, toCountryLabel, toMatchStatusLabel, toPlayerPositionLabel } from '../../../shared/utils/vi';
 import BestXI from '../../../components/BestXI';
 
@@ -103,14 +103,28 @@ const HomePage = () => {
         const teamsResponse = await TeamsService.getAllTeams({ limit: 100 });
         setTeams(teamsResponse?.teams || []);
 
-        // Fetch top scorer
-        const playersResponse = await PlayersService.listPlayers({ 
-          sortBy: 'goals', 
-          sortOrder: 'desc', 
-          limit: 1 
-        });
-        if (playersResponse?.players?.length > 0) {
-          setTopScorer(playersResponse.players[0]);
+        // Fetch top scorer from public stats API
+        try {
+          const seasons = await TeamsService.getCompetitionSeasons();
+          const latestSeason = seasons?.[0];
+          if (latestSeason?.season_id || latestSeason?.id) {
+            const seasonId = latestSeason.season_id ?? latestSeason.id;
+            const topScorers = await StatsService.getTopScorers(seasonId, 1);
+            if (topScorers?.length > 0) {
+              const scorer = topScorers[0];
+              setTopScorer({
+                id: scorer.playerId,
+                name: scorer.playerName,
+                fullName: scorer.playerName,
+                goals: scorer.goals,
+                assists: scorer.assists,
+                teamName: scorer.teamName,
+                position: scorer.position
+              });
+            }
+          }
+        } catch (scorerError) {
+          console.warn('Failed to fetch top scorer:', scorerError);
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -140,19 +154,14 @@ const HomePage = () => {
     setHasSearched(true);
     
     try {
-      // Search players, matches, and teams in parallel
-      const [playersResponse, matchesResponse, teamsResponse] = await Promise.allSettled([
-        PlayersService.listPlayers({ search: query, limit: 5 }),
+      // Search matches and teams in parallel (players API requires auth)
+      const [matchesResponse, teamsResponse] = await Promise.allSettled([
         MatchesService.getAllMatches({ search: query, limit: 5 }),
         TeamsService.getAllTeams({ search: query, limit: 5 })
       ]);
 
-      // Handle players response
-      if (playersResponse.status === 'fulfilled') {
-        setPlayerResults(playersResponse.value?.players || []);
-      } else {
-        setPlayerResults([]);
-      }
+      // Players search not available in public mode - skip
+      setPlayerResults([]);
 
       // Handle matches response
       if (matchesResponse.status === 'fulfilled') {
@@ -255,7 +264,7 @@ const HomePage = () => {
                   loading="lazy"
                 />
                 <span className="text-[10px] uppercase tracking-[0.4em] text-cyan-300/60 font-semibold bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">
-                  Trải nghiệm kỹ thuật số chính thức
+                  Trải nghiệm bóng đá đỉnh cao
                 </span>
               </div>
               
@@ -292,7 +301,8 @@ const HomePage = () => {
                         lineHeight: '1.2'
                       }}
                     >
-                      Giải vô địch bóng đá KỶ NGUYÊN MỚI
+                      Giải vô địch bóng đá 
+                         KỶ NGUYÊN MỚI
                     </span>
                   </span>
                   
@@ -1015,7 +1025,7 @@ const HomePage = () => {
 
             {/* Description */}
             <p className="text-white/70 text-lg leading-relaxed max-w-lg">
-              Quả bóng chính thức của Giải Bóng Đá Việt Nam mùa giải 2024/25. 
+              Quả bóng chính thức của Giải Bóng đá KỶ NGUYÊN MỚI 2024/25. 
               Thiết kế độc đáo với họa tiết <span className="text-rose-400 font-semibold">ngôi sao</span> biểu tượng 
               và công nghệ <span className="text-cyan-400 font-semibold">Connected Ball</span>.
             </p>

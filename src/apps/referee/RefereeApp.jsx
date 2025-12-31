@@ -1,0 +1,23 @@
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import RefereeLayout from './components/RefereeLayout';
+import MyMatchesPage from './pages/MyMatchesPage';
+import MatchControlPage from './pages/MatchControlPage';
+import ReportsPage from './pages/ReportsPage';
+import RegulationsPageWrapper from '../../components/RegulationsPageWrapper';
+
+const RefereeApp = () => {
+  return (
+    <Routes>
+      <Route path="/" element={<RefereeLayout />}>
+        <Route index element={<Navigate to="my-matches" replace />} />
+        <Route path="my-matches" element={<MyMatchesPage />} />
+        <Route path="match/:matchId" element={<MatchControlPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="regulations" element={<RegulationsPageWrapper />} />
+      </Route>
+    </Routes>
+  );
+};
+
+export default RefereeApp;

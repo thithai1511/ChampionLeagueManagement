@@ -122,7 +122,15 @@ async function getLockout(userId: number) {
      WHERE user_id = @userId`,
     { userId }
   );
-  return result.recordset[0] ?? null;
+  const lockout = result.recordset[0] ?? null;
+  
+  // Auto-clear expired lockouts
+  if (lockout && lockout.locked_until && lockout.locked_until <= new Date()) {
+    await clearLockout(userId);
+    return null;
+  }
+  
+  return lockout;
 }
 
 async function setLockout(userId: number, failedAttempts: number, lockMinutes?: number) {
@@ -201,7 +209,8 @@ export async function login(username: string, password: string) {
 
   const lockout = await getLockout(user.user_id);
   if (lockout?.locked_until && lockout.locked_until > new Date()) {
-    throw new HttpError(423, "Account is locked. Please try again later.");
+    const minutesRemaining = Math.ceil((lockout.locked_until.getTime() - Date.now()) / 60000);
+    throw new HttpError(423, `Account is locked. Please try again in ${minutesRemaining} minute(s).`);
   }
 
   const passwordMatches = await verifyPassword(password, user.password_hash, user.user_id);

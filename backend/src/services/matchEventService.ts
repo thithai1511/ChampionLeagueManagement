@@ -1,4 +1,5 @@
 import { query } from "../db/sqlServer";
+import { BadRequestError } from "../utils/httpError";
 
 export interface MatchEvent {
   matchEventId: number;
@@ -20,21 +21,28 @@ export const getMatchEvents = async (matchId: number): Promise<MatchEvent[]> => 
   const result = await query(
     `
       SELECT 
-        match_event_id as matchEventId,
-        match_id as matchId,
-        season_id as seasonId,
-        season_team_id as seasonTeamId,
-        type,
-        minute,
-        description,
-        player_id as playerId,
-        assist_player_id as assistPlayerId,
-        in_player_id as inPlayerId,
-        out_player_id as outPlayerId,
-        created_at as createdAt
-      FROM match_events
-      WHERE match_id = @matchId
-      ORDER BY minute ASC, created_at ASC
+        me.match_event_id as matchEventId,
+        me.match_id as matchId,
+        me.season_id as seasonId,
+        me.season_team_id as seasonTeamId,
+        stp.team_id as teamId,
+        me.event_type as type,
+        me.event_minute as minute,
+        me.stoppage_time as stoppageTime,
+        me.description,
+        me.player_name as playerName,
+        me.player_id as playerId,
+        me.assist_player_id as assistPlayerId,
+        me.card_type as cardType,
+        me.goal_type_code as goalTypeCode,
+        rgt.name as goalTypeName,
+        rgt.description as goalTypeDescription,
+        me.created_at as createdAt
+      FROM match_events me
+      INNER JOIN season_team_participants stp ON me.season_team_id = stp.season_team_id
+      LEFT JOIN ruleset_goal_types rgt ON me.ruleset_id = rgt.ruleset_id AND me.goal_type_code = rgt.code AND rgt.is_active = 1
+      WHERE me.match_id = @matchId
+      ORDER BY me.event_minute ASC, me.stoppage_time ASC, me.created_at ASC
     `,
     { matchId }
   );
@@ -43,14 +51,16 @@ export const getMatchEvents = async (matchId: number): Promise<MatchEvent[]> => 
 
 export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: number; playerId: number }>): Promise<MatchEvent> => {
   // 1. Fetch RulesetID and SeasonID from Match
-  const matchData = await query<{ ruleset_id: number; season_id: number }>(
-    "SELECT ruleset_id, season_id FROM matches WHERE match_id = @matchId",
+  const matchData = await query<{ ruleset_id: number; season_id: number; status: string }>(
+    "SELECT ruleset_id, season_id, status FROM matches WHERE match_id = @matchId",
     { matchId: input.matchId }
   );
   const rulesetId = matchData.recordset[0]?.ruleset_id;
   const seasonId = matchData.recordset[0]?.season_id;
+  const status = matchData.recordset[0]?.status;
 
   if (!rulesetId || !seasonId) throw new Error("Match or Ruleset not found");
+  if (status === 'completed') throw new Error("Cannot add events to a completed match");
 
   // 2. Resolve SeasonTeamID from TeamID + SeasonID
   const teamData = await query<{ season_team_id: number }>(
@@ -79,11 +89,51 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     seasonPlayerId = playerData.recordset[0]?.season_player_id;
   }
 
-  // 4. Normalize event type and decide card_type only for disciplinary events
-  const rawType = String(input.type || '').toUpperCase()
-  let dbEventType = rawType
-  let cardType: string | null = null
-  let goalTypeCode: string | null = null
+// 4. Normalize event type and set defaults
+  const rawType = String(input.type || '').toUpperCase();
+  let dbEventType = rawType;
+  let cardType: string | null = null;
+  let goalTypeCode: string | null = null;
+
+  if (rawType === 'GOAL') {
+    // Get goal type code from input or use default
+    const requestedCode = (input as any).goalTypeCode || 'open_play';
+    
+    // Validate goal type code against ruleset_goal_types
+    const goalTypeInfo = await query<{ minute_min: number; minute_max: number }>(
+      `SELECT minute_min, minute_max 
+       FROM ruleset_goal_types 
+       WHERE ruleset_id = @rulesetId AND code = @code AND is_active = 1`,
+      { rulesetId, code: requestedCode }
+    );
+    
+    if (!goalTypeInfo.recordset[0]) {
+      // Get list of valid codes for error message
+      const validCodesResult = await query<{ code: string }>(
+        `SELECT code
+         FROM ruleset_goal_types
+         WHERE ruleset_id = @rulesetId AND is_active = 1
+         ORDER BY code ASC`,
+        { rulesetId }
+      );
+      const validCodes = validCodesResult.recordset.map(row => row.code);
+      throw BadRequestError(
+        `Invalid goal type code "${requestedCode}". Valid codes for this ruleset: ${validCodes.length > 0 ? validCodes.join(', ') : 'none configured'}`
+      );
+    }
+
+    // Validate minute against goal type constraints
+    if (input.minute !== undefined) {
+      const { minute_min, minute_max } = goalTypeInfo.recordset[0];
+      if (input.minute < minute_min || input.minute > minute_max) {
+        throw BadRequestError(
+          `Goal minute ${input.minute} is outside allowed range [${minute_min}, ${minute_max}] for goal type "${requestedCode}"`
+        );
+      }
+    }
+
+    goalTypeCode = requestedCode;
+  }
 
   switch (rawType) {
     case 'GOAL':
@@ -124,7 +174,8 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
       match_id, season_id, season_team_id, ruleset_id,
       event_type, event_minute, description, 
       season_player_id, player_name, 
-      goal_type_code, card_type, -- Added
+      goal_type_code, card_type,
+      player_id, assist_player_id,
       created_at
     )
     OUTPUT INSERTED.match_event_id
@@ -132,7 +183,8 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
       @matchId, @seasonId, @seasonTeamId, @rulesetId,
       @type, @minute, @description,
       @seasonPlayerId, @playerName, 
-      @goalTypeCode, @cardType, -- Added
+      @goalTypeCode, @cardType,
+      @playerId, @assistPlayerId,
       SYSUTCDATETIME()
     );
   `;
@@ -148,7 +200,9 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     seasonPlayerId: seasonPlayerId ?? null,
     playerName: playerName ?? null,
     goalTypeCode: goalTypeCode,
-    cardType: cardType
+    cardType: cardType,
+    playerId: input.playerId ?? null,
+    assistPlayerId: input.assistPlayerId ?? null
   });
 
   // 5. Update Match Score (if Goal or Own Goal)
@@ -190,19 +244,22 @@ export const deleteMatchEvent = async (eventId: number): Promise<MatchEvent | nu
   // 1. Get event details before deleting
   const eventResult = await query<MatchEvent>(
     `SELECT 
-            match_event_id as matchEventId,
-            match_id as matchId,
-            season_id as seasonId,
-            season_team_id as seasonTeamId,
-            event_type as type,
-            card_type as cardType
-         FROM match_events 
-         WHERE match_event_id = @eventId`,
+            me.match_event_id as matchEventId,
+            me.match_id as matchId,
+            me.season_id as seasonId,
+            me.season_team_id as seasonTeamId,
+            me.event_type as type,
+            me.card_type as cardType,
+            m.status as matchStatus
+         FROM match_events me
+         JOIN matches m ON me.match_id = m.match_id
+         WHERE me.match_event_id = @eventId`,
     { eventId }
   );
   const event = eventResult.recordset[0];
 
   if (!event) return null;
+  if ((event as any).matchStatus === 'completed') throw new Error("Cannot delete events from a completed match");
 
   // 2. Revert Score if Goal
   if (event.type === 'GOAL' || event.type === 'OWN_GOAL') {
@@ -244,16 +301,19 @@ export const disallowMatchEvent = async (eventId: number, reason: string): Promi
   // 1. Get event
   const eventResult = await query<MatchEvent>(
     `SELECT 
-            match_event_id as matchEventId,
-            match_id as matchId,
-            season_team_id as seasonTeamId,
-            event_type as type
-         FROM match_events 
-         WHERE match_event_id = @eventId`,
+            me.match_event_id as matchEventId,
+            me.match_id as matchId,
+            me.season_team_id as seasonTeamId,
+            me.event_type as type,
+            m.status as matchStatus
+         FROM match_events me
+         JOIN matches m ON me.match_id = m.match_id
+         WHERE me.match_event_id = @eventId`,
     { eventId }
   );
   const event = eventResult.recordset[0];
   if (!event) return null;
+  if ((event as any).matchStatus === 'completed') throw new Error("Cannot modify events in a completed match");
 
   // 2. Revert Score if Goal (Before changing type to OTHER)
   if (event.type === 'GOAL' || event.type === 'OWN_GOAL') {

@@ -46,6 +46,7 @@ const PublicHeader = () => {
     { name: t('nav.matches'), path: '/matches' },
     { name: t('nav.teams'), path: '/teams' },
     { name: t('nav.stats'), path: '/stats' },
+    { name: 'Quy định', path: '/regulations' },
     { name: t('nav.news'), path: '/news' },
     { name: t('nav.videos'), path: '/video' },
   ];

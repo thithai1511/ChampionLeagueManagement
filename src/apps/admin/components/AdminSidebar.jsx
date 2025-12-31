@@ -43,7 +43,8 @@ const MENU_SECTIONS = [
         anyPermissions: ['manage_teams', 'manage_own_player_registrations'],
         disallowedRoles: ['super_admin']
       },
-      { name: 'Đăng ký mùa giải', path: '/admin/player-registrations', icon: FileText, permission: 'manage_own_player_registrations' }
+      { name: 'Đăng ký mùa giải', path: '/admin/player-registrations', icon: FileText, permission: 'manage_own_player_registrations' },
+      { name: 'Đăng ký thi đấu', path: '/admin/match-lineup-registration', icon: Target, permission: 'view_own_team' }
     ]
   },
   {
@@ -57,7 +58,6 @@ const MENU_SECTIONS = [
     title: 'Quản lý giải đấu',
     items: [
       { name: 'Mùa giải & Quy tắc', path: '/admin/seasons', icon: Swords, permission: 'manage_teams' },
-      { name: 'Đăng ký đội', path: '/admin/season-registration-workflow', icon: UserCheck, permission: 'manage_teams' },
       { name: 'Đội bóng', path: '/admin/teams', icon: Users, permission: 'manage_teams' },
       { name: 'Cầu thủ', path: '/admin/players', icon: UserCheck, anyPermissions: ['manage_teams', 'approve_player_registrations'] },
       { name: 'Trận đấu', path: '/admin/matches', icon: Calendar, permission: 'manage_matches' },
@@ -67,18 +67,16 @@ const MENU_SECTIONS = [
     ]
   },
   {
-    title: 'Quản lý nội dung',
-    items: [
-      { name: 'Tin tức & Bài viết', path: '/admin/news', icon: FileText, permission: 'manage_content' },
-      { name: 'Thư viện Media', path: '/admin/media', icon: Target, permission: 'manage_content' },
-      { name: 'Nội dung Website', path: '/admin/content', icon: Globe, permission: 'manage_content' }
-    ]
-  },
-  {
     title: 'Hệ thống',
     items: [
       { name: 'Quản lý người dùng', path: '/admin/users', icon: Shield, permission: 'manage_users' },
       { name: 'Vai trò & Quyền', path: '/admin/roles', icon: KeyRound, permission: 'manage_users' }
+    ]
+  },
+  {
+    title: 'Thông tin',
+    items: [
+      { name: 'Quy định', path: '/admin/regulations', icon: ScrollText }
     ]
   }
 ]
@@ -184,11 +182,10 @@ const AdminSidebar = ({ currentUser }) => {
                   <li key={item.name}>
                     <Link
                       to={item.path}
-                      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${
-                        isActive
+                      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${isActive
                           ? 'bg-gradient-to-r from-blue-600/30 via-blue-500/20 to-transparent text-white shadow-lg shadow-blue-500/10'
                           : 'text-blue-200/60 hover:text-white hover:bg-white/5'
-                      }`}
+                        }`}
                     >
                       {isActive && (
                         <>
@@ -196,11 +193,10 @@ const AdminSidebar = ({ currentUser }) => {
                           <span className="absolute inset-0 rounded-xl ring-1 ring-blue-500/30"></span>
                         </>
                       )}
-                      <span className={`relative z-10 p-1.5 rounded-lg transition-all duration-300 ${
-                        isActive 
+                      <span className={`relative z-10 p-1.5 rounded-lg transition-all duration-300 ${isActive
                           ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30'
                           : 'bg-white/5 text-blue-300/70 group-hover:bg-white/10 group-hover:text-cyan-300'
-                      }`}>
+                        }`}>
                         <item.icon size={16} />
                       </span>
                       <span className={`font-medium text-sm transition-all duration-300 ${isActive ? 'translate-x-1' : 'group-hover:translate-x-1'}`}>
@@ -235,7 +231,7 @@ const AdminSidebar = ({ currentUser }) => {
             Xuất báo cáo
           </button>
         </div>
-        
+
         {/* UCL Badge */}
         <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-center gap-2 text-[10px] text-blue-400/40 uppercase tracking-widest">
           <Trophy size={12} />

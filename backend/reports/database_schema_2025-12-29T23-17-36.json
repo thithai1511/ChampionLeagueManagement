@@ -1,0 +1,6026 @@
+{
+  "generatedAt": "2025-12-29T23:17:36.090Z",
+  "summary": {
+    "totalTables": 49,
+    "totalColumns": 537,
+    "totalRows": 4898
+  },
+  "tables": [
+    {
+      "tableName": "audit_events",
+      "rowCount": 635,
+      "columnCount": 12,
+      "columns": [
+        {
+          "columnName": "audit_event_id",
+          "dataType": "BIGINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "event_type",
+          "dataType": "VARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "severity",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "actor_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "actor_username",
+          "dataType": "VARCHAR(150)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "actor_role",
+          "dataType": "VARCHAR(100)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "entity_type",
+          "dataType": "VARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "entity_id",
+          "dataType": "VARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "correlation_id",
+          "dataType": "UNIQUEIDENTIFIER",
+          "isNullable": false,
+          "columnDefault": "(newid())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "payload",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "metadata",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        }
+      ]
+    },
+    {
+      "tableName": "disciplinary_records",
+      "rowCount": 0,
+      "columnCount": 15,
+      "columns": [
+        {
+          "columnName": "record_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "player_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "offense_type",
+          "dataType": "VARCHAR(50)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "offense_date",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "yellow_card_count",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "red_card_count",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "is_suspended",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "suspension_matches",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "suspension_start_date",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "suspension_end_date",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(500)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        }
+      ]
+    },
+    {
+      "tableName": "match_audit_logs",
+      "rowCount": 23,
+      "columnCount": 8,
+      "columns": [
+        {
+          "columnName": "log_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "match_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "action_type",
+          "dataType": "NVARCHAR(50)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "details",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "old_value",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "new_value",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "changed_by_user_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": "(getdate())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        }
+      ]
+    },
+    {
+      "tableName": "match_events",
+      "rowCount": 825,
+      "columnCount": 17,
+      "columns": [
+        {
+          "columnName": "match_event_id",
+          "dataType": "BIGINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "season_player_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "related_season_player_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "event_type",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "event_minute",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "stoppage_time",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "goal_type_code",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "card_type",
+          "dataType": "VARCHAR(16)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "description",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "player_name",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "player_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "assist_player_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 17
+        }
+      ]
+    },
+    {
+      "tableName": "match_formations",
+      "rowCount": 3,
+      "columnCount": 6,
+      "columns": [
+        {
+          "columnName": "match_formation_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "match_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "formation",
+          "dataType": "VARCHAR(20)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        }
+      ]
+    },
+    {
+      "tableName": "match_lifecycle_history",
+      "rowCount": 0,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "from_status",
+          "dataType": "VARCHAR(20)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "to_status",
+          "dataType": "VARCHAR(20)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "changed_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "change_note",
+          "dataType": "NVARCHAR(500)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "changed_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "match_lineup_players",
+      "rowCount": 0,
+      "columnCount": 11,
+      "columns": [
+        {
+          "columnName": "lineup_player_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "lineup_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "match_lineups",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "season_player_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "role_code",
+          "dataType": "VARCHAR(16)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "position_code",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "shirt_number",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "is_captain",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "order_number",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "is_substitute",
+          "dataType": "BIT",
+          "isNullable": true,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        }
+      ]
+    },
+    {
+      "tableName": "match_lineups",
+      "rowCount": 114,
+      "columnCount": 28,
+      "columns": [
+        {
+          "columnName": "lineup_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "submitted_by",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "submitted_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "formation",
+          "dataType": "VARCHAR(20)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "kit_description",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('pending')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "reviewed_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "reviewed_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "review_notes",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "squad_size",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((16))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "starting_players_count",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((11))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "bench_players_count",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((5))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "player_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 17
+        },
+        {
+          "columnName": "team_type",
+          "dataType": "VARCHAR(10)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 18
+        },
+        {
+          "columnName": "approval_status",
+          "dataType": "VARCHAR(20)",
+          "isNullable": true,
+          "columnDefault": "('PENDING')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 19
+        },
+        {
+          "columnName": "approved_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 20
+        },
+        {
+          "columnName": "approved_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 21
+        },
+        {
+          "columnName": "rejection_reason",
+          "dataType": "NVARCHAR(500)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 22
+        },
+        {
+          "columnName": "is_starting",
+          "dataType": "BIT",
+          "isNullable": true,
+          "columnDefault": "((1))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 23
+        },
+        {
+          "columnName": "is_captain",
+          "dataType": "BIT",
+          "isNullable": true,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 24
+        },
+        {
+          "columnName": "jersey_number",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 25
+        },
+        {
+          "columnName": "position",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 26
+        },
+        {
+          "columnName": "minutes_played",
+          "dataType": "SMALLINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 27
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 28
+        }
+      ]
+    },
+    {
+      "tableName": "match_mvps",
+      "rowCount": 0,
+      "columnCount": 4,
+      "columns": [
+        {
+          "columnName": "mvp_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "player_name",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "team_name",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        }
+      ]
+    },
+    {
+      "tableName": "match_official_assignments",
+      "rowCount": 16,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "match_official_assignment_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "match_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "official_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "officials",
+            "column": "official_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "role_code",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "assigned_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "assigned_by",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "match_reports",
+      "rowCount": 0,
+      "columnCount": 13,
+      "columns": [
+        {
+          "columnName": "match_report_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "reporting_official_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "officials",
+            "column": "official_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "submitted_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "home_score",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "away_score",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "player_of_match_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "weather",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "attendance",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "additional_notes",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "approved_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "approved_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        }
+      ]
+    },
+    {
+      "tableName": "match_team_infos",
+      "rowCount": 2,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "info_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "match_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "formation",
+          "dataType": "VARCHAR(20)",
+          "isNullable": false,
+          "columnDefault": "('4-4-2')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "kit_type",
+          "dataType": "VARCHAR(20)",
+          "isNullable": false,
+          "columnDefault": "('HOME')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME",
+          "isNullable": true,
+          "columnDefault": "(getdate())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME",
+          "isNullable": true,
+          "columnDefault": "(getdate())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "match_team_statistics",
+      "rowCount": 0,
+      "columnCount": 12,
+      "columns": [
+        {
+          "columnName": "match_team_stat_id",
+          "dataType": "BIGINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "shots_total",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "shots_on_target",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "fouls_committed",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "offsides",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "corners",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "possession_percent",
+          "dataType": "DECIMAL",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "passes_completed",
+          "dataType": "SMALLINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "custom_metrics",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        }
+      ]
+    },
+    {
+      "tableName": "matches",
+      "rowCount": 449,
+      "columnCount": 27,
+      "columns": [
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "round_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_rounds",
+            "column": "season_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "matchday_number",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "home_season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "away_season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "stadium_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "stadiums",
+            "column": "stadium_id"
+          },
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "scheduled_kickoff",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('scheduled')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "home_score",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "away_score",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "attendance",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "winner_season_team_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "match_code",
+          "dataType": "VARCHAR(50)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 17
+        },
+        {
+          "columnName": "home_lineup_status",
+          "dataType": "VARCHAR(20)",
+          "isNullable": true,
+          "columnDefault": "('PENDING')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 18
+        },
+        {
+          "columnName": "away_lineup_status",
+          "dataType": "VARCHAR(20)",
+          "isNullable": true,
+          "columnDefault": "('PENDING')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 19
+        },
+        {
+          "columnName": "main_referee_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 20
+        },
+        {
+          "columnName": "assistant_referee_1_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 21
+        },
+        {
+          "columnName": "assistant_referee_2_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 22
+        },
+        {
+          "columnName": "fourth_official_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 23
+        },
+        {
+          "columnName": "supervisor_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 24
+        },
+        {
+          "columnName": "referee_report_submitted",
+          "dataType": "BIT",
+          "isNullable": true,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 25
+        },
+        {
+          "columnName": "supervisor_report_submitted",
+          "dataType": "BIT",
+          "isNullable": true,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 26
+        },
+        {
+          "columnName": "officials_assigned_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 27
+        }
+      ]
+    },
+    {
+      "tableName": "notifications",
+      "rowCount": 0,
+      "columnCount": 11,
+      "columns": [
+        {
+          "columnName": "notification_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "user_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "type",
+          "dataType": "VARCHAR(50)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "title",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "message",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "related_entity",
+          "dataType": "VARCHAR(50)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "related_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "action_url",
+          "dataType": "NVARCHAR(500)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "is_read",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "read_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        }
+      ]
+    },
+    {
+      "tableName": "officials",
+      "rowCount": 7,
+      "columnCount": 10,
+      "columns": [
+        {
+          "columnName": "official_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "user_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "full_name",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "role_specialty",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "license_number",
+          "dataType": "VARCHAR(50)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "federation_level",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('active')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        }
+      ]
+    },
+    {
+      "tableName": "permissions",
+      "rowCount": 10,
+      "columnCount": 4,
+      "columns": [
+        {
+          "columnName": "permission_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "code",
+          "dataType": "VARCHAR(150)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "name",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "description",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        }
+      ]
+    },
+    {
+      "tableName": "player_match_stats",
+      "rowCount": 0,
+      "columnCount": 14,
+      "columns": [
+        {
+          "columnName": "player_match_stat_id",
+          "dataType": "BIGINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "season_player_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "minutes_played",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "goals",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "assists",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "shots",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "shots_on_target",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "yellow_cards",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "red_cards",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "player_of_match",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "is_starting",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        }
+      ]
+    },
+    {
+      "tableName": "player_suspensions",
+      "rowCount": 0,
+      "columnCount": 13,
+      "columns": [
+        {
+          "columnName": "suspension_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_player_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_player_registrations",
+            "column": "season_player_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "reason",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "trigger_match_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "match_id"
+          },
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "matches_banned",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((1))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "start_match_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "matches",
+            "column": "match_id"
+          },
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "served_matches",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(16)",
+          "isNullable": false,
+          "columnDefault": "('active')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        }
+      ]
+    },
+    {
+      "tableName": "players",
+      "rowCount": 975,
+      "columnCount": 21,
+      "columns": [
+        {
+          "columnName": "player_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "full_name",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "display_name",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "date_of_birth",
+          "dataType": "DATE",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "place_of_birth",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "nationality",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "preferred_position",
+          "dataType": "VARCHAR(50)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "secondary_position",
+          "dataType": "VARCHAR(50)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "height_cm",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "weight_kg",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "biography",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "dominant_foot",
+          "dataType": "VARCHAR(12)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "current_team_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "teams",
+            "column": "team_id"
+          },
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "updated_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 17
+        },
+        {
+          "columnName": "avatar_url",
+          "dataType": "NVARCHAR(1024)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 18
+        },
+        {
+          "columnName": "legacy_football_player_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 19
+        },
+        {
+          "columnName": "external_key",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 20
+        },
+        {
+          "columnName": "shirt_number",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 21
+        }
+      ]
+    },
+    {
+      "tableName": "role_permissions",
+      "rowCount": 21,
+      "columnCount": 2,
+      "columns": [
+        {
+          "columnName": "role_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "roles",
+            "column": "role_id"
+          },
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "permission_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "permissions",
+            "column": "permission_id"
+          },
+          "ordinalPosition": 2
+        }
+      ]
+    },
+    {
+      "tableName": "roles",
+      "rowCount": 6,
+      "columnCount": 5,
+      "columns": [
+        {
+          "columnName": "role_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "code",
+          "dataType": "VARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "name",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "description",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "is_system_role",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        }
+      ]
+    },
+    {
+      "tableName": "ruleset_audit_log",
+      "rowCount": 0,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "audit_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "action",
+          "dataType": "VARCHAR(64)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "actor_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "actor_username",
+          "dataType": "VARCHAR(150)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "details",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "ruleset_goal_types",
+      "rowCount": 5,
+      "columnCount": 8,
+      "columns": [
+        {
+          "columnName": "goal_type_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "code",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "name",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "description",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "minute_min",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "minute_max",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((90))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "is_active",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((1))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        }
+      ]
+    },
+    {
+      "tableName": "ruleset_match_constraints",
+      "rowCount": 1,
+      "columnCount": 8,
+      "columns": [
+        {
+          "columnName": "match_constraint_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "total_rounds",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "teams_per_season",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "home_away_balance",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((1))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "max_matches_per_day",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "min_rest_days",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        }
+      ]
+    },
+    {
+      "tableName": "ruleset_player_constraints",
+      "rowCount": 2,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "constraint_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "min_age",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "max_age",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "max_players",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "max_foreign_players",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "squad_registration_deadline",
+          "dataType": "DATE",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "ruleset_ranking_rules",
+      "rowCount": 2,
+      "columnCount": 6,
+      "columns": [
+        {
+          "columnName": "ranking_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "points_for_win",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "points_for_draw",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "points_for_loss",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "tie_breaking_order",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        }
+      ]
+    },
+    {
+      "tableName": "ruleset_scoring_rules",
+      "rowCount": 2,
+      "columnCount": 4,
+      "columns": [
+        {
+          "columnName": "scoring_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "max_goal_time",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "accepted_goal_types",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        }
+      ]
+    },
+    {
+      "tableName": "ruleset_team_requirements",
+      "rowCount": 1,
+      "columnCount": 8,
+      "columns": [
+        {
+          "columnName": "team_requirement_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "min_registered_players",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "min_goalkeepers",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "max_foreign_on_match_sheet",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "min_stadium_capacity",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "min_stadium_rating",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        }
+      ]
+    },
+    {
+      "tableName": "rulesets",
+      "rowCount": 3,
+      "columnCount": 11,
+      "columns": [
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "name",
+          "dataType": "VARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "version_tag",
+          "dataType": "VARCHAR(64)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "description",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "is_active",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "effective_from",
+          "dataType": "DATE",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "effective_to",
+          "dataType": "DATE",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "updated_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        }
+      ]
+    },
+    {
+      "tableName": "season_invitations",
+      "rowCount": 11,
+      "columnCount": 12,
+      "columns": [
+        {
+          "columnName": "invitation_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "seasons",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "teams",
+            "column": "team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "invite_type",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('pending')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "invited_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "response_deadline",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "responded_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "response_notes",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "invited_by",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "responded_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "replacement_for_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_invitations",
+            "column": "invitation_id"
+          },
+          "ordinalPosition": 12
+        }
+      ]
+    },
+    {
+      "tableName": "season_player_registrations",
+      "rowCount": 1459,
+      "columnCount": 22,
+      "columns": [
+        {
+          "columnName": "season_player_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "player_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "players",
+            "column": "player_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "registration_status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('pending')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "player_type",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "is_foreign",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "shirt_number",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "position_code",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "age_on_season_start",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "height_cm",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "weight_kg",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "biography",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(500)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "registered_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "approved_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "approved_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 17
+        },
+        {
+          "columnName": "file_path",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 18
+        },
+        {
+          "columnName": "position",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 19
+        },
+        {
+          "columnName": "jersey_number",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 20
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 21
+        },
+        {
+          "columnName": "reject_reason",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 22
+        }
+      ]
+    },
+    {
+      "tableName": "season_registration_status_history",
+      "rowCount": 16,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "registration_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "from_status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "to_status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "changed_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "note",
+          "dataType": "NVARCHAR(1000)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "changed_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "season_rounds",
+      "rowCount": 70,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "round_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "seasons",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "round_number",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "name",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "start_date",
+          "dataType": "DATE",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "end_date",
+          "dataType": "DATE",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('planned')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "season_ruleset_assignments",
+      "rowCount": 0,
+      "columnCount": 5,
+      "columns": [
+        {
+          "columnName": "season_ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "assigned_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "assigned_by",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        }
+      ]
+    },
+    {
+      "tableName": "season_status_history",
+      "rowCount": 4,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "season_status_history_id",
+          "dataType": "BIGINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "seasons",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "from_status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "to_status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "changed_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "changed_by",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "note",
+          "dataType": "NVARCHAR(512)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "season_team_participants",
+      "rowCount": 49,
+      "columnCount": 7,
+      "columns": [
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "seasons",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "teams",
+            "column": "team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "registration_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_registrations",
+            "column": "registration_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "seed_number",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('pending')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "joined_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        }
+      ]
+    },
+    {
+      "tableName": "season_team_registrations",
+      "rowCount": 33,
+      "columnCount": 24,
+      "columns": [
+        {
+          "columnName": "registration_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "seasons",
+            "column": "season_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "teams",
+            "column": "team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "invitation_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_invitations",
+            "column": "invitation_id"
+          },
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "fee_status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('unpaid')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "registration_status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('draft')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "submitted_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "reviewed_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "reviewed_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "review_notes",
+          "dataType": "NVARCHAR(1000)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "governing_body",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "city",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "home_stadium_name",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "home_stadium_capacity",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "home_stadium_rating",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "kit_description",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "squad_size",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 17
+        },
+        {
+          "columnName": "foreign_player_count",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 18
+        },
+        {
+          "columnName": "dossier_url",
+          "dataType": "NVARCHAR(500)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 19
+        },
+        {
+          "columnName": "notes",
+          "dataType": "NVARCHAR(1000)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 20
+        },
+        {
+          "columnName": "submission_data",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 21
+        },
+        {
+          "columnName": "reviewer_note",
+          "dataType": "NVARCHAR(1000)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 22
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 23
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 24
+        }
+      ]
+    },
+    {
+      "tableName": "season_team_statistics",
+      "rowCount": 48,
+      "columnCount": 13,
+      "columns": [
+        {
+          "columnName": "season_team_stat_id",
+          "dataType": "BIGINT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "season_team_participants",
+            "column": "season_team_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "matches_played",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "wins",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "draws",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "losses",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "goals_for",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "goals_against",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "points",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "current_rank",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "last_updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "goal_difference",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        }
+      ]
+    },
+    {
+      "tableName": "seasons",
+      "rowCount": 3,
+      "columnCount": 18,
+      "columns": [
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "tournament_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "tournaments",
+            "column": "tournament_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "ruleset_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "rulesets",
+            "column": "ruleset_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "name",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "code",
+          "dataType": "VARCHAR(64)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "description",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "start_date",
+          "dataType": "DATE",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "end_date",
+          "dataType": "DATE",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "participation_fee",
+          "dataType": "DECIMAL",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "max_teams",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((10))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "expected_rounds",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((18))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('draft')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "invitation_opened_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "registration_deadline",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "updated_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 17
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 18
+        }
+      ]
+    },
+    {
+      "tableName": "stadiums",
+      "rowCount": 47,
+      "columnCount": 15,
+      "columns": [
+        {
+          "columnName": "stadium_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "name",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "city",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "province",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "address",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "capacity",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "surface_type",
+          "dataType": "VARCHAR(64)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "rating_stars",
+          "dataType": "TINYINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "owner",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "contact_phone",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "is_certified",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "updated_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 15
+        }
+      ]
+    },
+    {
+      "tableName": "supervisor_reports",
+      "rowCount": 0,
+      "columnCount": 17,
+      "columns": [
+        {
+          "columnName": "id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "match_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "supervisor_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "organization_rating",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "home_team_rating",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "away_team_rating",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "stadium_condition_rating",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "security_rating",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "incident_report",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "has_serious_violation",
+          "dataType": "BIT",
+          "isNullable": true,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "send_to_disciplinary",
+          "dataType": "BIT",
+          "isNullable": true,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "recommendations",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "reviewed_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "reviewed_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "review_notes",
+          "dataType": "NVARCHAR(1000)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "submitted_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 17
+        }
+      ]
+    },
+    {
+      "tableName": "team_kits",
+      "rowCount": 0,
+      "columnCount": 8,
+      "columns": [
+        {
+          "columnName": "kit_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "teams",
+            "column": "team_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "season_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "seasons",
+            "column": "season_id"
+          },
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "kit_type",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "primary_color",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "secondary_color",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "pattern_description",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "registered_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        }
+      ]
+    },
+    {
+      "tableName": "teams",
+      "rowCount": 23,
+      "columnCount": 24,
+      "columns": [
+        {
+          "columnName": "team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "name",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "short_name",
+          "dataType": "VARCHAR(50)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "code",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "governing_body",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "city",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "country",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "home_stadium_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "stadiums",
+            "column": "stadium_id"
+          },
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "founded_year",
+          "dataType": "SMALLINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "description",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "home_kit_description",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('active')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        },
+        {
+          "columnName": "updated_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 16
+        },
+        {
+          "columnName": "logo_url",
+          "dataType": "VARCHAR(500)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 17
+        },
+        {
+          "columnName": "stadium_id",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "stadiums",
+            "column": "stadium_id"
+          },
+          "ordinalPosition": 18
+        },
+        {
+          "columnName": "governing_body_in_vietnam",
+          "dataType": "BIT",
+          "isNullable": true,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 19
+        },
+        {
+          "columnName": "phone",
+          "dataType": "VARCHAR(32)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 20
+        },
+        {
+          "columnName": "email",
+          "dataType": "VARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 21
+        },
+        {
+          "columnName": "stadium_name",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 22
+        },
+        {
+          "columnName": "stadium_capacity",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 23
+        },
+        {
+          "columnName": "website",
+          "dataType": "VARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 24
+        }
+      ]
+    },
+    {
+      "tableName": "tournaments",
+      "rowCount": 5,
+      "columnCount": 12,
+      "columns": [
+        {
+          "columnName": "tournament_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "code",
+          "dataType": "VARCHAR(64)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "name",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "description",
+          "dataType": "NVARCHAR(MAX)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "organizer",
+          "dataType": "NVARCHAR(255)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "founded_year",
+          "dataType": "SMALLINT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "region",
+          "dataType": "NVARCHAR(150)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "is_active",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((1))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "updated_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        }
+      ]
+    },
+    {
+      "tableName": "user_accounts",
+      "rowCount": 12,
+      "columnCount": 15,
+      "columns": [
+        {
+          "columnName": "user_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "username",
+          "dataType": "VARCHAR(150)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "email",
+          "dataType": "VARCHAR(255)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "password_hash",
+          "dataType": "VARBINARY",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        },
+        {
+          "columnName": "first_name",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 5
+        },
+        {
+          "columnName": "last_name",
+          "dataType": "NVARCHAR(100)",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 6
+        },
+        {
+          "columnName": "status",
+          "dataType": "VARCHAR(32)",
+          "isNullable": false,
+          "columnDefault": "('active')",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 7
+        },
+        {
+          "columnName": "last_login_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 8
+        },
+        {
+          "columnName": "must_reset_password",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 9
+        },
+        {
+          "columnName": "mfa_enabled",
+          "dataType": "BIT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 10
+        },
+        {
+          "columnName": "created_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 11
+        },
+        {
+          "columnName": "created_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 12
+        },
+        {
+          "columnName": "updated_at",
+          "dataType": "DATETIME2",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 13
+        },
+        {
+          "columnName": "updated_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 14
+        },
+        {
+          "columnName": "full_name",
+          "dataType": "NVARCHAR(200)",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 15
+        }
+      ]
+    },
+    {
+      "tableName": "user_role_assignments",
+      "rowCount": 11,
+      "columnCount": 4,
+      "columns": [
+        {
+          "columnName": "user_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "role_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "roles",
+            "column": "role_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "assigned_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "assigned_by",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 4
+        }
+      ]
+    },
+    {
+      "tableName": "user_session_lockouts",
+      "rowCount": 0,
+      "columnCount": 3,
+      "columns": [
+        {
+          "columnName": "user_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "locked_until",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "failed_attempts",
+          "dataType": "TINYINT",
+          "isNullable": false,
+          "columnDefault": "((0))",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        }
+      ]
+    },
+    {
+      "tableName": "user_team_assignments",
+      "rowCount": 5,
+      "columnCount": 4,
+      "columns": [
+        {
+          "columnName": "user_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 1
+        },
+        {
+          "columnName": "team_id",
+          "dataType": "INT",
+          "isNullable": false,
+          "columnDefault": null,
+          "isPrimaryKey": true,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "teams",
+            "column": "team_id"
+          },
+          "ordinalPosition": 2
+        },
+        {
+          "columnName": "assigned_at",
+          "dataType": "DATETIME2",
+          "isNullable": false,
+          "columnDefault": "(sysutcdatetime())",
+          "isPrimaryKey": false,
+          "isForeignKey": false,
+          "foreignKeyReference": null,
+          "ordinalPosition": 3
+        },
+        {
+          "columnName": "assigned_by",
+          "dataType": "INT",
+          "isNullable": true,
+          "columnDefault": null,
+          "isPrimaryKey": false,
+          "isForeignKey": true,
+          "foreignKeyReference": {
+            "table": "user_accounts",
+            "column": "user_id"
+          },
+          "ordinalPosition": 4
+        }
+      ]
+    }
+  ]
+}

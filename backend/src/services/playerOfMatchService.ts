@@ -19,7 +19,7 @@ const basePomSelect = `
     pom.pom_id,
     pom.match_id,
     pom.player_id,
-    p.name AS player_name,
+    p.full_name AS player_name,
     pom.team_id,
     t.name AS team_name,
     pom.selected_by_method,
@@ -128,9 +128,9 @@ export async function getTopPlayersInSeason(
 > {
   const result = await query(
     `
-    SELECT TOP @limit
+    SELECT TOP (@limit)
       p.player_id,
-      p.name AS player_name,
+      p.full_name AS player_name,
       t.name AS team_name,
       COUNT(*) AS pom_count
     FROM player_of_match pom
@@ -138,7 +138,7 @@ export async function getTopPlayersInSeason(
     INNER JOIN teams t ON pom.team_id = t.team_id
     INNER JOIN matches m ON pom.match_id = m.match_id
     WHERE m.season_id = @seasonId
-    GROUP BY p.player_id, p.name, t.name
+    GROUP BY p.player_id, p.full_name, t.name
     ORDER BY pom_count DESC
   `,
     { seasonId, limit }
@@ -246,14 +246,14 @@ export async function getFanVotingResults(matchId: number): Promise<
     `
     SELECT
       p.player_id,
-      p.name AS player_name,
+      p.full_name AS player_name,
       t.name AS team_name,
       COUNT(*) AS vote_count
     FROM player_of_match_votes pmv
     INNER JOIN players p ON pmv.player_id = p.player_id
-    INNER JOIN teams t ON p.team_id = t.team_id
+    INNER JOIN teams t ON p.current_team_id = t.team_id
     WHERE pmv.match_id = @matchId
-    GROUP BY p.player_id, p.name, t.name
+    GROUP BY p.player_id, p.full_name, t.name
     ORDER BY vote_count DESC
   `,
     { matchId }

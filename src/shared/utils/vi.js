@@ -2,7 +2,7 @@ export const ROLE_LABELS = {
   team_admin: 'Quản trị đội bóng',
   super_admin: 'Quản trị tối cao',
   admin: 'Quản trị viên',
-  content_manager: 'Quản lý nội dung',
+  supervisor: 'Giám sát viên',
   match_official: 'Trọng tài',
   competition_manager: 'Quản lý giải đấu',
   viewer: 'Người xem',
@@ -15,7 +15,6 @@ export const ROLE_LABELS = {
   registrar: 'Đăng ký',
   referee: 'Trọng tài',
   official: 'Trọng tài',
-  supervisor: 'Giám sát',
   competitionmanager: 'Quản lý giải đấu'
 }
 

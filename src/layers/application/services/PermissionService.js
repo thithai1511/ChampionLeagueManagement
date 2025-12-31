@@ -13,7 +13,9 @@ const normalizePermission = (payload = {}) => ({
 class PermissionService {
   async listPermissions() {
     const response = await ApiService.get(ENDPOINTS.LIST)
-    return Array.isArray(response) ? response.map(normalizePermission) : []
+    // ApiService wraps arrays in {data: array}, extract it
+    const permissionsArray = Array.isArray(response) ? response : (response?.data || [])
+    return Array.isArray(permissionsArray) ? permissionsArray.map(normalizePermission) : []
   }
 }
 
