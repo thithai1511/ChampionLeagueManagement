@@ -80,8 +80,7 @@ export async function getCardStatsBySeason(seasonId: number): Promise<PlayerCard
      INNER JOIN players p ON spr.player_id = p.player_id
      INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
      INNER JOIN teams t ON stp.team_id = t.team_id
-     LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id 
-       AND me.event_type = 'CARD'
+     LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id
      WHERE spr.season_id = @seasonId
        AND spr.registration_status = 'approved'
      GROUP BY p.player_id, p.full_name, t.team_id, t.name, spr.season_id
@@ -103,10 +102,10 @@ export async function getCardStatsBySeason(seasonId: number): Promise<PlayerCard
     totalCards: row.yellow_cards + row.red_cards,
     matchesPlayed: row.matches_played,
     isSuspended: row.yellow_cards >= 2 || row.red_cards >= 1,
-    suspensionReason: row.red_cards >= 1 
-      ? 'Thẻ đỏ trực tiếp' 
-      : row.yellow_cards >= 2 
-        ? '2 thẻ vàng tích lũy' 
+    suspensionReason: row.red_cards >= 1
+      ? 'Thẻ đỏ trực tiếp'
+      : row.yellow_cards >= 2
+        ? '2 thẻ vàng tích lũy'
         : null
   }));
 }
@@ -143,12 +142,16 @@ export async function getTopScorersBySeason(seasonId: number, limit: number = 20
      INNER JOIN players p ON spr.player_id = p.player_id
      INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
      INNER JOIN teams t ON stp.team_id = t.team_id
+<<<<<<< HEAD
+     LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id
+=======
      LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id 
        AND me.event_type IN ('GOAL', 'ASSIST')
        AND me.season_id = @seasonId
      LEFT JOIN matches m ON me.match_id = m.match_id
        AND m.season_id = @seasonId
        AND m.status IN ('COMPLETED', 'FINISHED')
+>>>>>>> upstream/main
      WHERE spr.season_id = @seasonId
        AND spr.registration_status = 'approved'
      GROUP BY p.player_id, p.full_name, t.team_id, t.name, spr.season_id, spr.position_code, spr.shirt_number
@@ -317,7 +320,7 @@ export async function getSuspendedPlayers(seasonId: number): Promise<SuspendedPl
     if (row.red_cards >= 1) {
       reason = 'direct_red';
     }
-    
+
     return {
       playerId: row.player_id,
       playerName: row.player_name,

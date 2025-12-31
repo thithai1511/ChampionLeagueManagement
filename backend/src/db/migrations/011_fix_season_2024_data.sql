@@ -1,11 +1,97 @@
+USE ChampionLeagueManagement;
+GO
 /*
-  Migration: Fix Season 2024 Data
-  Purpose: Ensure Season 2024 has complete data (matches, events, standings)
-  Date: 2025-12-29
+  Migration: Fix Season 2024 Data, Seed MVP & Suspensions
+  Purpose: Reset Season 2024 with complete data (matches, events, standings, MVPs, suspensions)
+  Date: 2025-12-30 (Updated v3)
 */
 
 SET NOCOUNT ON;
-PRINT '=== Fixing Season 2024 Data ===';
+PRINT '=== Starting Full Season 2024 Data Reset & Seed ===';
+
+--------------------------------------------------------------
+-- PART 1: ENSURE TABLES EXIST
+--------------------------------------------------------------
+
+-- Create player_of_match table for MVP tracking
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'player_of_match')
+BEGIN
+    CREATE TABLE player_of_match (
+        pom_id INT IDENTITY(1,1) PRIMARY KEY,
+        match_id INT NOT NULL,
+        player_id INT NOT NULL,
+        team_id INT NOT NULL,
+        selected_by_method VARCHAR(20) NOT NULL 
+            CHECK (selected_by_method IN ('referee', 'team_captain', 'fan_vote', 'statistics')),
+        votes_count INT NULL,
+        rating DECIMAL(3,1) NULL CHECK (rating >= 0 AND rating <= 10),
+        selected_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        
+        CONSTRAINT FK_player_of_match_match FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE,
+        CONSTRAINT FK_player_of_match_player FOREIGN KEY (player_id) REFERENCES players(player_id),
+        CONSTRAINT FK_player_of_match_team FOREIGN KEY (team_id) REFERENCES teams(team_id),
+        CONSTRAINT UQ_player_of_match_per_match UNIQUE (match_id)
+    );
+
+    CREATE INDEX IX_player_of_match_player ON player_of_match(player_id);
+    CREATE INDEX IX_player_of_match_team ON player_of_match(team_id);
+    CREATE INDEX IX_player_of_match_match ON player_of_match(match_id);
+
+    PRINT 'Created player_of_match table';
+END
+ELSE
+BEGIN
+    PRINT 'Table player_of_match already exists';
+END
+GO
+
+-- Create player_suspensions table for disciplinary system
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[player_suspensions]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE [dbo].[player_suspensions](
+        [suspension_id] [int] IDENTITY(1,1) NOT NULL,
+        [season_id] [int] NOT NULL,
+        [season_player_id] [int] NOT NULL,
+        [season_team_id] [int] NOT NULL,
+        [reason] [nvarchar](50) NOT NULL, -- 'RED_CARD', 'TWO_YELLOW_CARDS', 'DISCIPLINARY_ACTION'
+        [trigger_match_id] [int] NULL, -- The match where the card(s) occurred
+        [matches_banned] [int] DEFAULT 1,
+        [start_match_id] [int] NULL, -- The first match of the suspension
+        [served_matches] [int] DEFAULT 0,
+        [status] [nvarchar](20) DEFAULT 'active', -- 'active', 'served', 'archived'
+        [notes] [nvarchar](max) NULL,
+        [created_at] [datetime] DEFAULT GETDATE(),
+        [updated_at] [datetime] DEFAULT GETDATE(),
+        CONSTRAINT [PK_player_suspensions] PRIMARY KEY CLUSTERED ([suspension_id] ASC)
+    );
+
+    ALTER TABLE [dbo].[player_suspensions]  WITH CHECK ADD  CONSTRAINT [FK_player_suspensions_seasons] FOREIGN KEY([season_id])
+    REFERENCES [dbo].[seasons] ([season_id]);
+
+    ALTER TABLE [dbo].[player_suspensions]  WITH CHECK ADD  CONSTRAINT [FK_player_suspensions_season_player_registrations] FOREIGN KEY([season_player_id])
+    REFERENCES [dbo].[season_player_registrations] ([season_player_id]);
+
+    ALTER TABLE [dbo].[player_suspensions]  WITH CHECK ADD  CONSTRAINT [FK_player_suspensions_season_team_participants] FOREIGN KEY([season_team_id])
+    REFERENCES [dbo].[season_team_participants] ([season_team_id]);
+
+    ALTER TABLE [dbo].[player_suspensions]  WITH CHECK ADD  CONSTRAINT [FK_player_suspensions_matches_trigger] FOREIGN KEY([trigger_match_id])
+    REFERENCES [dbo].[matches] ([match_id]);
+
+    ALTER TABLE [dbo].[player_suspensions]  WITH CHECK ADD  CONSTRAINT [FK_player_suspensions_matches_start] FOREIGN KEY([start_match_id])
+    REFERENCES [dbo].[matches] ([match_id]);
+
+    PRINT 'Created player_suspensions table successfully.';
+END
+ELSE
+BEGIN
+    PRINT 'player_suspensions table already exists.';
+END
+GO
+
+--------------------------------------------------------------
+-- PART 2: GENERATE MATCHES & EVENTS
+--------------------------------------------------------------
 
 -- ============================================================
 -- FIND SEASON 2024
@@ -210,8 +296,12 @@ BEGIN
 END
 
 -- Delete existing matches first to recreate them
+-- Must delete dependent data first to avoid FK constraints
+DELETE FROM player_suspensions WHERE trigger_match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id) OR start_match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id);
+DELETE FROM player_of_match WHERE match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id);
+DELETE FROM match_events WHERE match_id IN (SELECT match_id FROM matches WHERE season_id = @season2024Id);
 DELETE FROM matches WHERE season_id = @season2024Id;
-PRINT 'Deleted existing matches for Season 2024';
+PRINT 'Deleted existing matches and dependent data for Season 2024';
 
 -- Check rounds
 SELECT @roundsCount = COUNT(*) FROM season_rounds WHERE season_id = @season2024Id;
@@ -270,15 +360,17 @@ BEGIN
             
             IF @homeTeamId IS NOT NULL AND @awayTeamId IS NOT NULL AND @roundId IS NOT NULL AND @stadiumId IS NOT NULL
             BEGIN
-                SET @homeScore = ABS(CHECKSUM(NEWID())) % 5;
-                SET @awayScore = ABS(CHECKSUM(NEWID())) % 4;
+                -- Higher scoring: 1-8 goals for home, 0-6 for away
+                SET @homeScore = 1 + (ABS(CHECKSUM(NEWID())) % 8);  -- 1-8 goals (min 1)
+                SET @awayScore = ABS(CHECKSUM(NEWID())) % 7;  -- 0-6 goals
                 
                 BEGIN TRY
                     INSERT INTO matches (season_id, round_id, matchday_number, home_season_team_id, away_season_team_id,
-                        stadium_id, ruleset_id, scheduled_kickoff, status, home_score, away_score, attendance)
+                        stadium_id, ruleset_id, scheduled_kickoff, status, home_score, away_score, attendance, match_code)
                     VALUES (@season2024Id, @roundId, @round, @homeTeamId, @awayTeamId,
                         @stadiumId, @rulesetId, DATEADD(HOUR, @matchNum - 1, @kickoff), 'completed',
-                        @homeScore, @awayScore, 10000 + ABS(CHECKSUM(NEWID())) % 15000);
+                        @homeScore, @awayScore, 10000 + ABS(CHECKSUM(NEWID())) % 15000,
+                        'S' + CAST(@season2024Id AS VARCHAR(10)) + '-R' + CAST(@round AS VARCHAR(10)) + '-M' + CAST(@matchNum AS VARCHAR(10)));
                     SET @matchesCreated = @matchesCreated + 1;
                 END TRY
                 BEGIN CATCH
@@ -332,12 +424,18 @@ FETCH NEXT FROM match_cursor INTO @matchId, @mHomeScore, @mAwayScore, @mHomeTeam
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    -- Home team goals
+    -- Home team goals (weight top 3 forwards to score more)
     SET @goalIdx = 1;
     WHILE @goalIdx <= @mHomeScore
     BEGIN
-        SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
-        WHERE season_team_id = @mHomeTeamId AND position_code != 'GK' ORDER BY NEWID();
+        -- 60% chance: pick from top 3 forwards, 40% random
+        IF ABS(CHECKSUM(NEWID())) % 10 < 6
+            SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
+            WHERE season_team_id = @mHomeTeamId AND position_code IN ('ST', 'LW', 'RW') 
+            ORDER BY NEWID();
+        ELSE
+            SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
+            WHERE season_team_id = @mHomeTeamId AND position_code != 'GK' ORDER BY NEWID();
         
         SELECT TOP 1 @assistId = season_player_id FROM season_player_registrations 
         WHERE season_team_id = @mHomeTeamId AND season_player_id != ISNULL(@scorerId, 0) ORDER BY NEWID();
@@ -367,12 +465,18 @@ BEGIN
         SET @goalIdx = @goalIdx + 1;
     END
     
-    -- Away team goals
+    -- Away team goals (weight top 3 forwards to score more)
     SET @goalIdx = 1;
     WHILE @goalIdx <= @mAwayScore
     BEGIN
-        SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
-        WHERE season_team_id = @mAwayTeamId AND position_code != 'GK' ORDER BY NEWID();
+        -- 60% chance: pick from top 3 forwards, 40% random
+        IF ABS(CHECKSUM(NEWID())) % 10 < 6
+            SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
+            WHERE season_team_id = @mAwayTeamId AND position_code IN ('ST', 'LW', 'RW') 
+            ORDER BY NEWID();
+        ELSE
+            SELECT TOP 1 @scorerId = season_player_id FROM season_player_registrations 
+            WHERE season_team_id = @mAwayTeamId AND position_code != 'GK' ORDER BY NEWID();
         
         SELECT TOP 1 @assistId = season_player_id FROM season_player_registrations 
         WHERE season_team_id = @mAwayTeamId AND season_player_id != ISNULL(@scorerId, 0) ORDER BY NEWID();
@@ -551,3 +655,145 @@ UNION ALL SELECT 'Standings', COUNT(*) FROM season_team_statistics WHERE season_
 PRINT 'Done!';
 GO
 
+--------------------------------------------------------------
+-- PART 3: SEED MVP DATA (Realistic Player of the Match)
+--------------------------------------------------------------
+
+PRINT '=== Seeding MVP Data for Season 2024 ===';
+
+BEGIN TRANSACTION;
+
+BEGIN TRY
+    -- 1. CLEAR OLD MVP DATA
+    DECLARE @mvpSeasonId INT = 10; -- Season 2024
+    
+    PRINT 'Clearing existing MVP data...';
+    DELETE FROM player_of_match 
+    WHERE match_id IN (
+        SELECT match_id FROM matches WHERE season_id = @mvpSeasonId AND status = 'completed'
+    );
+
+    DECLARE @matches_to_seed TABLE (match_id INT, season_id INT, home_team_id INT, away_team_id INT, home_score INT, away_score INT);
+    
+    -- Get all completed matches
+    INSERT INTO @matches_to_seed (match_id, season_id, home_team_id, away_team_id, home_score, away_score)
+    SELECT m.match_id, m.season_id, m.home_season_team_id, m.away_season_team_id, m.home_score, m.away_score
+    FROM matches m
+    WHERE m.status = 'completed'
+      AND m.season_id = @mvpSeasonId;
+
+    DECLARE @mvpMatchId INT, @sId INT, @hTeamId INT, @aTeamId INT, @hScore INT, @aScore INT;
+    DECLARE @winningSeasonTeamId INT;
+    DECLARE @mvpPlayerId INT, @mvpTeamId INT;
+    
+    -- Cursor to iterate through matches
+    DECLARE match_cursor_mvp CURSOR FOR 
+    SELECT match_id, season_id, home_team_id, away_team_id, home_score, away_score FROM @matches_to_seed;
+
+    OPEN match_cursor_mvp;
+    FETCH NEXT FROM match_cursor_mvp INTO @mvpMatchId, @sId, @hTeamId, @aTeamId, @hScore, @aScore;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @mvpPlayerId = NULL;
+        SET @winningSeasonTeamId = NULL;
+
+        -- Determine winning context
+        IF @hScore > @aScore
+            SET @winningSeasonTeamId = @hTeamId;
+        ELSE IF @aScore > @hScore
+            SET @winningSeasonTeamId = @aTeamId;
+        
+        -- STRATEGY 1: Pick Top Scorer of the match (Priority)
+        IF @winningSeasonTeamId IS NOT NULL
+        BEGIN
+            -- Find player from winning team with most goals in this match
+            SELECT TOP 1 @mvpPlayerId = spr.player_id, @mvpTeamId = t.team_id
+            FROM match_events me
+            JOIN season_player_registrations spr ON me.season_player_id = spr.season_player_id
+            JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
+            JOIN teams t ON stp.team_id = t.team_id
+            WHERE me.match_id = @mvpMatchId 
+              AND me.event_type = 'GOAL' 
+              AND spr.season_team_id = @winningSeasonTeamId
+            GROUP BY spr.player_id, t.team_id
+            ORDER BY COUNT(*) DESC, NEWID();
+        END
+        ELSE -- Draw
+        BEGIN
+            -- Find any player with goals
+            SELECT TOP 1 @mvpPlayerId = spr.player_id, @mvpTeamId = t.team_id
+            FROM match_events me
+            JOIN season_player_registrations spr ON me.season_player_id = spr.season_player_id
+            JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
+            JOIN teams t ON stp.team_id = t.team_id
+            WHERE me.match_id = @mvpMatchId 
+              AND me.event_type = 'GOAL'
+            GROUP BY spr.player_id, t.team_id
+            ORDER BY COUNT(*) DESC, NEWID();
+        END
+
+        -- STRATEGY 2: If no scorer found (0-0 or data missing), pick GK or DF
+        IF @mvpPlayerId IS NULL
+        BEGIN
+            DECLARE @targetTeamId INT;
+            IF @winningSeasonTeamId IS NOT NULL
+                SET @targetTeamId = @winningSeasonTeamId;
+            ELSE
+                SET @targetTeamId = CASE WHEN ABS(CHECKSUM(NEWID())) % 2 = 0 THEN @hTeamId ELSE @aTeamId END;
+
+            SELECT TOP 1 @mvpPlayerId = spr.player_id, @mvpTeamId = t.team_id
+            FROM season_player_registrations spr
+            JOIN players p ON spr.player_id = p.player_id
+            JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
+            JOIN teams t ON stp.team_id = t.team_id
+            WHERE spr.season_team_id = @targetTeamId
+              AND (spr.position_code IN ('GK', 'CB', 'LB', 'RB') OR ABS(CHECKSUM(NEWID())) % 10 < 2)
+            ORDER BY NEWID();
+        END
+
+        -- Insert MVP
+        IF @mvpPlayerId IS NOT NULL
+        BEGIN
+            INSERT INTO player_of_match (match_id, player_id, team_id, selected_by_method, votes_count, rating)
+            VALUES (@mvpMatchId, @mvpPlayerId, @mvpTeamId, 'statistics', 50 + ABS(CHECKSUM(NEWID())) % 100, 8.5 + (ABS(CHECKSUM(NEWID())) % 15) / 10.0);
+        END
+
+        FETCH NEXT FROM match_cursor_mvp INTO @mvpMatchId, @sId, @hTeamId, @aTeamId, @hScore, @aScore;
+    END
+
+    CLOSE match_cursor_mvp;
+    DEALLOCATE match_cursor_mvp;
+
+    PRINT 'Successfully re-seeded realistic MVP data based on match performance';
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    PRINT 'Error seeding MVP data: ' + ERROR_MESSAGE();
+    ROLLBACK TRANSACTION;
+END CATCH;
+GO
+
+--------------------------------------------------------------
+-- PART 4: SEED SUSPENSIONS (Based on Cards)
+--------------------------------------------------------------
+PRINT '=== Seeding Suspensions based on Red Cards ===';
+
+INSERT INTO player_suspensions (season_id, season_player_id, season_team_id, reason, trigger_match_id, matches_banned, start_match_id, served_matches, status, notes)
+SELECT 
+    me.season_id,
+    me.season_player_id,
+    me.season_team_id,
+    'RED_CARD',
+    me.match_id,
+    1, -- Ban 1 match
+    (SELECT TOP 1 m_next.match_id FROM matches m_next WHERE m_next.season_id = me.season_id AND m_next.scheduled_kickoff > m.scheduled_kickoff ORDER BY m_next.scheduled_kickoff), -- Next match
+    1, -- Assume served since matches are "completed"
+    'served', -- Status
+    'Automatic suspension from seed script'
+FROM match_events me
+JOIN matches m ON me.match_id = m.match_id
+WHERE me.event_type = 'CARD' AND me.card_type = 'RED';
+
+PRINT 'Seeded ' + CAST(@@ROWCOUNT AS VARCHAR(10)) + ' suspensions.';
+GO

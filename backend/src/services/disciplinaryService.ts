@@ -43,7 +43,7 @@ export interface PlayerSuspension {
  */
 export async function getCardSummary(seasonId: number): Promise<CardSummary[]> {
   const pool = await getPool();
-  
+
   try {
     const result = await pool.request()
       .input('seasonId', sql.Int, seasonId)
@@ -63,22 +63,21 @@ export async function getCardSummary(seasonId: number): Promise<CardSummary[]> {
         ),
         MatchesPlayed AS (
           SELECT 
-            pms.season_player_id,
-            COUNT(DISTINCT pms.match_id) as matches_played
-          FROM player_match_stats pms
-          INNER JOIN matches m ON pms.match_id = m.match_id
-          WHERE pms.season_id = @seasonId
-            AND pms.minutes_played > 0
+            me.season_player_id,
+            COUNT(DISTINCT me.match_id) as matches_played
+          FROM match_events me
+          INNER JOIN matches m ON me.match_id = m.match_id
+          WHERE me.season_id = @seasonId
             AND m.status = 'COMPLETED'
-          GROUP BY pms.season_player_id
+          GROUP BY me.season_player_id
         )
         SELECT 
           cc.season_player_id,
           spr.player_id,
           p.full_name as player_name,
           spr.shirt_number,
-          stp.internal_team_id as team_id,
-          it.name as team_name,
+          stp.team_id as team_id,
+          t.name as team_name,
           ISNULL(cc.yellow_cards, 0) as yellow_cards,
           ISNULL(cc.red_cards, 0) as red_cards,
           ISNULL(mp.matches_played, 0) as matches_played
@@ -86,7 +85,7 @@ export async function getCardSummary(seasonId: number): Promise<CardSummary[]> {
         INNER JOIN season_player_registrations spr ON cc.season_player_id = spr.season_player_id
         INNER JOIN players p ON spr.player_id = p.player_id
         INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
-        INNER JOIN internal_teams it ON stp.internal_team_id = it.internal_team_id
+        INNER JOIN teams t ON stp.team_id = t.team_id
         LEFT JOIN MatchesPlayed mp ON cc.season_player_id = mp.season_player_id
         ORDER BY cc.red_cards DESC, cc.yellow_cards DESC, p.full_name ASC
       `);
@@ -118,16 +117,16 @@ export async function getCardSummary(seasonId: number): Promise<CardSummary[]> {
  */
 export async function getSuspensionsForSeason(seasonId: number, statusFilter?: string): Promise<PlayerSuspension[]> {
   const pool = await getPool();
-  
+
   try {
     const request = pool.request().input('seasonId', sql.Int, seasonId);
-    
+
     let statusClause = '';
     if (statusFilter) {
       request.input('status', sql.VarChar(16), statusFilter);
       statusClause = 'AND ps.status = @status';
     }
-    
+
     const result = await request.query(`
       SELECT 
         ps.suspension_id,
@@ -135,20 +134,20 @@ export async function getSuspensionsForSeason(seasonId: number, statusFilter?: s
         spr.player_id,
         p.full_name as player_name,
         spr.shirt_number,
-        stp.internal_team_id as team_id,
-        it.name as team_name,
+        stp.team_id as team_id,
+        t.name as team_name,
         ps.reason,
         ps.trigger_match_id,
         CASE 
           WHEN tm.match_id IS NOT NULL AND ht.name IS NOT NULL AND at.name IS NOT NULL
-          THEN CONCAT(ht.name, ' vs ', at.name, ' (', FORMAT(tm.match_date, 'dd/MM/yyyy'), ')')
+          THEN CONCAT(ht.name, ' vs ', at.name, ' (', FORMAT(tm.scheduled_kickoff, 'dd/MM/yyyy'), ')')
           ELSE NULL 
         END as trigger_match_info,
         ps.matches_banned,
         ps.start_match_id,
         CASE 
           WHEN sm.match_id IS NOT NULL AND sht.name IS NOT NULL AND sat.name IS NOT NULL
-          THEN CONCAT(sht.name, ' vs ', sat.name, ' (', FORMAT(sm.match_date, 'dd/MM/yyyy'), ')')
+          THEN CONCAT(sht.name, ' vs ', sat.name, ' (', FORMAT(sm.scheduled_kickoff, 'dd/MM/yyyy'), ')')
           ELSE NULL 
         END as start_match_info,
         ps.served_matches,
@@ -159,17 +158,17 @@ export async function getSuspensionsForSeason(seasonId: number, statusFilter?: s
       INNER JOIN season_player_registrations spr ON ps.season_player_id = spr.season_player_id
       INNER JOIN players p ON spr.player_id = p.player_id
       INNER JOIN season_team_participants stp ON ps.season_team_id = stp.season_team_id
-      INNER JOIN internal_teams it ON stp.internal_team_id = it.internal_team_id
+      INNER JOIN teams t ON stp.team_id = t.team_id
       LEFT JOIN matches tm ON ps.trigger_match_id = tm.match_id
-      LEFT JOIN season_team_participants thp ON tm.home_team_id = thp.season_team_id AND tm.season_id = thp.season_id
-      LEFT JOIN internal_teams ht ON thp.internal_team_id = ht.internal_team_id
-      LEFT JOIN season_team_participants tap ON tm.away_team_id = tap.season_team_id AND tm.season_id = tap.season_id
-      LEFT JOIN internal_teams at ON tap.internal_team_id = at.internal_team_id
+      LEFT JOIN season_team_participants thp ON tm.home_season_team_id = thp.season_team_id
+      LEFT JOIN teams ht ON thp.team_id = ht.team_id
+      LEFT JOIN season_team_participants tap ON tm.away_season_team_id = tap.season_team_id
+      LEFT JOIN teams at ON tap.team_id = at.team_id
       LEFT JOIN matches sm ON ps.start_match_id = sm.match_id
-      LEFT JOIN season_team_participants shp ON sm.home_team_id = shp.season_team_id AND sm.season_id = shp.season_id
-      LEFT JOIN internal_teams sht ON shp.internal_team_id = sht.internal_team_id
-      LEFT JOIN season_team_participants sap ON sm.away_team_id = sap.season_team_id AND sm.season_id = sap.season_id
-      LEFT JOIN internal_teams sat ON sap.internal_team_id = sat.internal_team_id
+      LEFT JOIN season_team_participants shp ON sm.home_season_team_id = shp.season_team_id
+      LEFT JOIN teams sht ON shp.team_id = sht.team_id
+      LEFT JOIN season_team_participants sap ON sm.away_season_team_id = sap.season_team_id
+      LEFT JOIN teams sat ON sap.team_id = sat.team_id
       WHERE ps.season_id = @seasonId
         ${statusClause}
       ORDER BY ps.created_at DESC
@@ -214,7 +213,7 @@ export async function isPlayerSuspendedForMatch(
   seasonPlayerId: number
 ): Promise<{ suspended: boolean; reason?: string; suspensionId?: number }> {
   const pool = await getPool();
-  
+
   const result = await pool.request()
     .input('seasonId', sql.Int, seasonId)
     .input('matchId', sql.Int, matchId)
@@ -253,11 +252,11 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
   console.log(`[recalculateDisciplinaryForSeason] Starting for season ${seasonId}`);
   const pool = await getPool();
   const transaction = pool.transaction();
-  
+
   try {
     await transaction.begin();
     console.log(`[recalculateDisciplinaryForSeason] Transaction begun`);
-    
+
     // Check if player_suspensions table exists
     const tableCheck = await transaction.request()
       .query(`
@@ -265,11 +264,11 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
         FROM INFORMATION_SCHEMA.TABLES 
         WHERE TABLE_NAME = 'player_suspensions'
       `);
-    
+
     if (tableCheck.recordset[0].table_exists === 0) {
       throw new Error('Table player_suspensions does not exist. Please run migrations first.');
     }
-    
+
     // Archive all existing suspensions for this season
     let archived = 0;
     try {
@@ -288,7 +287,7 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
       }
       console.log(`[recalculateDisciplinaryForSeason] No existing suspensions to archive`);
     }
-    
+
     // Get card counts for all players
     console.log(`[recalculateDisciplinaryForSeason] Querying card counts...`);
     let cardsResult;
@@ -318,11 +317,11 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
       console.error(`[recalculateDisciplinaryForSeason] Error querying cards:`, queryErr);
       throw new Error(`Failed to query card counts: ${queryErr.message || queryErr}`);
     }
-    
+
     console.log(`[recalculateDisciplinaryForSeason] Found ${cardsResult.recordset.length} players with cards`);
     let created = 0;
     const errors: string[] = [];
-    
+
     // Create new suspensions
     for (const player of cardsResult.recordset) {
       try {
@@ -342,11 +341,11 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
                 AND m.status IN ('scheduled', 'in_progress')
               ORDER BY m.scheduled_kickoff ASC
             `);
-          
-          const startMatchId = nextMatchResult.recordset.length > 0 
-            ? nextMatchResult.recordset[0].match_id 
+
+          const startMatchId = nextMatchResult.recordset.length > 0
+            ? nextMatchResult.recordset[0].match_id
             : null;
-          
+
           // Build INSERT query based on whether startMatchId is null
           if (startMatchId !== null) {
             await transaction.request()
@@ -378,10 +377,10 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
                     (@seasonId, @seasonPlayerId, @seasonTeamId, @reason, @triggerMatchId, @matchesBanned, NULL, 'active')
                 `);
           }
-          
+
           created++;
         }
-        
+
         // Two yellow cards suspension
         if (player.yellow_count >= 2 && player.last_yellow_match) {
           const nextMatchResult = await transaction.request()
@@ -397,11 +396,11 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
                 AND m.status IN ('scheduled', 'in_progress')
               ORDER BY m.scheduled_kickoff ASC
             `);
-          
-          const startMatchId = nextMatchResult.recordset.length > 0 
-            ? nextMatchResult.recordset[0].match_id 
+
+          const startMatchId = nextMatchResult.recordset.length > 0
+            ? nextMatchResult.recordset[0].match_id
             : null;
-          
+
           // Check if we already created a red card suspension for this player
           const existingRedCard = await transaction.request()
             .input('seasonId', sql.Int, seasonId)
@@ -415,7 +414,7 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
                 AND reason = @reason 
                 AND status = 'active'
             `);
-          
+
           // Only create yellow suspension if no red card suspension exists
           if (existingRedCard.recordset.length === 0) {
             if (startMatchId !== null) {
@@ -448,7 +447,7 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
                       (@seasonId, @seasonPlayerId, @seasonTeamId, @reason, @triggerMatchId, @matchesBanned, NULL, 'active')
                   `);
             }
-            
+
             created++;
           }
         }
@@ -456,10 +455,10 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
         errors.push(`Player ${player.season_player_id}: ${err.message}`);
       }
     }
-    
+
     await transaction.commit();
     console.log(`[recalculateDisciplinaryForSeason] Completed: archived=${archived}, created=${created}, errors=${errors.length}`);
-    
+
     return { archived, created, errors };
   } catch (err: any) {
     console.error(`[recalculateDisciplinaryForSeason] Error occurred:`, err);
@@ -470,14 +469,14 @@ export async function recalculateDisciplinaryForSeason(seasonId: number): Promis
       originalError: err.originalError,
       info: err.info
     });
-    
+
     try {
       await transaction.rollback();
       console.log(`[recalculateDisciplinaryForSeason] Transaction rolled back`);
     } catch (rollbackErr) {
       console.error(`[recalculateDisciplinaryForSeason] Rollback failed:`, rollbackErr);
     }
-    
+
     throw err;
   }
 }

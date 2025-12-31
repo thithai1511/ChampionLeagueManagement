@@ -139,14 +139,36 @@ class TeamsService {
         return []
       }
       console.log('[TeamsService.getTeamPlayers] Raw players count:', raw.length)
-      return raw.map((player) => ({
-        id: player.id ?? player.player_id ?? null,
-        name: player.displayName ?? player.fullName ?? player.display_name ?? player.full_name ?? player.name ?? 'Unknown',
-        position: player.preferredPosition ?? player.preferred_position ?? player.position ?? null,
-        nationality: player.nationality ?? null,
-        dateOfBirth: player.dateOfBirth ?? player.date_of_birth ?? null,
-        shirtNumber: player.shirtNumber ?? player.shirt_number ?? null
-      }))
+
+      // DEBUG: Log first player to see actual field structure
+      if (raw.length > 0) {
+        console.log('[TeamsService.getTeamPlayers] Sample player data:', raw[0])
+        console.log('[TeamsService.getTeamPlayers] Available fields:', Object.keys(raw[0]))
+      }
+
+      return raw.map((player, index) => {
+        // Backend playerService returns camelCase: fullName, displayName, preferredPosition
+        // Priority: displayName > fullName > legacy snake_case > fallback
+        const mappedName = player.displayName || player.fullName || player.display_name || player.full_name || player.name || 'Unknown'
+
+        // DEBUG: Log mapping for first few players
+        if (index < 3) {
+          console.log(`[TeamsService.getTeamPlayers] Player ${index}:`, {
+            raw: player,
+            mappedName,
+            fields: Object.keys(player)
+          })
+        }
+
+        return {
+          id: player.id ?? player.player_id ?? null,
+          name: mappedName,
+          position: player.preferredPosition ?? player.preferred_position ?? player.position ?? null,
+          nationality: player.nationality ?? null,
+          dateOfBirth: player.dateOfBirth ?? player.date_of_birth ?? null,
+          shirtNumber: player.shirtNumber ?? player.shirt_number ?? null
+        }
+      })
     } catch (error) {
       console.error('Failed to fetch team players:', error)
       return []

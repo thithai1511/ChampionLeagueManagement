@@ -77,12 +77,12 @@ const FORMATION_CONFIGS = {
   }
 };
 
-const LineupDisplay = ({ 
-  lineup, 
-  squad = [], 
-  teamName, 
-  teamColor = '#3b82f6', 
-  formation = '4-4-2' 
+const LineupDisplay = ({
+  lineup,
+  squad = [],
+  teamName,
+  teamColor = '#3b82f6',
+  formation = '4-4-2'
 }) => {
   // Handle both lineup format (public) and starters/substitutes format (admin)
   let starters = [];
@@ -96,7 +96,7 @@ const LineupDisplay = ({
     // Admin format: object with starters array (IDs)
     const starterIds = lineup.starters || [];
     const subIds = lineup.substitutes || [];
-    
+
     starters = squad.filter(p => starterIds.includes(p.id));
     substitutes = squad.filter(p => subIds.includes(p.id));
   }
@@ -112,7 +112,7 @@ const LineupDisplay = ({
 
   // Get formation config or fallback to 4-4-2
   const formationConfig = FORMATION_CONFIGS[formation] || FORMATION_CONFIGS['4-4-2'];
-  
+
   // Flatten positions for easier mapping
   const allPositions = formationConfig.lines.flatMap(line => line.positions);
 
@@ -127,17 +127,17 @@ const LineupDisplay = ({
     return (
       <div
         className="absolute transform -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
-        style={{ 
-          left: `${position.x}%`, 
+        style={{
+          left: `${position.x}%`,
           top: `${position.y}%`,
         }}
       >
         <div className="flex flex-col items-center animate-fadeIn">
           {/* Jersey Circle with Number */}
           <div className="relative mb-2">
-            <div 
+            <div
               className="w-12 h-12 md:w-14 md:h-14 rounded-full shadow-xl flex items-center justify-center border-4 border-white/30 group-hover:scale-110 transition-all duration-300 group-hover:shadow-2xl"
-              style={{ 
+              style={{
                 backgroundColor: teamColor,
                 boxShadow: `0 4px 20px ${teamColor}50, 0 0 0 3px white`
               }}
@@ -146,17 +146,17 @@ const LineupDisplay = ({
                 {player.jerseyNumber || player.jersey_number || player.shirtNumber || player.shirt_number || '?'}
               </span>
             </div>
-            
+
             {/* Captain Badge */}
             {isCaptain && (
-              <div 
+              <div
                 className="absolute -top-1 -right-1 w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center border-2 border-white shadow-lg"
                 style={{ backgroundColor: '#fbbf24' }}
               >
                 <span className="text-[10px] md:text-xs font-black text-white">C</span>
               </div>
             )}
-            
+
             {/* Goal Icon */}
             {hasGoal && (
               <div className="absolute -top-2 -left-2 w-5 h-5 md:w-6 md:h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center border-2 border-white shadow-lg animate-bounce">
@@ -166,14 +166,14 @@ const LineupDisplay = ({
           </div>
 
           {/* Player Info Card */}
-          <div 
+          <div
             className="bg-white/95 backdrop-blur-sm px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-lg border-2 min-w-[80px] md:min-w-[100px] max-w-[100px] md:max-w-[140px] group-hover:scale-105 transition-all duration-300"
             style={{ borderColor: teamColor }}
           >
-            <p className="text-[10px] md:text-xs font-bold text-slate-900 truncate text-center leading-tight">
+            <p className="text-[10px] md:text-xs font-extrabold truncate text-center leading-tight" style={{ color: '#000000', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
               {player.playerName || player.full_name || player.name || 'Unknown'}
             </p>
-            <p className="text-[8px] md:text-[10px] text-slate-500 uppercase text-center font-semibold">
+            <p className="text-[8px] md:text-[10px] uppercase text-center font-bold" style={{ color: '#334155' }}>
               {player.position || 'N/A'}
             </p>
           </div>
@@ -203,7 +203,7 @@ const LineupDisplay = ({
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-3 md:p-4 border border-slate-200">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2 md:gap-3">
-            <div 
+            <div
               className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shadow-lg"
               style={{ backgroundColor: teamColor }}
             >
@@ -214,9 +214,9 @@ const LineupDisplay = ({
               <p className="text-xs md:text-sm text-slate-500">Starting XI</p>
             </div>
           </div>
-          <div 
+          <div
             className="px-3 py-1.5 md:px-4 md:py-2 rounded-full font-mono font-bold text-base md:text-lg shadow-md"
-            style={{ 
+            style={{
               backgroundColor: `${teamColor}20`,
               color: teamColor,
               border: `2px solid ${teamColor}`
@@ -242,17 +242,17 @@ const LineupDisplay = ({
           {/* Center Circle */}
           <circle cx="50%" cy="50%" r="12%" fill="none" stroke="white" strokeWidth="2" />
           <circle cx="50%" cy="50%" r="1%" fill="white" />
-          
+
           {/* Center Line */}
           <line x1="0" y1="50%" x2="100%" y2="50%" stroke="white" strokeWidth="2" />
-          
+
           {/* Penalty Areas */}
           <rect x="20%" y="2%" width="60%" height="16%" fill="none" stroke="white" strokeWidth="2" />
           <rect x="30%" y="2%" width="40%" height="8%" fill="none" stroke="white" strokeWidth="2" />
-          
+
           <rect x="20%" y="82%" width="60%" height="16%" fill="none" stroke="white" strokeWidth="2" />
           <rect x="30%" y="90%" width="40%" height="8%" fill="none" stroke="white" strokeWidth="2" />
-          
+
           {/* Outer Border */}
           <rect x="1%" y="1%" width="98%" height="98%" fill="none" stroke="white" strokeWidth="3" strokeOpacity="0.5" rx="20" />
         </svg>
@@ -262,7 +262,7 @@ const LineupDisplay = ({
           {starters.slice(0, 11).map((player, index) => {
             const position = allPositions[index] || allPositions[0];
             return (
-              <PlayerBadge 
+              <PlayerBadge
                 key={player.playerId || player.player_id || player.id || index}
                 player={player}
                 position={position}
@@ -277,7 +277,7 @@ const LineupDisplay = ({
       {substitutes.length > 0 && (
         <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-5 border-2 border-slate-200">
           <div className="flex items-center gap-2 mb-4">
-            <div 
+            <div
               className="w-10 h-10 rounded-full flex items-center justify-center shadow-md"
               style={{ backgroundColor: `${teamColor}20` }}
             >
@@ -293,15 +293,15 @@ const LineupDisplay = ({
               const hasYellowCard = player.yellowCards > 0 || player.yellow_cards > 0;
               const hasRedCard = player.redCards > 0 || player.red_cards > 0;
               const hasGoal = player.goals > 0 || player.goalsScored > 0;
-              
+
               return (
                 <div
                   key={player.playerId || player.player_id || player.id}
                   className="flex items-center gap-2.5 bg-white p-3 rounded-xl border-2 border-slate-100 hover:border-slate-300 hover:shadow-lg transition-all duration-200 group"
                 >
-                  <div 
+                  <div
                     className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform"
-                    style={{ 
+                    style={{
                       backgroundColor: `${teamColor}30`,
                       border: `2px solid ${teamColor}`,
                       color: teamColor
