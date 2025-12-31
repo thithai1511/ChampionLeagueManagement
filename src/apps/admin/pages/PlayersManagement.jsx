@@ -35,9 +35,14 @@ const PLAYER_TYPE_MAP = {
 }
 
 const PlayersManagement = ({ currentUser }) => {
-  // Tab state
-  const [activeTab, setActiveTab] = useState('pool') // 'pool' | 'lookup' | 'approval'
-  
+  // 1. Permission Check
+  // Pool tab is only for Team Admin to submit registration
+  const isTeamAdmin = currentUser?.roles?.some(r => ['team_admin', 'club_admin', 'team_manager'].includes(r))
+  const canUsePoolTab = Boolean(isTeamAdmin)
+
+  // Tab state: default to 'lookup' if cannot use pool tab
+  const [activeTab, setActiveTab] = useState(canUsePoolTab ? 'pool' : 'lookup') // 'pool' | 'lookup' | 'approval'
+
   // ========== POOL TAB STATE ==========
   const [searchTerm, setSearchTerm] = useState('')
   const [players, setPlayers] = useState([])
@@ -91,12 +96,15 @@ const PlayersManagement = ({ currentUser }) => {
   const canApprove = hasPermission(currentUser, 'approve_player_registrations')
   const isSuperAdmin = currentUser?.roles?.includes('super_admin')
 
-  // Redirect if team_admin tries to access approval tab
+  // Redirection Guard
   useEffect(() => {
-    if (activeTab === 'approval' && !canApprove) {
-      setActiveTab('pool')
+    if (activeTab === 'pool' && !canUsePoolTab) {
+      setActiveTab('lookup')
     }
-  }, [activeTab, canApprove])
+    else if (activeTab === 'approval' && !canApprove) {
+      setActiveTab(canUsePoolTab ? 'pool' : 'lookup')
+    }
+  }, [activeTab, canApprove, canUsePoolTab])
 
   // ========== POOL TAB FUNCTIONS ==========
   const fetchPlayers = async () => {
@@ -115,13 +123,14 @@ const PlayersManagement = ({ currentUser }) => {
     }
   }
 
+  // Load pool data only if permitted and active
   useEffect(() => {
-    if (activeTab === 'pool') {
+    if (activeTab === 'pool' && canUsePoolTab) {
       fetchPlayers()
       loadPlayerRegistrationStatuses()
       loadSeasonsForRegistration()
     }
-  }, [searchTerm, activeTab])
+  }, [searchTerm, activeTab, canUsePoolTab])
 
   const loadSeasonsForRegistration = async () => {
     try {
@@ -135,11 +144,11 @@ const PlayersManagement = ({ currentUser }) => {
 
   const loadPlayerRegistrationStatuses = async () => {
     if (!currentUser?.teamIds?.length) return
-    
+
     try {
       const response = await ApiService.get(APP_CONFIG.API.ENDPOINTS.PLAYER_REGISTRATIONS.LIST)
       const registrations = Array.isArray(response) ? response : (response?.data || [])
-      
+
       const statusMap = {}
       registrations.forEach(reg => {
         if (reg.player_id) {
@@ -282,7 +291,7 @@ const PlayersManagement = ({ currentUser }) => {
         position_code: lookupFilters.position_code,
         player_type: lookupFilters.player_type
       })
-      
+
       // Map to expected format
       const mappedPlayers = players.map(p => ({
         player_id: p.player_id,
@@ -354,6 +363,71 @@ const PlayersManagement = ({ currentUser }) => {
     }
   }, [filterSeason, filterTeam, activeTab])
 
+  // ========== BULK APPROVE ==========
+  const [approvingAll, setApprovingAll] = useState(false)
+  const [approveProgress, setApproveProgress] = useState({ current: 0, total: 0, successes: 0, errors: [] })
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const [showResultModal, setShowResultModal] = useState(false)
+
+  // Filter ONLY pending items for bulk action
+  const pendingItems = approvalList.filter(item => item.registration_status === 'pending')
+  const pendingCount = pendingItems.length
+
+  const handleApproveAll = async () => {
+    setShowApproveConfirm(false)
+    if (pendingCount === 0) return
+
+    setApprovingAll(true)
+    setShowResultModal(false)
+    setApproveProgress({ current: 0, total: pendingCount, successes: 0, errors: [] })
+
+    // Create copy to process
+    const items = [...pendingItems]
+    const total = items.length
+    const CONCURRENCY = 3
+    let completed = 0
+    let successes = 0
+    let errors = []
+
+    // Helper to process one item
+    const processItem = async (item) => {
+      try {
+        const endpoint = APP_CONFIG.API.ENDPOINTS.PLAYER_REGISTRATIONS.APPROVE.replace(':id', item.id)
+        await ApiService.post(endpoint)
+        successes++
+      } catch (err) {
+        const reason = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Lỗi không xác định'
+        errors.push({
+          name: item.player_name || item.full_name || 'Unknown',
+          team: item.team_name,
+          reason: reason
+        })
+      } finally {
+        completed++
+        setApproveProgress(prev => ({ ...prev, current: completed, successes, errors }))
+      }
+    }
+
+    // Process with concurrency limit
+    for (let i = 0; i < total; i += CONCURRENCY) {
+      const chunk = items.slice(i, i + CONCURRENCY)
+      await Promise.all(chunk.map(processItem))
+    }
+
+    setApprovingAll(false)
+
+    // Show results
+    if (errors.length > 0) {
+      setShowResultModal(true)
+      toast.error(`Hoàn tất với ${errors.length} lỗi.`)
+    } else {
+      toast.success(`Đã duyệt thành công tất cả ${successes} hồ sơ!`)
+    }
+
+    // Refresh list
+    fetchPending()
+  }
+
   const handleApprove = async (id) => {
     setSubmitting(true)
     try {
@@ -403,7 +477,7 @@ const PlayersManagement = ({ currentUser }) => {
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
-      
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý Cầu thủ</h1>
@@ -413,36 +487,38 @@ const PlayersManagement = ({ currentUser }) => {
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-        <button
-          onClick={() => setActiveTab('pool')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'pool'
+        {canUsePoolTab && (
+          <button
+            onClick={() => !approvingAll && setActiveTab('pool')}
+            disabled={approvingAll}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'pool'
               ? 'bg-white text-blue-600 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <Users size={18} />
-          <span>Gửi đơn đăng ký</span>
-        </button>
+              } ${approvingAll ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <Users size={18} />
+            <span>Gửi đơn đăng ký</span>
+          </button>
+        )}
         <button
-          onClick={() => setActiveTab('lookup')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'lookup'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
+          onClick={() => !approvingAll && setActiveTab('lookup')}
+          disabled={approvingAll}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'lookup'
+            ? 'bg-white text-blue-600 shadow-sm'
+            : 'text-gray-600 hover:text-gray-900'
+            } ${approvingAll ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <Search size={18} />
           <span>Tra cứu mùa giải</span>
         </button>
         {canApprove && (
           <button
-            onClick={() => setActiveTab('approval')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'approval'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            onClick={() => !approvingAll && setActiveTab('approval')}
+            disabled={approvingAll}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'approval'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+              } ${approvingAll ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <ShieldCheck size={18} />
             <span>Duyệt đăng ký</span>
@@ -453,8 +529,8 @@ const PlayersManagement = ({ currentUser }) => {
         )}
       </div>
 
-      {/* Pool Tab */}
-      {activeTab === 'pool' && (
+      {/* Pool Tab - Team Admin Only */}
+      {activeTab === 'pool' && canUsePoolTab && (
         <>
           <div className="flex justify-end">
             <button
@@ -642,7 +718,7 @@ const PlayersManagement = ({ currentUser }) => {
                             <span className={`px-2 py-1 rounded text-xs font-semibold 
                               ${player.position === 'GK' ? 'bg-yellow-100 text-yellow-800' :
                                 player.position === 'FW' ? 'bg-red-100 text-red-800' :
-                                player.position === 'MF' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                                  player.position === 'MF' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
                               {player.position}
                             </span>
                           </td>
@@ -650,15 +726,14 @@ const PlayersManagement = ({ currentUser }) => {
                           <td className="px-6 py-4">
                             {regStatus ? (
                               <div className="flex flex-col gap-1">
-                                <span className={`text-xs font-medium px-2 py-0.5 rounded w-fit ${
-                                  regStatus.status === 'approved' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : regStatus.status === 'pending'
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded w-fit ${regStatus.status === 'approved'
+                                  ? 'bg-green-100 text-green-800'
+                                  : regStatus.status === 'pending'
                                     ? 'bg-yellow-100 text-yellow-800'
                                     : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {regStatus.status === 'approved' ? 'Đã duyệt' : 
-                                   regStatus.status === 'pending' ? 'Chờ duyệt' : 'Từ chối'}
+                                  }`}>
+                                  {regStatus.status === 'approved' ? 'Đã duyệt' :
+                                    regStatus.status === 'pending' ? 'Chờ duyệt' : 'Từ chối'}
                                 </span>
                                 {regStatus.season_name && (
                                   <span className="text-xs text-gray-500">{regStatus.season_name}</span>
@@ -736,7 +811,7 @@ const PlayersManagement = ({ currentUser }) => {
           </div>
 
           {lookupError && <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center"><AlertCircle size={20} className="mr-2" />{lookupError}</div>}
-          
+
           {lookupLoading && <div className="flex justify-center p-12"><Loader2 size={40} className="animate-spin text-blue-500" /></div>}
 
           {!lookupLoading && !lookupResult && !lookupError && !hasSearched && (
@@ -816,15 +891,14 @@ const PlayersManagement = ({ currentUser }) => {
                           <div className="flex flex-col gap-1">
                             <span className="text-gray-600 text-sm">{formatDate(player.registered_at)}</span>
                             {player.registration_status && (
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded w-fit ${
-                                player.registration_status === 'approved' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : player.registration_status === 'pending'
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded w-fit ${player.registration_status === 'approved'
+                                ? 'bg-green-100 text-green-800'
+                                : player.registration_status === 'pending'
                                   ? 'bg-yellow-100 text-yellow-800'
                                   : 'bg-red-100 text-red-800'
-                              }`}>
-                                {player.registration_status === 'approved' ? 'Đã duyệt' : 
-                                 player.registration_status === 'pending' ? 'Chờ duyệt' : 'Từ chối'}
+                                }`}>
+                                {player.registration_status === 'approved' ? 'Đã duyệt' :
+                                  player.registration_status === 'pending' ? 'Chờ duyệt' : 'Từ chối'}
                               </span>
                             )}
                           </div>
@@ -897,6 +971,15 @@ const PlayersManagement = ({ currentUser }) => {
                 <RotateCcw size={16} /> Reset
               </button>
             )}
+
+            <button
+              onClick={() => setShowApproveConfirm(true)}
+              disabled={approvingAll || submitting || pendingCount === 0}
+              className="ml-auto flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow transition-all"
+            >
+              <CheckCircle size={18} />
+              <span>Duyệt tất cả ({pendingCount})</span>
+            </button>
           </div>
 
           {approvalLoading ? (
@@ -1006,6 +1089,112 @@ const PlayersManagement = ({ currentUser }) => {
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">
                 {submitting && <Loader2 size={16} className="animate-spin" />}
                 Xác nhận từ chối
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Approve All Modal */}
+      {showApproveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center animate-in fade-in zoom-in duration-200">
+            <div className="mx-auto w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mb-5">
+              <CheckCircle className="text-blue-600" size={28} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Xác nhận duyệt tất cả?</h3>
+            <p className="text-gray-500 mb-6 text-sm leading-relaxed">
+              Bạn đang thực hiện duyệt <strong>{pendingCount}</strong> hồ sơ đang hiển thị.
+              Hành động này sẽ xử lý lần lượt và không thể hoàn tác.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setShowApproveConfirm(false)}
+                className="px-5 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-colors text-sm"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleApproveAll}
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-all text-sm"
+              >
+                Đồng ý duyệt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Modal */}
+      {approvingAll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-8 text-center">
+            <div className="relative mx-auto mb-6 w-16 h-16">
+              <Loader2 className="animate-spin text-blue-600 w-16 h-16" />
+              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-blue-600">
+                {Math.round((approveProgress.current / (approveProgress.total || 1)) * 100)}%
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Đang xử lý hồ sơ...</h3>
+            <p className="text-gray-500 mb-6 text-sm">
+              Đã hoàn thành {approveProgress.current} / {approveProgress.total}
+            </p>
+            <div className="w-full bg-gray-100 rounded-full h-2 mb-2 overflow-hidden">
+              <div
+                className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${(approveProgress.current / (approveProgress.total || 1)) * 100}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-400 mt-4">Vui lòng giữ nguyên màn hình này</p>
+          </div>
+        </div>
+      )}
+
+      {/* Result Modal (Errors) */}
+      {showResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-100 flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg text-orange-600"><AlertCircle size={24} /></div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Kết quả xử lý</h3>
+                <p className="text-sm text-gray-500">Chi tiết các hồ sơ gặp lỗi</p>
+              </div>
+            </div>
+
+            <div className="p-6 border-b border-gray-100 bg-gray-50 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Tổng số hồ sơ:</span>
+                <span className="font-medium text-gray-900">{approveProgress.total}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Thành công:</span>
+                <span className="font-bold text-green-600">{approveProgress.successes}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Thất bại:</span>
+                <span className="font-bold text-red-600">{approveProgress.errors.length}</span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+              {approveProgress.errors.map((err, idx) => (
+                <div key={idx} className="p-3 border border-red-100 bg-red-50 rounded-lg flex gap-3 items-start">
+                  <X className="text-red-500 shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <div className="font-semibold text-gray-900 text-sm">{err.name} <span className="font-normal text-gray-500 text-xs">({err.team})</span></div>
+                    <div className="text-red-600 text-sm mt-0.5 leading-relaxed">{err.reason}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setShowResultModal(false)}
+                className="px-5 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-900 font-medium text-sm transition-colors"
+              >
+                Đóng báo cáo
               </button>
             </div>
           </div>
