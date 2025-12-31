@@ -21,6 +21,10 @@ import {
   ClipboardList
 } from 'lucide-react'
 import MatchesService from '../../../layers/application/services/MatchesService'
+import TeamsService from '../../../layers/application/services/TeamsService'
+import ApiService from '../../../layers/application/services/ApiService'
+import { useAuth } from '../../../layers/application/context/AuthContext'
+import { hasPermission } from '../utils/accessControl'
 import SeasonService from '../../../layers/application/services/SeasonService'
 import TeamsService from '../../../layers/application/services/TeamsService'
 import ApiService from '../../../layers/application/services/ApiService'
@@ -98,8 +102,8 @@ const formatTime = (isoString) => {
 const MatchesManagement = () => {
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
+const canEdit = hasPermission(currentUser, 'manage_matches')
   const isSuperAdmin = Array.isArray(currentUser?.roles) && currentUser.roles.includes('super_admin')
-
   // Tab state
   const [activeTab, setActiveTab] = useState('all') // 'all' | 'today'
 
@@ -119,6 +123,10 @@ const MatchesManagement = () => {
   const [syncing, setSyncing] = useState(false)
   const [editingMatch, setEditingMatch] = useState(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [homePlayers, setHomePlayers] = useState([])
+  const [awayPlayers, setAwayPlayers] = useState([])
+  const [selectedHomePlayerId, setSelectedHomePlayerId] = useState(null)
+  const [selectedAwayPlayerId, setSelectedAwayPlayerId] = useState(null)
   const [showOfficialModal, setShowOfficialModal] = useState(false)
   const [selectedMatchForOfficials, setSelectedMatchForOfficials] = useState(null)
 
@@ -362,6 +370,73 @@ const MatchesManagement = () => {
     }
   }
 
+  const handleExportReport = (match) => {
+    try {
+      const payload = {
+        matchId: match.id,
+        homeTeam: match.homeTeamName,
+        awayTeam: match.awayTeamName,
+        scoreHome: match.scoreHome,
+        scoreAway: match.scoreAway,
+        utcDate: match.utcDate,
+        venue: match.venue,
+        referee: match.referee,
+        exportedAt: new Date().toISOString()
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `supervisor-report-${match.id}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Failed to export report', err)
+      alert('Không thể xuất báo cáo. Vui lòng thử lại.')
+    }
+  }
+
+  const handleSendToAdmin = async (match) => {
+    try {
+      const payload = {
+        matchId: match.id,
+        homeTeam: match.homeTeamName,
+        awayTeam: match.awayTeamName,
+        scoreHome: match.scoreHome,
+        scoreAway: match.scoreAway,
+        utcDate: match.utcDate,
+        venue: match.venue,
+        referee: match.referee,
+        submittedBy: currentUser?.id || currentUser?.username || currentUser?.email || 'unknown',
+        submittedAt: new Date().toISOString()
+      }
+      // If current user is a supervisor, use the public supervisor-reports endpoint
+      // which accepts a simpler payload and does not require being the assigned supervisor.
+      if (currentUser && (currentUser.role === 'supervisor' || (currentUser.roles && currentUser.roles.includes && currentUser.roles.includes('supervisor')))) {
+        const simple = {
+          matchId: match.id,
+          organization_ok: 'yes',
+          incidents: `Auto-generated report: ${match.homeTeamName} vs ${match.awayTeamName} - score ${match.scoreHome}-${match.scoreAway}`,
+          discipline_flag: false,
+          suggested_actions: ''
+        }
+        await ApiService.post('/supervisor-reports', simple)
+      } else {
+        // Admins / other roles use the match-scoped endpoint
+        await ApiService.post(`/matches/${match.id}/supervisor-report`, payload)
+      }
+
+      alert('Báo cáo đã được gửi tới BTC thành công.')
+    } catch (err) {
+      console.error('Failed to send report to admin', err)
+      // Try to show backend-provided message when available
+      const msg = err?.message || err?.error || (err?.payload && err.payload.message) || 'Không thể gửi báo cáo tới BTC. Vui lòng thử lại hoặc xuất file và gửi thủ công.'
+      alert(msg)
+    }
+  }
+
   const handleClearAll = async () => {
     if (!window.confirm('⚠️ DANGER: This will delete ALL matches in the database!\n\nUse this if you want to Reset the schedule to change team settings.\n\nAre you sure completely?')) {
       return
@@ -400,9 +475,106 @@ const MatchesManagement = () => {
       referee: match.referee || '',
       scoreHome: match.scoreHome ?? '',
       scoreAway: match.scoreAway ?? '',
-      description: ''
+      description: '',
+      events: match.events || [],
+      homeTeamId: match.homeTeamId ?? match.home_team_id ?? match.home_team?.id ?? null,
+      awayTeamId: match.awayTeamId ?? match.away_team_id ?? match.away_team?.id ?? null,
+      homeTeamName: match.homeTeamName || match.home_team_name || match.home_team?.name || '',
+      awayTeamName: match.awayTeamName || match.away_team_name || match.away_team?.name || ''
     })
     setShowEditModal(true)
+  }
+
+  // Load players for home/away teams when editingMatch changes
+  useEffect(() => {
+    let mounted = true
+    const loadPlayers = async () => {
+      if (!editingMatch) return
+      try {
+        if (editingMatch.homeTeamId) {
+          const hp = await TeamsService.getTeamPlayers(editingMatch.homeTeamId)
+          if (mounted) setHomePlayers(hp || [])
+        }
+        if (editingMatch.awayTeamId) {
+          const ap = await TeamsService.getTeamPlayers(editingMatch.awayTeamId)
+          if (mounted) setAwayPlayers(ap || [])
+        }
+      } catch (err) {
+        console.error('Failed to load team players for modal', err)
+      }
+    }
+    loadPlayers()
+    return () => { mounted = false }
+  }, [editingMatch])
+
+  const addEvent = async (type, playerId, teamId) => {
+    if (!canEdit) return
+    try {
+      if (!playerId) {
+        alert('Vui lòng chọn cầu thủ trước khi thêm sự kiện.')
+        return
+      }
+
+      const pId = Number(playerId)
+      const tId = Number(teamId)
+      if (Number.isNaN(pId) || Number.isNaN(tId)) {
+        alert('ID cầu thủ hoặc đội không hợp lệ.')
+        return
+      }
+
+      // Ask for minute - required field
+      let minute = null
+      try {
+        const m = window.prompt('Nhập phút xảy ra sự kiện (ví dụ: 45, 90+3) — bắt buộc nhập số nguyên')
+        if (m === null) {
+          return // User cancelled
+        }
+        if (m === '' || m.trim() === '') {
+          alert('Phút xảy ra sự kiện là bắt buộc. Vui lòng nhập số phút.')
+          return
+        }
+        const parsed = parseInt(m.replace(/[^0-9]/g, ''), 10)
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 130) {
+          alert('Phút không hợp lệ. Vui lòng nhập số từ 0 đến 130.')
+          return
+        }
+        minute = parsed
+      } catch (_) { 
+        alert('Không thể đọc phút. Vui lòng thử lại.')
+        return
+      }
+
+      if (minute === null) {
+        alert('Phút xảy ra sự kiện là bắt buộc.')
+        return
+      }
+
+      const payload = { type, playerId: pId, teamId: tId, minute }
+      const created = await MatchesService.createMatchEvent(editingMatch.id, payload)
+      setEditingMatch(prev => ({ ...prev, events: [...(prev.events||[]), created] }))
+      
+      // Reset player selection after successful event creation to prevent accidental reuse
+      if (tId === editingMatch.homeTeamId) {
+        setSelectedHomePlayerId(null)
+      } else if (tId === editingMatch.awayTeamId) {
+        setSelectedAwayPlayerId(null)
+      }
+    } catch (err) {
+      console.error('Failed to add event', err)
+      const msg = err?.response?.data?.message || err?.message || err?.error || (err?.payload && err.payload.message) || 'Không thể thêm sự kiện. Vui lòng thử lại.'
+      alert(msg)
+    }
+  }
+
+  const removeEvent = async (eventId) => {
+    if (!canEdit) return
+    try {
+      await MatchesService.deleteMatchEvent(eventId)
+      setEditingMatch(prev => ({ ...prev, events: (prev.events || []).filter(e => e.id !== eventId) }))
+    } catch (err) {
+      console.error('Failed to delete event', err)
+      alert('Không thể xóa sự kiện. Vui lòng thử lại.')
+    }
   }
 
   const handleUpdateMatch = async (event) => {
@@ -451,27 +623,36 @@ const MatchesManagement = () => {
           </div>
           <div className="flex space-x-3">
             {activeTab === 'all' && (
-              <>
-                <button
-                  onClick={handleSync}
-                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                  disabled={syncing}
-                >
-                  {syncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                  <span>{syncing ? 'Đang đồng bộ...' : 'Đồng bộ trận đấu'}</span>
-                </button>
-                <button className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
-                  <Download size={16} />
-                  <span>Xuất lịch</span>
-                </button>
-                <Link
-                  to="/admin/schedule"
-                  className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  <Calendar size={16} />
-                  <span>Tạo lịch thi đấu</span>
-                </Link>
-              </>
+                <>
+                  {canEdit && (
+                    <>
+                      <button
+                        onClick={handleSync}
+                        className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        disabled={syncing}
+                      >
+                        {syncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                        <span>{syncing ? 'Đang đồng bộ...' : 'Đồng bộ trận đấu'}</span>
+                      </button>
+                      <button className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <Download size={16} />
+                        <span>Xuất lịch</span>
+                      </button>
+                      <Link
+                        to="/admin/schedule"
+                        className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                      >
+                        <Calendar size={16} />
+                        <span>Tạo lịch thi đấu</span>
+                      </Link>
+                    </>
+                  )}
+                  {!canEdit && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Bạn chỉ có quyền xem</span>
+                    </div>
+                  )}
+                </>
             )}
             {activeTab === 'today' && (
               <button
@@ -687,31 +868,102 @@ const MatchesManagement = () => {
                             )}
                             <div className="text-xs text-gray-500">
                               {match.referee ? 'Nhấn để chỉnh sửa' : 'Chưa phân công'}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {statusBadge(match.status)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex flex-col gap-2">
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => navigate(`/admin/matches/${match.id}/lineup-review`)}
-                                className="text-purple-600 hover:text-purple-900 transition-colors"
-                                title="Duyệt đội hình"
-                              >
-                                <ClipboardList size={16} />
-                              </button>
-                              
-                              <button
-                                onClick={() => setEditingMatch(match)}
-                                className="text-blue-600 hover:text-blue-900 transition-colors"
-                                title="Xem chi tiết"
-                              >
-                                <Eye size={16} />
-                              </button>
+ </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {formatDate(match.utcDate)}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {formatTime(match.utcDate)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm text-gray-900 space-x-2">
+                        <MapPin size={14} className="text-gray-400" />
+                        <span>{match.venue || 'TBC'}</span>
+                      </div>
+                      <div className="text-sm text-gray-500">{match.stage || match.groupName || 'League Phase'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => openOfficialModal(match)}
+                        className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
+                      >
+                        <Shield size={14} />
+                        <span>{match.referee || 'Phân công'}</span>
+                      </button>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {match.referee ? 'Nhấn để chỉnh sửa' : 'Chưa phân công'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {statusBadge(match.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2 items-center">
+                        {/* Nút từ nhánh MAIN: Duyệt đội hình */}
+                        <button
+                          onClick={() => navigate(`/admin/matches/${match.id}/lineup-review`)}
+                          className="text-purple-600 hover:text-purple-900 transition-colors"
+                          title="Duyệt đội hình"
+                        >
+                          <ClipboardList size={16} />
+                        </button>
 
+                        {/* Các nút từ nhánh feature/auth-fix */}
+                        <button
+                          onClick={() => { setEditingMatch(match); setShowEditModal(true); }}
+                          className="text-blue-600 hover:text-blue-900 transition-colors"
+                          title="Xem chi tiết"
+                        >
+                          <Eye size={16} />
+                        </button>
+
+                        <button
+                          onClick={() => handleExportReport(match)}
+                          className="text-gray-600 hover:text-gray-900 transition-colors"
+                          title="Xuất báo cáo"
+                        >
+                          <Download size={16} />
+                        </button>
+
+                        {!canEdit ? (
+                          <button
+                            onClick={() => handleSendToAdmin(match)}
+                            className="text-indigo-600 hover:text-indigo-900 transition-colors"
+                            title="Gửi báo cáo cho BTC"
+                          >
+                            <ArrowRight size={16} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => openEditModal(match)}
+                              className="text-gray-600 hover:text-gray-900 transition-colors"
+                              title="Chỉnh sửa"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(match.id)}
+                              className="text-red-600 hover:text-red-900 transition-colors"
+                              title="Xóa"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
                             {/* Chỉ hiện nút Sửa nếu trận đấu CHƯA kết thúc (Logic từ Main) */}
                             {!['FINISHED', 'COMPLETED'].includes(match.status?.toUpperCase()) && (
                               <button
@@ -922,12 +1174,116 @@ const MatchesManagement = () => {
               </button>
             </div>
             <form onSubmit={handleUpdateMatch} className="px-6 py-4 space-y-4">
+              {/* Match events summary (Goals, Yellow, Red) - read-only for supervisors */}
+              {editingMatch?.events && (
+                <div className="mb-3 grid grid-cols-1 gap-3">
+                  {/* Goals */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-800">Ghi bàn (Goals)</h4>
+                    {editingMatch.events.filter(e => (e.type === 'GOAL' || e.type === 'G' || e.type === 'OWN_GOAL' || e.type === 'PENALTY')).length === 0 ? (
+                      <div className="text-xs text-gray-500 mt-1">Không có bàn thắng được ghi (ví dụ: Trần Văn B - phút 45+1, Hồng Lĩnh Hà Tĩnh)</div>
+                    ) : (
+                      <ul className="text-sm text-gray-700 mt-1 list-disc list-inside">
+                          {editingMatch.events.filter(e => (e.type === 'GOAL' || e.type === 'G' || e.type === 'OWN_GOAL' || e.type === 'PENALTY')).map((ev, idx) => (
+                            <li key={`g-${idx}`} className="flex items-center justify-between">
+                              <span>{ev.playerName || ev.player || 'Unknown'} — {ev.teamName || ev.team || 'Team'} (phút {ev.minute || ev.time || '?'}){ev.type === 'OWN_GOAL' ? ' (phản lưới nhà)' : ev.type === 'PENALTY' ? ' (penalty)' : ''}</span>
+                              {canEdit && ev.id && (
+                                <button onClick={() => removeEvent(ev.id)} className="text-red-600 hover:text-red-800 text-sm ml-3">Xóa</button>
+                              )}
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                      {canEdit && (
+                        <div className="mt-2 flex gap-2">
+                          <select className="border px-2 py-1 rounded" value={selectedHomePlayerId || ''} onChange={(e) => setSelectedHomePlayerId(e.target.value)}>
+                            <option value="">Chọn cầu thủ (Home)</option>
+                            {homePlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
+                          </select>
+                          <button onClick={() => addEvent('GOAL', selectedHomePlayerId, editingMatch.homeTeamId)} className="px-3 py-1 bg-green-600 text-white rounded">Thêm bàn Home</button>
+                          <select className="border px-2 py-1 rounded" value={selectedAwayPlayerId || ''} onChange={(e) => setSelectedAwayPlayerId(e.target.value)}>
+                            <option value="">Chọn cầu thủ (Away)</option>
+                            {awayPlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
+                          </select>
+                          <button onClick={() => addEvent('GOAL', selectedAwayPlayerId, editingMatch.awayTeamId)} className="px-3 py-1 bg-green-600 text-white rounded">Thêm bàn Away</button>
+                        </div>
+                      )}
+                  </div>
+
+                  {/* Yellow Cards */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-800">Thẻ vàng (Yellow Cards)</h4>
+                    {editingMatch.events.filter(e => (e.type === 'YELLOW' || e.type === 'YELLOW_CARD' || e.type === 'Y')).length === 0 ? (
+                      <div className="text-xs text-gray-500 mt-1">Không có cầu thủ bị thẻ vàng trong trận (ví dụ: Nguyễn Văn A - phút 23)</div>
+                    ) : (
+                      <ul className="text-sm text-gray-700 mt-1 list-disc list-inside">
+                        {editingMatch.events.filter(e => (e.type === 'YELLOW' || e.type === 'YELLOW_CARD' || e.type === 'Y')).map((ev, idx) => (
+                          <li key={`y-${idx}`} className="flex items-center justify-between">
+                            <span>{ev.playerName || ev.player || 'Unknown'} — {ev.teamName || ev.team || 'Team'} (phút {ev.minute || ev.time || '?'})</span>
+                            {canEdit && ev.id && (
+                              <button onClick={() => removeEvent(ev.id)} className="text-red-600 hover:text-red-800 text-sm ml-3">Xóa</button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {canEdit && (
+                      <div className="mt-2 flex gap-2">
+                        <select className="border px-2 py-1 rounded" value={selectedHomePlayerId || ''} onChange={(e) => setSelectedHomePlayerId(e.target.value)}>
+                          <option value="">Chọn cầu thủ (Home)</option>
+                          {homePlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
+                        </select>
+                        <button onClick={() => addEvent('YELLOW', selectedHomePlayerId, editingMatch.homeTeamId)} className="px-3 py-1 bg-amber-400 text-white rounded">Thêm vàng Home</button>
+                        <select className="border px-2 py-1 rounded" value={selectedAwayPlayerId || ''} onChange={(e) => setSelectedAwayPlayerId(e.target.value)}>
+                          <option value="">Chọn cầu thủ (Away)</option>
+                          {awayPlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
+                        </select>
+                        <button onClick={() => addEvent('YELLOW', selectedAwayPlayerId, editingMatch.awayTeamId)} className="px-3 py-1 bg-amber-400 text-white rounded">Thêm vàng Away</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Red Cards */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-800">Thẻ đỏ (Red Cards)</h4>
+                    {editingMatch.events.filter(e => (e.type === 'RED' || e.type === 'RED_CARD' || e.type === 'R')).length === 0 ? (
+                      <div className="text-xs text-gray-500 mt-1">Không có thẻ đỏ được ghi (ví dụ: Lê Văn C - phút 78)</div>
+                    ) : (
+                      <ul className="text-sm text-gray-700 mt-1 list-disc list-inside">
+                        {editingMatch.events.filter(e => (e.type === 'RED' || e.type === 'RED_CARD' || e.type === 'R')).map((ev, idx) => (
+                          <li key={`r-${idx}`} className="flex items-center justify-between">
+                            <span>{ev.playerName || ev.player || 'Unknown'} — {ev.teamName || ev.team || 'Team'} (phút {ev.minute || ev.time || '?'})</span>
+                            {canEdit && ev.id && (
+                              <button onClick={() => removeEvent(ev.id)} className="text-red-600 hover:text-red-800 text-sm ml-3">Xóa</button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {canEdit && (
+                      <div className="mt-2 flex gap-2">
+                        <select className="border px-2 py-1 rounded" value={selectedHomePlayerId || ''} onChange={(e) => setSelectedHomePlayerId(e.target.value)}>
+                          <option value="">Chọn cầu thủ (Home)</option>
+                          {homePlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
+                        </select>
+                        <button onClick={() => addEvent('RED', selectedHomePlayerId, editingMatch.homeTeamId)} className="px-3 py-1 bg-red-600 text-white rounded">Thêm đỏ Home</button>
+                        <select className="border px-2 py-1 rounded" value={selectedAwayPlayerId || ''} onChange={(e) => setSelectedAwayPlayerId(e.target.value)}>
+                          <option value="">Chọn cầu thủ (Away)</option>
+                          {awayPlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
+                        </select>
+                        <button onClick={() => addEvent('RED', selectedAwayPlayerId, editingMatch.awayTeamId)} className="px-3 py-1 bg-red-600 text-white rounded">Thêm đỏ Away</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select
                   value={editingMatch.status}
                   onChange={(e) => setEditingMatch(prev => ({ ...prev, status: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!canEdit}
                 >
                   {statusOptions
                     .filter(option => option.id !== 'all')
@@ -948,6 +1304,7 @@ const MatchesManagement = () => {
                     setEditingMatch(prev => ({ ...prev, scheduledKickoff: e.target.value }));
                   }}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!canEdit}
                 />
               </div>
 
@@ -959,6 +1316,7 @@ const MatchesManagement = () => {
                   onChange={(e) => setEditingMatch(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="e.g. Rescheduled due to bad weather"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!canEdit}
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -970,6 +1328,7 @@ const MatchesManagement = () => {
                     onChange={(e) => setEditingMatch(prev => ({ ...prev, scoreHome: e.target.value }))}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     min="0"
+                    disabled={!canEdit}
                   />
                 </div>
                 <div>
@@ -980,6 +1339,7 @@ const MatchesManagement = () => {
                     onChange={(e) => setEditingMatch(prev => ({ ...prev, scoreAway: e.target.value }))}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     min="0"
+                    disabled={!canEdit}
                   />
                 </div>
               </div>
@@ -990,6 +1350,7 @@ const MatchesManagement = () => {
                   value={editingMatch.venue}
                   onChange={(e) => setEditingMatch(prev => ({ ...prev, venue: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!canEdit}
                 />
               </div>
               <div>
@@ -999,6 +1360,7 @@ const MatchesManagement = () => {
                   value={editingMatch.referee}
                   onChange={(e) => setEditingMatch(prev => ({ ...prev, referee: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!canEdit}
                 />
               </div>
 
@@ -1008,14 +1370,16 @@ const MatchesManagement = () => {
                   onClick={() => setShowEditModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  {canEdit ? 'Cancel' : 'Close'}
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Save Changes
-                </button>
+                {canEdit && (
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                )}
               </div>
             </form>
           </div>

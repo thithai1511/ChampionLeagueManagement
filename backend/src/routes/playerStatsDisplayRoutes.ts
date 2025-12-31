@@ -3,7 +3,7 @@ import { requireAuth } from "../middleware/authMiddleware";
 import * as playerStatsDisplayService from "../services/playerStatsDisplayService";
 
 const router = Router();
-
+ 
 /**
  * GET /api/player-stats/season/:seasonId
  * Get player statistics for a season

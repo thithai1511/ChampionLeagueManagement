@@ -185,11 +185,29 @@ router.get("/external", async (req, res, next) => {
 
 const createEventSchema = z.object({
   teamId: z.number().int().positive(),
+  // Accept type as string; we'll normalize later in the handler
   type: z.string().trim().min(1).max(32),
-  minute: z.number().int().min(0).max(130),
+  // Accept minute as string or number or empty; normalize to number|null
+  minute: z.preprocess((val) => {
+    if (val === undefined || val === null || val === '') return null
+    // If it's a string like "45+1" or "90+3", extract digits
+    const s = String(val)
+    const digits = s.replace(/[^0-9]/g, '')
+    if (digits === '') return null
+    const n = Number(digits)
+    return Number.isNaN(n) ? null : n
+  }, z.number().int().min(0).max(130).nullable().optional()),
   description: z.string().trim().max(255).optional().nullable(),
-  playerId: z.number().int().positive().optional().nullable(),
-  assistPlayerId: z.number().int().positive().optional().nullable(),
+playerId: z.preprocess((v) => {
+    if (v === undefined || v === null || v === '') return null;
+    return Number(v);
+  }, z.number().int().positive().nullable().optional()),
+
+  assistPlayerId: z.preprocess((v) => {
+    if (v === undefined || v === null || v === '') return null;
+    return Number(v);
+  }, z.number().int().positive().nullable().optional()),
+
   playerName: z.string().trim().max(100).optional().nullable(),
 });
 

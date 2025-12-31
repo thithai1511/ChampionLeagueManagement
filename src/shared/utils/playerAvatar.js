@@ -81,21 +81,43 @@ export function getAvatarWithFallback(avatarUrl, playerName = '') {
       .substring(0, 2)
       .toUpperCase();
     
-    // Return data URI with initials
-    return `data:image/svg+xml;base64,${btoa(
-      `<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+    // Return data URI with initials (use safe base64 for Unicode)
+    const svg = `<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
         <rect width="100" height="100" fill="#003399"/>
         <text x="50" y="60" text-anchor="middle" fill="white" font-size="40" font-weight="bold" font-family="Arial">${initials}</text>
-      </svg>`
-    )}`;
+      </svg>`;
+    return `data:image/svg+xml;base64,${safeBtoaUnicode(svg)}`;
   }
 
   // Default placeholder
-  return `data:image/svg+xml;base64,${btoa(
-    `<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+  const defaultSvg = `<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
       <rect width="100" height="100" fill="#cccccc"/>
       <circle cx="50" cy="50" r="30" fill="#999999"/>
-    </svg>`
-  )}`;
+    </svg>`;
+  return `data:image/svg+xml;base64,${safeBtoaUnicode(defaultSvg)}`;
+}
+
+/**
+ * Safely base64-encode a Unicode string by converting to UTF-8 bytes first.
+ * @param {string} str
+ * @returns {string}
+ */
+function safeBtoaUnicode(str) {
+  if (typeof window === 'undefined' || typeof btoa === 'undefined') {
+    // Fallback for non-browser environments
+    return Buffer.from(str, 'utf8').toString('base64');
+  }
+
+  try {
+    return btoa(str);
+  } catch (err) {
+    // Convert to UTF-8 bytes and then to binary string for btoa
+    const utf8 = new TextEncoder().encode(str);
+    let binary = '';
+    for (let i = 0; i < utf8.length; i++) {
+      binary += String.fromCharCode(utf8[i]);
+    }
+    return btoa(binary);
+  }
 }
 

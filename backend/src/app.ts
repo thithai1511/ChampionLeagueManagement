@@ -5,6 +5,7 @@ import cors from "cors";
 import morgan from "morgan";
 import path from "path";
 
+// --- Core Routes ---
 import authRoutes from "./routes/authRoutes";
 import userRoutes from "./routes/userRoutes";
 import roleRoutes from "./routes/roleRoutes";
@@ -20,6 +21,8 @@ import playerRoutes from "./routes/playerRoutes";
 import matchRoutes from "./routes/matchRoutes";
 import syncRoutes from "./routes/syncRoutes";
 import importRoutes from "./routes/importRoutes";
+
+// --- Registration & Management Routes ---
 import internalTeamRoutes from "./routes/internalTeamRoutes";
 import internalPlayerRoutes from "./routes/internalPlayerRoutes";
 import playerRegistrationRoutes from "./routes/playerRegistrationRoutes";
@@ -34,16 +37,21 @@ import settingsRoutes from "./routes/settingsRoutes";
 import officialRoutes from "./routes/officialRoutes";
 import awardsRoutes from "./routes/awardsRoutes";
 import disciplineRoutes from "./routes/disciplineRoutes";
+
+// --- Merged Routes (Fixed Conflict) ---
 import disciplinaryRoutes from "./routes/disciplinaryRoutes";
 import publicStandingsRoutes from "./routes/publicStandingsRoutes";
 import scheduleRoutes from "./routes/scheduleRoutes";
 import lineupValidationRoutes from "./routes/lineupValidationRoutes";
 import matchReportRoutes from "./routes/matchReportRoutes";
+import supervisorRoutes from "./routes/supervisorRoutes";
 import matchDetailRoutes from "./routes/matchDetailRoutes";
 import matchOfficialRoutes from "./routes/matchOfficialRoutes";
 import participationFeeRoutes from "./routes/participationFeeRoutes";
 import playerOfMatchRoutes from "./routes/playerOfMatchRoutes";
 import stadiumRoutes from "./routes/stadiumRoutes";
+import seasonInvitationRoutes from "./routes/seasonInvitationRoutes";
+import playerStatsDisplayRoutes from "./routes/playerStatsDisplayRoutes";
 import playerPortalRoutes from "./routes/playerPortalRoutes";
 import goalTypeRoutes from "./routes/goalTypeRoutes";
 
@@ -51,13 +59,16 @@ const app = express();
 
 app.set("etag", false);
 app.use(cors());
+
 // Ensure UTF-8 encoding for all responses
 app.use((req, res, next) => {
   res.charset = 'utf-8';
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   next();
 });
+
 app.use(express.json());
+
 if ((process.env.NODE_ENV ?? "development") !== "test") {
   app.use(morgan("dev"));
 }
@@ -65,12 +76,15 @@ if ((process.env.NODE_ENV ?? "development") !== "test") {
 // Serve uploaded files (PDFs, media) when referenced by the frontend.
 app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
+// --- Route Mounting ---
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/permissions", permissionRoutes);
 app.use("/api/rulesets", rulesetRoutes);
 app.use("/api", goalTypeRoutes); // Goal types management
+
 // IMPORTANT: Mount specific season sub-routes BEFORE generic seasonRoutes
 // to prevent /:id from matching /:seasonId/awards or /:seasonId/discipline
 app.use("/api/seasons", awardsRoutes);
@@ -83,6 +97,7 @@ app.use("/api/seasons", seasonRoutes);
 app.use("/api/audit-events", auditRoutes);
 app.use("/api/season-players", seasonRegistrationRoutes);
 app.use("/api", seasonPlayerRoutes);
+
 // Use internal database for teams and players (Champions League data already imported)
 app.use("/api/teams", internalTeamRoutes);
 app.use("/api/players/registrations", playerRegistrationRoutes);
@@ -99,22 +114,26 @@ app.use("/api/news", newsRoutes);
 app.use("/api/media", mediaRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// Admin routes
+// --- Admin & Official Routes ---
 app.use("/api/admin/standings", adminStandingsRoutes);
 app.use("/api/officials", officialRoutes);
+app.use("/api/season-invitations", seasonInvitationRoutes);
 
-// Player Portal routes
-app.use("/api/player-portal", playerPortalRoutes);
-
-// Match-related routes
-app.use("/api/schedule", scheduleRoutes);
-app.use("/api/lineup", lineupValidationRoutes);
-app.use("/api/match-reports", matchReportRoutes);
-app.use("/api/match-details", matchDetailRoutes);
-app.use("/api/match-officials", matchOfficialRoutes);
-app.use("/api/participation-fees", participationFeeRoutes);
-app.use("/api/player-of-match", playerOfMatchRoutes);
+// --- Match Management & Reporting ---
+// (Consolidated duplicated entries from the conflict)
 app.use("/api/stadiums", stadiumRoutes);
+app.use("/api/match-officials", matchOfficialRoutes);
+app.use("/api/match-reports", matchReportRoutes);
+app.use("/api/player-of-match", playerOfMatchRoutes);
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/participation-fees", participationFeeRoutes);
+app.use("/api/player-stats", playerStatsDisplayRoutes);
+app.use("/api/lineup", lineupValidationRoutes);
+app.use("/api/supervisor-reports", supervisorRoutes);
+app.use("/api/match-details", matchDetailRoutes);
+
+// --- Player Portal ---
+app.use("/api/player-portal", playerPortalRoutes);
 
 // Sync and Import utilities (keep for future use if needed)
 app.use("/api/sync", syncRoutes);

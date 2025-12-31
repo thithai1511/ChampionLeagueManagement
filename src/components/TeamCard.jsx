@@ -1,4 +1,5 @@
 import React from 'react'
+import { safeBtoaUnicode } from '../shared/utils/base64'
 import { MapPin, Users, Calendar, Trophy, Target, Shield } from 'lucide-react'
 
 const TeamCard = ({ team }) => {
@@ -25,7 +26,7 @@ const TeamCard = ({ team }) => {
             alt={team.name}
             className="w-16 h-16 object-contain group-hover:scale-110 transition-transform duration-300"
             onError={(e) => {
-              e.target.src = `data:image/svg+xml;base64,${btoa(`<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="32" fill="#003399"/><text x="32" y="38" text-anchor="middle" fill="white" font-size="14" font-weight="bold">${team.name.substring(0, 3).toUpperCase()}</text></svg>`)}`
+              e.target.src = `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="32" fill="#003399"/><text x="32" y="38" text-anchor="middle" fill="white" font-size="14" font-weight="bold">${team.name.substring(0, 3).toUpperCase()}</text></svg>`)}`
             }}
           />
           <div>
