@@ -491,6 +491,17 @@ export const getMatchById = async (matchId: number): Promise<MatchRecord | null>
         at.name AS awayTeamName,
         at.short_name AS awayTeamShortName,
         at.logo_url AS awayTeamLogo,
+        at.logo_url AS awayTeamLogo,
+        m.home_team_kit AS homeTeamKit,
+        m.away_team_kit AS awayTeamKit,
+        ht.home_kit_color AS homeTeamHomeKitColor,
+        ht.away_kit_color AS homeTeamAwayKitColor,
+        ht.home_kit_image AS homeTeamHomeKitImage,
+        ht.away_kit_image AS homeTeamAwayKitImage,
+        at.home_kit_color AS awayTeamHomeKitColor,
+        at.away_kit_color AS awayTeamAwayKitColor,
+        at.home_kit_image AS awayTeamHomeKitImage,
+        at.away_kit_image AS awayTeamAwayKitImage,
         m.stadium_id AS stadiumId,
         s.name AS stadiumName,
         CONVERT(VARCHAR(33), m.scheduled_kickoff, 127) AS scheduledKickoff,
@@ -635,7 +646,9 @@ export const updateMatch = async (
     attendance: number | null;
     scheduledKickoff: string;
     stadiumId: number;
-    description: string; // Optional reason for change
+    description: string;
+    homeTeamKit: string;
+    awayTeamKit: string;
   }>
 ): Promise<MatchRecord | null> => {
   const currentMatch = await getMatchById(matchId);
@@ -726,6 +739,14 @@ export const updateMatch = async (
   if (payload.attendance !== undefined) {
     fields.push("attendance = @attendance");
     params.attendance = payload.attendance;
+  }
+  if (payload.homeTeamKit !== undefined) {
+    fields.push("home_team_kit = @homeTeamKit");
+    params.homeTeamKit = payload.homeTeamKit;
+  }
+  if (payload.awayTeamKit !== undefined) {
+    fields.push("away_team_kit = @awayTeamKit");
+    params.awayTeamKit = payload.awayTeamKit;
   }
 
   if (fields.length === 0) {

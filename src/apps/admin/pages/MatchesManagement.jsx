@@ -482,8 +482,12 @@ const MatchesManagement = () => {
       events: match.events || [],
       homeTeamId: match.homeTeamId ?? match.home_team_id ?? match.home_team?.id ?? null,
       awayTeamId: match.awayTeamId ?? match.away_team_id ?? match.away_team?.id ?? null,
+      homeTeamId: match.homeTeamId ?? match.home_team_id ?? match.home_team?.id ?? null,
+      awayTeamId: match.awayTeamId ?? match.away_team_id ?? match.away_team?.id ?? null,
       homeTeamName: match.homeTeamName || match.home_team_name || match.home_team?.name || '',
-      awayTeamName: match.awayTeamName || match.away_team_name || match.away_team?.name || ''
+      awayTeamName: match.awayTeamName || match.away_team_name || match.away_team?.name || '',
+      homeTeamKit: match.homeTeamKit || 'home',
+      awayTeamKit: match.awayTeamKit || 'away'
     })
     setShowEditModal(true)
   }
@@ -603,7 +607,11 @@ const MatchesManagement = () => {
         scoreHome: editingMatch.scoreHome === '' ? null : Number(editingMatch.scoreHome),
         scoreAway: editingMatch.scoreAway === '' ? null : Number(editingMatch.scoreAway),
         scheduledKickoff,
-        description: editingMatch.description
+        scoreAway: editingMatch.scoreAway === '' ? null : Number(editingMatch.scoreAway),
+        scheduledKickoff,
+        description: editingMatch.description,
+        homeTeamKit: editingMatch.homeTeamKit,
+        awayTeamKit: editingMatch.awayTeamKit
       }
       const updated = await MatchesService.updateMatch(editingMatch.id, payload)
       setMatches(prev => prev.map(match => (match.id === updated.id ? { ...match, ...updated } : match)))
@@ -1249,6 +1257,38 @@ const MatchesManagement = () => {
                   disabled={!canEdit}
                 />
               </div>
+              {/* Kit Selection */}
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Áo đấu {editingMatch.homeTeamName} (Home Team)
+                  </label>
+                  <select
+                    value={editingMatch.homeTeamKit || 'home'}
+                    onChange={(e) => setEditingMatch({ ...editingMatch, homeTeamKit: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="home">Sân nhà (Home)</option>
+                    <option value="away">Sân khách (Away)</option>
+                    <option value="third">Mẫu 3 (Third)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Áo đấu {editingMatch.awayTeamName} (Away Team)
+                  </label>
+                  <select
+                    value={editingMatch.awayTeamKit || 'away'}
+                    onChange={(e) => setEditingMatch({ ...editingMatch, awayTeamKit: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  >
+                    <option value="home">Sân nhà (Home)</option>
+                    <option value="away">Sân khách (Away)</option>
+                    <option value="third">Mẫu 3 (Third)</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Home Score</label>
