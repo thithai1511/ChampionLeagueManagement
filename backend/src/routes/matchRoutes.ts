@@ -716,7 +716,7 @@ router.post("/:id/events", ...requireMatchManagement, async (req: any, res, next
       matchId,
       teamId: payload.teamId,
       type: eventType as any,
-      minute: payload.minute,
+      minute: payload.minute ?? undefined, // Convert null to undefined
       description: payload.description ?? undefined,
       playerId: payload.playerId ?? undefined, // Pass raw player ID
       assistPlayerId: payload.assistPlayerId ?? undefined

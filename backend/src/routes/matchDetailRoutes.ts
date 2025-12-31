@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { query } from "../db/sqlServer";
 import * as eventService from "../services/matchEventService";
 import * as lineupService from "../services/matchLineupService";
 import * as statsService from "../services/playerMatchStatsService";
@@ -45,7 +46,29 @@ router.post("/:matchId/events", async (req, res, next) => {
     try {
         const matchId = Number(req.params.matchId);
         const payload = createEventSchema.parse({ ...req.body, matchId });
-        const event = await eventService.createMatchEvent(payload);
+        
+        // Resolve teamId from seasonTeamId (service expects teamId)
+        const teamData = await query<{ team_id: number }>(
+            "SELECT team_id FROM season_team_participants WHERE season_team_id = @seasonTeamId",
+            { seasonTeamId: payload.seasonTeamId }
+        );
+        const teamId = teamData.recordset[0]?.team_id;
+        if (!teamId) {
+            return res.status(400).json({ message: "Invalid seasonTeamId" });
+        }
+        
+        // Cast type to satisfy TypeScript - service will normalize it
+        const event = await eventService.createMatchEvent({
+            matchId: payload.matchId,
+            teamId,
+            type: payload.type as any,
+            minute: payload.minute ?? undefined, // Convert null to undefined
+            description: payload.description,
+            playerId: payload.playerId ?? undefined,
+            assistPlayerId: payload.assistPlayerId,
+            inPlayerId: payload.inPlayerId,
+            outPlayerId: payload.outPlayerId
+        });
         res.status(201).json({ data: event });
     } catch (error) { next(error); }
 });

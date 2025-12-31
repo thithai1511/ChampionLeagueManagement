@@ -303,3 +303,4 @@ export async function getActiveGoalTypeCodes(rulesetId: number): Promise<string[
   return result.recordset.map((row) => row.code);
 }
 
+
