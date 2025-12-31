@@ -26,11 +26,8 @@ import ApiService from '../../../layers/application/services/ApiService'
 import { useAuth } from '../../../layers/application/context/AuthContext'
 import { hasPermission } from '../utils/accessControl'
 import SeasonService from '../../../layers/application/services/SeasonService'
-import TeamsService from '../../../layers/application/services/TeamsService'
-import ApiService from '../../../layers/application/services/ApiService'
 import logger from '../../../shared/utils/logger'
 import MatchOfficialAssignmentModal from '../components/MatchOfficialAssignmentModal'
-import { useAuth } from '../../../layers/application/context/AuthContext'
 
 const statusOptions = [
   { id: 'all', name: 'Tất cả trận' },
@@ -868,149 +865,74 @@ const canEdit = hasPermission(currentUser, 'manage_matches')
                             )}
                             <div className="text-xs text-gray-500">
                               {match.referee ? 'Nhấn để chỉnh sửa' : 'Chưa phân công'}
- </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatDate(match.utcDate)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {formatTime(match.utcDate)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-900 space-x-2">
-                        <MapPin size={14} className="text-gray-400" />
-                        <span>{match.venue || 'TBC'}</span>
-                      </div>
-                      <div className="text-sm text-gray-500">{match.stage || match.groupName || 'League Phase'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => openOfficialModal(match)}
-                        className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
-                      >
-                        <Shield size={14} />
-                        <span>{match.referee || 'Phân công'}</span>
-                      </button>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {match.referee ? 'Nhấn để chỉnh sửa' : 'Chưa phân công'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {statusBadge(match.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2 items-center">
-                        {/* Nút từ nhánh MAIN: Duyệt đội hình */}
-                        <button
-                          onClick={() => navigate(`/admin/matches/${match.id}/lineup-review`)}
-                          className="text-purple-600 hover:text-purple-900 transition-colors"
-                          title="Duyệt đội hình"
-                        >
-                          <ClipboardList size={16} />
-                        </button>
-
-                        {/* Các nút từ nhánh feature/auth-fix */}
-                        <button
-                          onClick={() => { setEditingMatch(match); setShowEditModal(true); }}
-                          className="text-blue-600 hover:text-blue-900 transition-colors"
-                          title="Xem chi tiết"
-                        >
-                          <Eye size={16} />
-                        </button>
-
-                        <button
-                          onClick={() => handleExportReport(match)}
-                          className="text-gray-600 hover:text-gray-900 transition-colors"
-                          title="Xuất báo cáo"
-                        >
-                          <Download size={16} />
-                        </button>
-
-                        {!canEdit ? (
-                          <button
-                            onClick={() => handleSendToAdmin(match)}
-                            className="text-indigo-600 hover:text-indigo-900 transition-colors"
-                            title="Gửi báo cáo cho BTC"
-                          >
-                            <ArrowRight size={16} />
-                          </button>
-                        ) : (
-                          <>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {statusBadge(match.status)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2 items-center">
+                            {/* Nút từ nhánh MAIN: Duyệt đội hình */}
                             <button
-                              onClick={() => openEditModal(match)}
+                              onClick={() => navigate(`/admin/matches/${match.id}/lineup-review`)}
+                              className="text-purple-600 hover:text-purple-900 transition-colors"
+                              title="Duyệt đội hình"
+                            >
+                              <ClipboardList size={16} />
+                            </button>
+
+                            {/* Các nút từ nhánh feature/auth-fix */}
+                            <button
+                              onClick={() => { setEditingMatch(match); setShowEditModal(true); }}
+                              className="text-blue-600 hover:text-blue-900 transition-colors"
+                              title="Xem chi tiết"
+                            >
+                              <Eye size={16} />
+                            </button>
+
+                            <button
+                              onClick={() => handleExportReport(match)}
                               className="text-gray-600 hover:text-gray-900 transition-colors"
-                              title="Chỉnh sửa"
+                              title="Xuất báo cáo"
                             >
-                              <Edit size={16} />
+                              <Download size={16} />
                             </button>
-                            <button
-                              onClick={() => handleDelete(match.id)}
-                              className="text-red-600 hover:text-red-900 transition-colors"
-                              title="Xóa"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+
+                            {!canEdit ? (
+                              <button
+                                onClick={() => handleSendToAdmin(match)}
+                                className="text-indigo-600 hover:text-indigo-900 transition-colors"
+                                title="Gửi báo cáo cho BTC"
+                              >
+                                <ArrowRight size={16} />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => openEditModal(match)}
+                                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                                  title="Chỉnh sửa"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(match.id)}
+                                  className="text-red-600 hover:text-red-900 transition-colors"
+                                  title="Xóa"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
-                            {/* Chỉ hiện nút Sửa nếu trận đấu CHƯA kết thúc (Logic từ Main) */}
-                            {!['FINISHED', 'COMPLETED'].includes(match.status?.toUpperCase()) && (
-                              <button
-                                onClick={() => openEditModal(match)}
-                                className="text-gray-600 hover:text-gray-900 transition-colors"
-                                title="Chỉnh sửa thông tin"
-                              >
-                                <Edit size={16} />
-                              </button>
-                            )}
-
-                              <button
-                                onClick={() => handleDelete(match.id)}
-                                className="text-red-600 hover:text-red-900 transition-colors"
-                                title="Xóa trận đấu"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                            {isSuperAdmin && (
-                              <div className="flex space-x-2 text-xs">
-                                <button
-                                  onClick={() => handleAutoGenerateLineup(match.id, match.homeSeasonTeamId, match.homeTeamName)}
-                                  className="text-green-600 hover:text-green-800 hover:bg-green-50 px-2 py-1 rounded transition-colors"
-                                  title="Tự động tạo đội hình đội nhà"
-                                >
-                                  <ClipboardList size={12} className="inline mr-1" />
-                                  {match.homeTeamShortName || 'Nhà'}
-                                </button>
-                                <button
-                                  onClick={() => handleAutoGenerateLineup(match.id, match.awaySeasonTeamId, match.awayTeamName)}
-                                  className="text-green-600 hover:text-green-800 hover:bg-green-50 px-2 py-1 rounded transition-colors"
-                                  title="Tự động tạo đội hình đội khách"
-                                >
-                                  <ClipboardList size={12} className="inline mr-1" />
-                                  {match.awayTeamShortName || 'Khách'}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
 
             {/* Pagination Footer */}
             <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200 bg-gray-50">
