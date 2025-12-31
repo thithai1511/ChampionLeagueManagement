@@ -77,7 +77,7 @@ export interface AssignOfficialsInput {
  * State transition validation rules
  */
 const VALID_TRANSITIONS: Record<MatchStatus, MatchStatus[]> = {
-  SCHEDULED: ["PREPARING"],
+  SCHEDULED: ["PREPARING", "READY"], // Can go to READY if both lineups approved (even without officials)
   PREPARING: ["READY", "SCHEDULED"], // Can go back if officials removed
   READY: ["IN_PROGRESS", "FINISHED"], // Can skip IN_PROGRESS
   IN_PROGRESS: ["FINISHED"],

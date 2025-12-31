@@ -85,6 +85,7 @@ const statusBadge = (status) => {
 const formatDate = (isoString) => {
   const date = new Date(isoString)
   return date.toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
     year: 'numeric',
     month: 'short',
     day: '2-digit'
@@ -93,7 +94,11 @@ const formatDate = (isoString) => {
 
 const formatTime = (isoString) => {
   const date = new Date(isoString)
-  return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('en-GB', { 
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
 }
 
 const MatchesManagement = () => {
@@ -1010,8 +1015,8 @@ const MatchesManagement = () => {
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Trận đấu hôm nay</h2>
                 <p className="text-gray-500 text-sm">
-                  {new Date().toLocaleDateString('vi-VN')}
-                  {lastUpdated && <span className="ml-2">(Cập nhật: {lastUpdated.toLocaleTimeString()})</span>}
+                  {new Date().toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                  {lastUpdated && <span className="ml-2">(Cập nhật: {lastUpdated.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })})</span>}
                 </p>
               </div>
             </div>

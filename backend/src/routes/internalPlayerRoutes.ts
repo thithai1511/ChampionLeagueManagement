@@ -79,12 +79,25 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res, next) => {
     
     if (!canSeeAll && userTeamIds.length > 0) {
       // Team admin can only see their teams' players
-      const teamIdPlaceholders = userTeamIds.map((_, i) => `@userTeamId${i}`).join(',');
-      conditions.push(`current_team_id IN (${teamIdPlaceholders})`);
-      userTeamIds.forEach((id, i) => {
-        params[`userTeamId${i}`] = id;
-      });
-      console.log('[GET /api/players] Team admin filter applied:', userTeamIds);
+      // Filter out any invalid team IDs
+      const validTeamIds = userTeamIds.filter(id => id != null && !isNaN(id) && id > 0);
+      
+      if (validTeamIds.length > 0) {
+        const teamIdPlaceholders = validTeamIds.map((_, i) => `@userTeamId${i}`).join(',');
+        conditions.push(`(current_team_id IN (${teamIdPlaceholders}) OR current_team_id IS NULL)`);
+        validTeamIds.forEach((id, i) => {
+          params[`userTeamId${i}`] = id;
+        });
+        console.log('[GET /api/players] Team admin filter applied:', validTeamIds);
+      } else {
+        // No valid team IDs - return empty
+        console.log('[GET /api/players] No valid team IDs, returning empty');
+        return res.json({
+          data: [],
+          total: 0,
+          pagination: { page, limit, totalPages: 0 }
+        });
+      }
     } else if (!canSeeAll) {
       // User has no teams assigned and is not admin - return empty
       console.log('[GET /api/players] No permissions, returning empty');
@@ -116,8 +129,8 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res, next) => {
       player_id: number;
       full_name: string;
       display_name: string | null;
-      date_of_birth: string;
-      nationality: string;
+      date_of_birth: string | null;
+      nationality: string | null;
       preferred_position: string | null;
       current_team_id: number | null;
     }>(
@@ -126,7 +139,11 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res, next) => {
           player_id,
           full_name,
           display_name,
-          CONVERT(VARCHAR(10), date_of_birth, 23) as date_of_birth,
+          CASE 
+            WHEN date_of_birth IS NOT NULL 
+            THEN CONVERT(VARCHAR(10), date_of_birth, 23) 
+            ELSE NULL 
+          END as date_of_birth,
           nationality,
           preferred_position,
           current_team_id
