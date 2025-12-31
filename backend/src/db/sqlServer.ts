@@ -54,7 +54,7 @@ export async function getPool(): Promise<sql.ConnectionPool> {
   if (!pool) {
     isConnecting = true;
     pool = new sql.ConnectionPool(config);
-    
+
     // Setup error handlers
     pool.on('error', (err) => {
       // eslint-disable-next-line no-console
@@ -73,12 +73,12 @@ export async function getPool(): Promise<sql.ConnectionPool> {
       pool = null;
       poolConnect = null;
       isConnecting = false;
-      
+
       // Check for Azure SQL firewall error
       const err = error as Record<string, unknown>;
-      if (err.code === 'ELOGIN' || 
-          (err.message && String(err.message).includes('firewall')) ||
-          (err.originalError && (err.originalError as Record<string, unknown>).code === 'ELOGIN')) {
+      if (err.code === 'ELOGIN' ||
+        (err.message && String(err.message).includes('firewall')) ||
+        (err.originalError && (err.originalError as Record<string, unknown>).code === 'ELOGIN')) {
         // eslint-disable-next-line no-console
         console.error("Azure SQL Database firewall error - IP address not allowed:", error);
       } else {
@@ -102,7 +102,7 @@ export async function query<T = any>(
   retries = 3
 ): Promise<sql.IResult<T>> {
   let lastError: Error | null = null;
-  
+
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const connectedPool = await getPool();
@@ -113,14 +113,14 @@ export async function query<T = any>(
       return await request.query<T>(text);
     } catch (error) {
       lastError = error as Error;
-      const isConnectionError = error && typeof error === 'object' && 
+      const isConnectionError = error && typeof error === 'object' &&
         ('code' in error && (error.code === 'ETIMEOUT' || error.code === 'ECONNRESET'));
-      
+
       // If it's a connection error and we have retries left, reset pool and retry
       if (isConnectionError && attempt < retries - 1) {
         // eslint-disable-next-line no-console
         console.log(`Query failed (attempt ${attempt + 1}/${retries}), resetting pool and retrying...`);
-        
+
         // Reset pool
         if (pool) {
           try {
@@ -131,24 +131,27 @@ export async function query<T = any>(
           pool = null;
           poolConnect = null;
         }
-        
+
         // Wait before retry (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, attempt), 5000)));
         continue;
       }
-      
+
       // If not a connection error or no retries left, throw
       throw error;
     }
   }
-  
+
   throw lastError || new Error('Query failed after retries');
 }
 
-export async function transaction<T>(callback: (tx: sql.Transaction) => Promise<T>): Promise<T> {
+export async function transaction<T>(
+  callback: (tx: sql.Transaction) => Promise<T>,
+  isolationLevel?: sql.IIsolationLevel
+): Promise<T> {
   const connectedPool = await getPool();
   const tx = new sql.Transaction(connectedPool);
-  await tx.begin();
+  await tx.begin(isolationLevel);
   try {
     const result = await callback(tx);
     await tx.commit();
