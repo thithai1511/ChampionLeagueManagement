@@ -28,8 +28,8 @@ const LiveMatchUpdatePage = () => {
     // Lineup State
     const [homeSquad, setHomeSquad] = useState([]);
     const [awaySquad, setAwaySquad] = useState([]);
-    const [homeLineup, setHomeLineup] = useState([]);
-    const [awayLineup, setAwayLineup] = useState([]);
+    const [homeLineup, setHomeLineup] = useState({ starters: [], substitutes: [], players: [] }); // players: full lineup data with player info
+    const [awayLineup, setAwayLineup] = useState({ starters: [], substitutes: [], players: [] });
 
     // Live Control State
     const [matchEvents, setMatchEvents] = useState([]);
@@ -89,9 +89,21 @@ const LiveMatchUpdatePage = () => {
             const lineups = await MatchesService.getMatchLineups(matchId);
 
 
-            // Transform lineups for editor
+            // Transform lineups for editor - keep full player info
             const processLineup = (type, seasonTeamId) => {
                 const teamLineups = lineups.filter(l => Number(l.seasonTeamId) === Number(seasonTeamId));
+
+                // Map lineup data to player objects with full info
+                const lineupPlayers = teamLineups.map(l => ({
+                    id: l.playerId,
+                    player_id: l.playerId,
+                    full_name: l.playerName || 'Unknown',
+                    name: l.playerName || 'Unknown',
+                    shirt_number: l.jerseyNumber,
+                    jerseyNumber: l.jerseyNumber,
+                    position: l.position,
+                    isStarting: l.isStarting
+                }));
 
                 const starters = teamLineups.filter(l => Boolean(l.isStarting)).map(l => l.playerId);
                 const substitutes = teamLineups.filter(l => !Boolean(l.isStarting)).map(l => l.playerId);
@@ -99,7 +111,8 @@ const LiveMatchUpdatePage = () => {
                 return {
                     formation: '4-4-2', // Default or stored if implemented
                     starters,
-                    substitutes
+                    substitutes,
+                    players: lineupPlayers // Full player info from lineup
                 };
             };
 
@@ -245,25 +258,22 @@ const LiveMatchUpdatePage = () => {
 
     // Get only starters (11 players) who haven't been substituted out yet
     const getStarters = () => {
-        let squad = [];
         let lineup = null;
 
         if (selectedTeamId === match?.homeTeamId) {
-            squad = homeSquad;
             lineup = homeLineup;
         } else if (selectedTeamId === match?.awayTeamId) {
-            squad = awaySquad;
             lineup = awayLineup;
         }
 
-        if (lineup && lineup.starters?.length > 0) {
+        if (lineup && lineup.starters?.length > 0 && lineup.players?.length > 0) {
             // Get players who were substituted OUT
             const substitutedOutIds = (matchEvents || [])
                 .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
                 .map(e => Number(e.playerId));
 
-            // Return starters who haven't been subbed out
-            return squad.filter(player =>
+            // Return starters from lineup who haven't been subbed out
+            return lineup.players.filter(player =>
                 lineup.starters.includes(player.id) && !substitutedOutIds.includes(player.id)
             );
         }
@@ -272,26 +282,23 @@ const LiveMatchUpdatePage = () => {
 
     // Get only substitutes (5 players) who haven't entered the pitch yet
     const getSubstitutes = () => {
-        let squad = [];
         let lineup = null;
 
         if (selectedTeamId === match?.homeTeamId) {
-            squad = homeSquad;
             lineup = homeLineup;
         } else if (selectedTeamId === match?.awayTeamId) {
-            squad = awaySquad;
             lineup = awayLineup;
         }
 
-        if (lineup && lineup.substitutes?.length > 0) {
+        if (lineup && lineup.substitutes?.length > 0 && lineup.players?.length > 0) {
             // Get players who already came IN (can't come in again)
             const substitutedInIds = (matchEvents || [])
                 .filter(e => e.type === 'SUBSTITUTION' && Number(e.teamId) === Number(selectedTeamId))
                 .map(e => Number(e.assistPlayerId))
                 .filter(id => id);
 
-            // Return subs who haven't entered the pitch yet
-            return squad.filter(player =>
+            // Return subs from lineup who haven't entered the pitch yet
+            return lineup.players.filter(player =>
                 lineup.substitutes.includes(player.id) && !substitutedInIds.includes(player.id)
             );
         }
@@ -301,14 +308,11 @@ const LiveMatchUpdatePage = () => {
     // Get currently active players on the pitch (for GOAL, CARD events)
     // = 11 starters - subbed out + subbed in
     const getActivePlayers = () => {
-        let squad = [];
         let lineup = null;
 
         if (selectedTeamId === match?.homeTeamId) {
-            squad = homeSquad;
             lineup = homeLineup;
         } else if (selectedTeamId === match?.awayTeamId) {
-            squad = awaySquad;
             lineup = awayLineup;
         }
 
@@ -316,8 +320,11 @@ const LiveMatchUpdatePage = () => {
             return [];
         }
 
-        // Start with 11 starters only
-        const starterIds = lineup.starters || [];
+        // Use players from lineup data (only 11 starters + substitutes)
+        const lineupPlayers = lineup.players || [];
+        
+        // Start with 11 starters only from lineup
+        const starterPlayers = lineupPlayers.filter(p => lineup.starters.includes(p.id));
 
         // Get players who were substituted OUT
         const substitutedOutIds = (matchEvents || [])
@@ -330,13 +337,16 @@ const LiveMatchUpdatePage = () => {
             .map(e => Number(e.assistPlayerId))
             .filter(id => id);
 
-        // Active = starters - subbed out + subbed in
-        const activePlayerIds = [
-            ...starterIds.filter(id => !substitutedOutIds.includes(id)),
-            ...substitutedInIds
+        // Get substitute players who came in
+        const subbedInPlayers = lineupPlayers.filter(p => substitutedInIds.includes(p.id));
+
+        // Active = starters who haven't been subbed out + players who came in
+        const activePlayers = [
+            ...starterPlayers.filter(p => !substitutedOutIds.includes(p.id)),
+            ...subbedInPlayers
         ];
 
-        return squad.filter(player => activePlayerIds.includes(player.id));
+        return activePlayers;
     };
 
 

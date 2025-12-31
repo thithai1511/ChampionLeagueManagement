@@ -139,10 +139,17 @@ export const approveLineup = async (
     if (bothApproved) {
         // Dynamically import to avoid circular dependency
         const lifecycleService = await import('./matchLifecycleService');
-        await lifecycleService.changeMatchStatus(matchId, 'READY', {
-            note: 'Both lineups approved',
-            changedBy: approvedBy
-        });
+        
+        // Get current match status to check if we need to transition
+        const match = await lifecycleService.getMatchDetails(matchId);
+        if (match && match.status !== 'READY' && match.status !== 'IN_PROGRESS' && 
+            match.status !== 'FINISHED' && match.status !== 'REPORTED' && match.status !== 'COMPLETED') {
+            // Only transition if match is not already in READY or higher status
+            await lifecycleService.changeMatchStatus(matchId, 'READY', {
+                note: 'Both lineups approved',
+                changedBy: approvedBy
+            });
+        }
     }
 };
 

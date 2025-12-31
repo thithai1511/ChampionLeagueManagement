@@ -95,51 +95,152 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
   let cardType: string | null = null;
   let goalTypeCode: string | null = null;
 
-  if (rawType === 'GOAL') {
-    // Get goal type code from input or use default
-    const requestedCode = (input as any).goalTypeCode || 'open_play';
+  // Handle GOAL type - validate goalTypeCode if provided, otherwise use default or first available
+  if (rawType === 'GOAL' || rawType === 'G') {
+    dbEventType = 'GOAL';
     
-    // Validate goal type code against ruleset_goal_types
-    const goalTypeInfo = await query<{ minute_min: number; minute_max: number }>(
-      `SELECT minute_min, minute_max 
-       FROM ruleset_goal_types 
-       WHERE ruleset_id = @rulesetId AND code = @code AND is_active = 1`,
-      { rulesetId, code: requestedCode }
-    );
+    // Get goal type code from input
+    const requestedCode = (input as any).goalTypeCode;
     
-    if (!goalTypeInfo.recordset[0]) {
-      // Get list of valid codes for error message
-      const validCodesResult = await query<{ code: string }>(
-        `SELECT code
-         FROM ruleset_goal_types
-         WHERE ruleset_id = @rulesetId AND is_active = 1
-         ORDER BY code ASC`,
-        { rulesetId }
+    if (requestedCode) {
+      // Validate goal type code against ruleset_goal_types
+      const goalTypeInfo = await query<{ minute_min: number; minute_max: number }>(
+        `SELECT minute_min, minute_max 
+         FROM ruleset_goal_types 
+         WHERE ruleset_id = @rulesetId AND code = @code AND is_active = 1`,
+        { rulesetId, code: requestedCode }
       );
-      const validCodes = validCodesResult.recordset.map(row => row.code);
-      throw BadRequestError(
-        `Invalid goal type code "${requestedCode}". Valid codes for this ruleset: ${validCodes.length > 0 ? validCodes.join(', ') : 'none configured'}`
-      );
-    }
-
-    // Validate minute against goal type constraints
-    if (input.minute !== undefined) {
-      const { minute_min, minute_max } = goalTypeInfo.recordset[0];
-      if (input.minute < minute_min || input.minute > minute_max) {
+      
+      if (!goalTypeInfo.recordset[0]) {
+        // Get list of valid codes for error message
+        const validCodesResult = await query<{ code: string }>(
+          `SELECT code
+           FROM ruleset_goal_types
+           WHERE ruleset_id = @rulesetId AND is_active = 1
+           ORDER BY code ASC`,
+          { rulesetId }
+        );
+        const validCodes = validCodesResult.recordset.map(row => row.code);
         throw BadRequestError(
-          `Goal minute ${input.minute} is outside allowed range [${minute_min}, ${minute_max}] for goal type "${requestedCode}"`
+          `Invalid goal type code "${requestedCode}". Valid codes for this ruleset: ${validCodes.length > 0 ? validCodes.join(', ') : 'none configured'}`
         );
       }
-    }
 
-    goalTypeCode = requestedCode;
+      // Validate minute against goal type constraints
+      if (input.minute !== undefined) {
+        const { minute_min, minute_max } = goalTypeInfo.recordset[0];
+        if (input.minute < minute_min || input.minute > minute_max) {
+          throw BadRequestError(
+            `Goal minute ${input.minute} is outside allowed range [${minute_min}, ${minute_max}] for goal type "${requestedCode}"`
+          );
+        }
+      }
+      
+      goalTypeCode = requestedCode;
+    } else {
+      // No goalTypeCode provided - try to find a default one
+      // First try 'N' (normal), then 'open_play', then first available
+      const defaultCodes = ['N', 'open_play'];
+      let foundCode: string | null = null;
+      
+      for (const code of defaultCodes) {
+        const checkResult = await query<{ code: string }>(
+          `SELECT code
+           FROM ruleset_goal_types
+           WHERE ruleset_id = @rulesetId AND code = @code AND is_active = 1`,
+          { rulesetId, code }
+        );
+        if (checkResult.recordset[0]) {
+          foundCode = code;
+          break;
+        }
+      }
+      
+      // If no default found, get first available
+      if (!foundCode) {
+        const firstResult = await query<{ code: string }>(
+          `SELECT TOP 1 code
+           FROM ruleset_goal_types
+           WHERE ruleset_id = @rulesetId AND is_active = 1
+           ORDER BY code ASC`,
+          { rulesetId }
+        );
+        foundCode = firstResult.recordset[0]?.code || null;
+      }
+      
+      // If still no code found, auto-create a default goal type
+      if (!foundCode) {
+        console.log(`[createMatchEvent] No goal types found for ruleset ${rulesetId}, creating default goal type`);
+        
+        // Create a default goal type 'open_play' with full time range
+        try {
+          const createResult = await query(
+            `INSERT INTO ruleset_goal_types (
+              ruleset_id,
+              code,
+              name,
+              description,
+              minute_min,
+              minute_max,
+              is_active
+            ) OUTPUT INSERTED.code
+            VALUES (
+              @rulesetId,
+              @code,
+              @name,
+              @description,
+              @minuteMin,
+              @minuteMax,
+              1
+            )`,
+            {
+              rulesetId,
+              code: 'open_play',
+              name: 'Open Play',
+              description: 'Default goal type for open play goals',
+              minuteMin: 0,
+              minuteMax: 90
+            }
+          );
+          
+          foundCode = createResult.recordset[0]?.code || 'open_play';
+          console.log(`[createMatchEvent] Created default goal type: ${foundCode}`);
+        } catch (createError: any) {
+          // If creation fails (e.g., duplicate), try to get it again
+          if (createError.message?.includes('UNIQUE') || createError.message?.includes('duplicate')) {
+            const retryResult = await query<{ code: string }>(
+              `SELECT TOP 1 code
+               FROM ruleset_goal_types
+               WHERE ruleset_id = @rulesetId AND code = 'open_play' AND is_active = 1`,
+              { rulesetId }
+            );
+            foundCode = retryResult.recordset[0]?.code || null;
+          }
+          
+          // If still no code, throw error
+          if (!foundCode) {
+            throw BadRequestError(
+              `Cannot create GOAL event: Failed to create default goal type. Please configure at least one goal type in the ruleset settings.`
+            );
+          }
+        }
+      }
+      
+      goalTypeCode = foundCode;
+    }
+  }
+  
+  // Final validation: If event type is GOAL, goalTypeCode must not be null
+  if (dbEventType === 'GOAL' && !goalTypeCode) {
+    throw BadRequestError(
+      `Cannot create GOAL event: goal_type_code is required but not found. Please ensure goal types are configured for this ruleset.`
+    );
   }
 
   switch (rawType) {
     case 'GOAL':
     case 'G':
-      dbEventType = 'GOAL'
-      goalTypeCode = 'N'
+      // Already handled above
       break
     case 'OWN_GOAL':
     case 'OWN':
@@ -189,6 +290,9 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     );
   `;
 
+  // Ensure goalTypeCode is NULL for non-GOAL events (constraint requirement)
+  const finalGoalTypeCode = dbEventType === 'GOAL' ? goalTypeCode : null;
+  
   const result = await query(querySql, {
     matchId: input.matchId,
     seasonId: seasonId,
@@ -199,7 +303,7 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     description: input.description ?? null,
     seasonPlayerId: seasonPlayerId ?? null,
     playerName: playerName ?? null,
-    goalTypeCode: goalTypeCode,
+    goalTypeCode: finalGoalTypeCode,
     cardType: cardType,
     playerId: input.playerId ?? null,
     assistPlayerId: input.assistPlayerId ?? null
