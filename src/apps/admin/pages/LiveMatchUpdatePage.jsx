@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Clock, Goal, Play, Square, Replace, ShieldCheck,
-    ChevronLeft, Users, FileText, Activity, AlertCircle, CheckCircle, Trash2, Eye, Shield
+    ChevronLeft, ChevronDown, Users, FileText, Activity, AlertCircle, CheckCircle, Trash2, Eye, Shield
 } from 'lucide-react';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import TeamsService from '../../../layers/application/services/TeamsService';
@@ -20,6 +20,7 @@ const LiveMatchUpdatePage = () => {
     const [activeTab, setActiveTab] = useState('control');
     const [editorMode, setEditorMode] = useState('list'); // 'list' or 'interactive'
     const [loading, setLoading] = useState(true);
+    const [showKitMenu, setShowKitMenu] = useState(null); // 'home' | 'away' | null
 
     const { user: currentUser } = useAuth();
     const canEdit = hasPermission(currentUser, 'manage_matches');
@@ -63,6 +64,16 @@ const LiveMatchUpdatePage = () => {
             const data = await MatchesService.getMatchById(matchId);
             setMatch(data);
             setMatchEvents(data.events || []);
+
+            setMatchEvents(data.events || []);
+
+            // Console log to check kit data
+            console.log('Match Kit Data:', {
+                homeKit: data.homeTeamKit,
+                awayKit: data.awayTeamKit,
+                homeColors: { home: data.homeTeamHomeKitColor, away: data.homeTeamAwayKitColor },
+                awayColors: { home: data.awayTeamHomeKitColor, away: data.awayTeamAwayKitColor }
+            });
 
             // Fetch squads if lineups are needed
             if (data.homeTeamId) {
@@ -365,6 +376,45 @@ const LiveMatchUpdatePage = () => {
         }
     };
 
+    // Helper: Determine kit color
+    const getEffectiveKitColor = (teamType) => {
+        if (!match) return teamType === 'home' ? '#3b82f6' : '#ef4444'; // Default Blue/Red
+
+        // Logic: 
+        // 1. Get selected kit type (home/away/third)
+        // 2. Get corresponding color from team data
+        // 3. Fallback to default
+
+        const kitType = teamType === 'home'
+            ? (match.homeTeamKit || 'home')
+            : (match.awayTeamKit || 'away');
+
+        let color = null;
+
+        if (teamType === 'home') {
+            if (kitType === 'home') color = match.homeTeamHomeKitColor;
+            else if (kitType === 'away') color = match.homeTeamAwayKitColor;
+            // else if (kitType === 'third') color = match.homeTeamThirdKitColor;
+        } else {
+            if (kitType === 'home') color = match.awayTeamHomeKitColor;
+            else if (kitType === 'away') color = match.awayTeamAwayKitColor;
+        }
+
+        // If no color defined in DB, revert to basic defaults
+        if (!color) {
+            return teamType === 'home' ? '#3b82f6' : '#ef4444';
+        }
+
+        return color;
+    };
+
+    // Helper: Determine opposite text color for kit (white or black)
+    // Simple heuristic or hardcode white for now
+
+    const homeKitColor = getEffectiveKitColor('home');
+    const awayKitColor = getEffectiveKitColor('away');
+
+
     if (loading) return <div className="p-8 text-center">Loading Match Data...</div>;
     if (!match) return <div className="p-8 text-center text-red-500">Match not found</div>;
 
@@ -374,6 +424,45 @@ const LiveMatchUpdatePage = () => {
         { id: 'control', label: 'Live Control', icon: <Activity size={18} /> },
         { id: 'summary', label: 'Match Sheet', icon: <FileText size={18} /> },
     ];
+
+
+    // Kit Selection Logic
+
+    const handleKitSelect = async (teamSide, kitType) => {
+        setShowKitMenu(null);
+        if (!canEdit) return;
+
+        try {
+            const payload = teamSide === 'home'
+                ? { homeTeamKit: kitType }
+                : { awayTeamKit: kitType };
+
+            // Optimistic update
+            setMatch(prev => ({ ...prev, ...payload }));
+
+            await MatchesService.updateMatch(matchId, payload);
+            toast.success(`${teamSide === 'home' ? 'Home' : 'Away'} kit updated to ${kitType}`);
+            fetchMatchData();
+        } catch (error) {
+            console.error('Failed to update kit:', error);
+            toast.error('Failed to update kit selection');
+            fetchMatchData(); // Revert
+        }
+    };
+
+    // Helper to get color for preview in dropdown
+    const getTeamKitColor = (teamSide, type) => {
+        if (!match) return '#ccc';
+        if (teamSide === 'home') {
+            if (type === 'home') return match.homeTeamHomeKitColor || '#3b82f6';
+            if (type === 'away') return match.homeTeamAwayKitColor || '#ef4444';
+            // if (type === 'third') return match.homeTeamThirdKitColor || '#888';
+        } else {
+            if (type === 'home') return match.awayTeamHomeKitColor || '#ef4444';
+            if (type === 'away') return match.awayTeamAwayKitColor || '#3b82f6';
+        }
+        return '#888'; // fallback
+    };
 
     return (
         <div className="max-w-7xl mx-auto p-4 space-y-6 relative">
@@ -414,22 +503,93 @@ const LiveMatchUpdatePage = () => {
                     <div className="text-center flex-1">
                         {match.homeTeamLogo && <img src={match.homeTeamLogo} className="h-20 mx-auto mb-4 object-contain filter drop-shadow-md" alt="Home" />}
                         <h2 className="text-2xl font-bold">{match.homeTeamName}</h2>
-                    </div>
-                    <div className="text-center px-8">
-                        <div className="text-6xl font-black font-mono tracking-wider mb-2">
-                            {match.homeScore ?? match.scoreHome} - {match.awayScore ?? match.scoreAway}
+                        <div className="relative">
+                            <div
+                                className={`flex justify-center mt-2 items-center gap-2 ${canEdit ? 'cursor-pointer hover:bg-white/10 rounded px-2 py-1 transition-colors' : ''}`}
+                                onClick={() => canEdit && setShowKitMenu(showKitMenu === 'home' ? null : 'home')}
+                                title={canEdit ? "Click to change kit" : "Home Kit"}
+                            >
+                                <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold flex items-center gap-1">
+                                    {match.homeTeamKit || 'Home'} Kit
+                                    {canEdit && <ChevronDown size={12} />}
+                                </div>
+                                <div
+                                    className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                                    style={{ backgroundColor: homeKitColor }}
+                                    title={`Kit Color: ${homeKitColor}`}
+                                />
+                            </div>
+                            {/* Dropdown Menu */}
+                            {showKitMenu === 'home' && (
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[120px] z-10">
+                                    {['home', 'away', 'third'].map(type => (
+                                        <button
+                                            key={type}
+                                            onClick={() => handleKitSelect('home', type)}
+                                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                        >
+                                            <div
+                                                className="w-3 h-3 rounded-full border border-gray-300"
+                                                style={{ backgroundColor: getTeamKitColor('home', type) }}
+                                            />
+                                            <span className="uppercase font-medium text-xs">{type}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <div className="flex items-center justify-center gap-2 text-yellow-400 text-xl font-mono bg-black/30 px-4 py-1 rounded-full w-fit mx-auto">
-                            <Clock size={20} />
-                            <span>{matchTime}'</span>
-                        </div>
                     </div>
-                    <div className="text-center flex-1">
-                        {match.awayTeamLogo && <img src={match.awayTeamLogo} className="h-20 mx-auto mb-4 object-contain filter drop-shadow-md" alt="Away" />}
-                        <h2 className="text-2xl font-bold">{match.awayTeamName}</h2>
+                </div>
+                <div className="text-center px-8">
+                    <div className="text-6xl font-black font-mono tracking-wider mb-2">
+                        {match.homeScore ?? match.scoreHome} - {match.awayScore ?? match.scoreAway}
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-yellow-400 text-xl font-mono bg-black/30 px-4 py-1 rounded-full w-fit mx-auto">
+                        <Clock size={20} />
+                        <span>{matchTime}'</span>
+                    </div>
+                </div>
+                <div className="text-center flex-1">
+                    {match.awayTeamLogo && <img src={match.awayTeamLogo} className="h-20 mx-auto mb-4 object-contain filter drop-shadow-md" alt="Away" />}
+                    <h2 className="text-2xl font-bold">{match.awayTeamName}</h2>
+                    <div className="relative">
+                        <div
+                            className={`flex justify-center mt-2 items-center gap-2 ${canEdit ? 'cursor-pointer hover:bg-white/10 rounded px-2 py-1 transition-colors' : ''}`}
+                            onClick={() => canEdit && setShowKitMenu(showKitMenu === 'away' ? null : 'away')}
+                            title={canEdit ? "Click to change kit" : "Away Kit"}
+                        >
+                            <div
+                                className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                                style={{ backgroundColor: awayKitColor }}
+                                title={`Kit Color: ${awayKitColor}`}
+                            />
+                            <div className="text-xs uppercase tracking-wider text-gray-400 font-semibold flex items-center gap-1">
+                                {match.awayTeamKit || 'Away'} Kit
+                                {canEdit && <ChevronDown size={12} />}
+                            </div>
+                        </div>
+                        {/* Dropdown Menu */}
+                        {showKitMenu === 'away' && (
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[120px] z-10">
+                                {['home', 'away', 'third'].map(type => (
+                                    <button
+                                        key={type}
+                                        onClick={() => handleKitSelect('away', type)}
+                                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                    >
+                                        <div
+                                            className="w-3 h-3 rounded-full border border-gray-300"
+                                            style={{ backgroundColor: getTeamKitColor('away', type) }}
+                                        />
+                                        <span className="uppercase font-medium text-xs">{type}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
+
 
             {/* Content Area */}
             <div className="min-h-[500px]">
@@ -571,197 +731,205 @@ const LiveMatchUpdatePage = () => {
                     </div>
                 )}
 
-                {activeTab === 'lineups' && (
-                    <div className="space-y-4">
-                        {!canEdit && (
-                            <div className="p-3 bg-yellow-50 text-yellow-800 rounded mb-2">Bạn chỉ có quyền xem đội hình (giám sát).</div>
-                        )}
-                        {/* Editor Mode Toggle */}
-                        <div className="flex justify-center">
-                            <div className="bg-gray-100 rounded-lg p-1 inline-flex">
-                                <button
-                                    onClick={() => setEditorMode('list')}
-                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${editorMode === 'list'
-                                        ? 'bg-white shadow text-blue-600'
-                                        : 'text-gray-600 hover:text-gray-900'
-                                        }`}
-                                >
-                                    📋 List Editor
-                                </button>
-                                <button
-                                    onClick={() => setEditorMode('interactive')}
-                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${editorMode === 'interactive'
-                                        ? 'bg-white shadow text-blue-600'
-                                        : 'text-gray-600 hover:text-gray-900'
-                                        }`}
-                                >
-                                    ⚽ Interactive Builder
-                                </button>
+                {
+                    activeTab === 'lineups' && (
+                        <div className="space-y-4">
+                            {!canEdit && (
+                                <div className="p-3 bg-yellow-50 text-yellow-800 rounded mb-2">Bạn chỉ có quyền xem đội hình (giám sát).</div>
+                            )}
+                            {/* Editor Mode Toggle */}
+                            <div className="flex justify-center">
+                                <div className="bg-gray-100 rounded-lg p-1 inline-flex">
+                                    <button
+                                        onClick={() => setEditorMode('list')}
+                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${editorMode === 'list'
+                                            ? 'bg-white shadow text-blue-600'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                            }`}
+                                    >
+                                        📋 List Editor
+                                    </button>
+                                    <button
+                                        onClick={() => setEditorMode('interactive')}
+                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${editorMode === 'interactive'
+                                            ? 'bg-white shadow text-blue-600'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                            }`}
+                                    >
+                                        ⚽ Interactive Builder
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Editors */}
+                            <div className="grid grid-cols-2 gap-8">
+                                {(() => {
+                                    console.log('[Render] Current editorMode:', editorMode);
+                                    return editorMode === 'list' ? (
+                                        <>
+                                            <TeamLineupEditor
+                                                teamId={match.homeTeamId}
+                                                teamName={match.homeTeamName}
+                                                squad={homeSquad}
+                                                initialLineup={homeLineup}
+                                                onSave={canEdit ? handleLineupSave : undefined}
+                                            />
+                                            <TeamLineupEditor
+                                                teamId={match.awayTeamId}
+                                                teamName={match.awayTeamName}
+                                                squad={awaySquad}
+                                                initialLineup={awayLineup}
+                                                onSave={canEdit ? handleLineupSave : undefined}
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <InteractiveFormationPitch
+                                                teamId={match.homeTeamId}
+                                                teamName={match.homeTeamName}
+                                                squad={homeSquad}
+                                                initialLineup={homeLineup}
+                                                onSave={canEdit ? handleLineupSave : undefined}
+                                                teamColor={homeKitColor}
+                                            />
+                                            <InteractiveFormationPitch
+                                                teamId={match.awayTeamId}
+                                                teamName={match.awayTeamName}
+                                                squad={awaySquad}
+                                                initialLineup={awayLineup}
+                                                onSave={canEdit ? handleLineupSave : undefined}
+                                                teamColor={awayKitColor}
+                                            />
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
+                    )
+                }
 
-                        {/* Editors */}
-                        <div className="grid grid-cols-2 gap-8">
-                            {(() => {
-                                console.log('[Render] Current editorMode:', editorMode);
-                                return editorMode === 'list' ? (
-                                    <>
-                                        <TeamLineupEditor
-                                            teamId={match.homeTeamId}
-                                            teamName={match.homeTeamName}
-                                            squad={homeSquad}
-                                            initialLineup={homeLineup}
-                                            onSave={canEdit ? handleLineupSave : undefined}
-                                        />
-                                        <TeamLineupEditor
-                                            teamId={match.awayTeamId}
-                                            teamName={match.awayTeamName}
-                                            squad={awaySquad}
-                                            initialLineup={awayLineup}
-                                            onSave={canEdit ? handleLineupSave : undefined}
-                                        />
-                                    </>
-                                ) : (
-                                    <>
-                                        <InteractiveFormationPitch
-                                            teamId={match.homeTeamId}
-                                            teamName={match.homeTeamName}
-                                            squad={homeSquad}
-                                            initialLineup={homeLineup}
-                                            onSave={canEdit ? handleLineupSave : undefined}
-                                            teamColor="#3b82f6"
-                                        />
-                                        <InteractiveFormationPitch
-                                            teamId={match.awayTeamId}
-                                            teamName={match.awayTeamName}
-                                            squad={awaySquad}
-                                            initialLineup={awayLineup}
-                                            onSave={canEdit ? handleLineupSave : undefined}
-                                            teamColor="#ef4444"
-                                        />
-                                    </>
-                                );
-                            })()}
+                {
+                    activeTab === 'view' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className="bg-white rounded-xl p-6 shadow-sm border">
+                                <LineupDisplay
+                                    lineup={homeLineup}
+                                    squad={homeSquad}
+                                    teamName={match.homeTeamName}
+                                    teamColor={homeKitColor}
+                                    formation={homeLineup?.formation || '4-4-2'}
+                                />
+                            </div>
+                            <div className="bg-white rounded-xl p-6 shadow-sm border">
+                                <LineupDisplay
+                                    lineup={awayLineup}
+                                    squad={awaySquad}
+                                    teamName={match.awayTeamName}
+                                    teamColor={awayKitColor}
+                                    formation={awayLineup?.formation || '4-4-2'}
+                                />
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
-                {activeTab === 'view' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white rounded-xl p-6 shadow-sm border">
-                            <LineupDisplay
-                                lineup={homeLineup}
-                                squad={homeSquad}
-                                teamName={match.homeTeamName}
-                                teamColor="#3b82f6"
-                                formation={homeLineup?.formation || '4-4-2'}
-                            />
+                {
+                    activeTab === 'summary' && (
+                        <div className="bg-white p-8 rounded-lg shadow-sm border text-center text-gray-500">
+                            <FileText size={48} className="mx-auto mb-4 text-gray-300" />
+                            <h3 className="text-lg font-medium text-gray-900">Match Sheet Generation</h3>
+                            <p>Detailed match report and statistics will be available here after the match.</p>
                         </div>
-                        <div className="bg-white rounded-xl p-6 shadow-sm border">
-                            <LineupDisplay
-                                lineup={awayLineup}
-                                squad={awaySquad}
-                                teamName={match.awayTeamName}
-                                teamColor="#ef4444"
-                                formation={awayLineup?.formation || '4-4-2'}
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'summary' && (
-                    <div className="bg-white p-8 rounded-lg shadow-sm border text-center text-gray-500">
-                        <FileText size={48} className="mx-auto mb-4 text-gray-300" />
-                        <h3 className="text-lg font-medium text-gray-900">Match Sheet Generation</h3>
-                        <p>Detailed match report and statistics will be available here after the match.</p>
-                    </div>
-                )}
-            </div>
+                    )
+                }
+            </div >
 
             {/* EVENT MODAL */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
-                            <h3 className="font-bold text-lg">Record {selectedEventType?.replace('_', ' ')}</h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">&times;</button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">{selectedEventType === 'SUBSTITUTION' ? 'Player Going OUT' : 'Select Player'}</label>
-                                <select
-                                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
-                                    value={selectedPlayerId}
-                                    onChange={(e) => setSelectedPlayerId(e.target.value)}
-                                >
-                                    <option value="">-- Choose Player --</option>
-                                    {(selectedEventType === 'SUBSTITUTION' ? getStarters() : getActivePlayers()).map(player => (
-                                        <option key={player.id} value={player.id}>
-                                            #{player.shirt_number || '?'} - {player.full_name || player.name} ({player.position || 'N/A'})
-                                        </option>
-                                    ))}
-                                </select>
+            {
+                showModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                            <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+                                <h3 className="font-bold text-lg">Record {selectedEventType?.replace('_', ' ')}</h3>
+                                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">&times;</button>
                             </div>
-
-                            {/* For SUBSTITUTION: Show second dropdown for player coming IN */}
-                            {selectedEventType === 'SUBSTITUTION' && (
+                            <div className="p-6 space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Player Coming IN</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">{selectedEventType === 'SUBSTITUTION' ? 'Player Going OUT' : 'Select Player'}</label>
                                     <select
                                         className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
-                                        value={selectedSubstituteId}
-                                        onChange={(e) => setSelectedSubstituteId(e.target.value)}
+                                        value={selectedPlayerId}
+                                        onChange={(e) => setSelectedPlayerId(e.target.value)}
                                     >
                                         <option value="">-- Choose Player --</option>
-                                        {getSubstitutes().map(player => (
+                                        {(selectedEventType === 'SUBSTITUTION' ? getStarters() : getActivePlayers()).map(player => (
                                             <option key={player.id} value={player.id}>
                                                 #{player.shirt_number || '?'} - {player.full_name || player.name} ({player.position || 'N/A'})
                                             </option>
                                         ))}
                                     </select>
                                 </div>
-                            )}
 
-                            {/* Minute input field */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Phút xảy ra sự kiện (Minute) *</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="130"
-                                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
-                                    value={eventMinute !== null && eventMinute !== undefined ? eventMinute : ''}
-                                    onChange={(e) => {
-                                        const val = e.target.value === '' ? null : parseInt(e.target.value);
-                                        setEventMinute(val !== null && !isNaN(val) && val >= 0 ? val : null);
-                                    }}
-                                    placeholder="Nhập phút (ví dụ: 45, 90)"
-                                    required
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Nhập số phút xảy ra sự kiện (0-130). Hiện tại: {matchTime || 0}'</p>
-                            </div>
+                                {/* For SUBSTITUTION: Show second dropdown for player coming IN */}
+                                {selectedEventType === 'SUBSTITUTION' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Player Coming IN</label>
+                                        <select
+                                            className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
+                                            value={selectedSubstituteId}
+                                            onChange={(e) => setSelectedSubstituteId(e.target.value)}
+                                        >
+                                            <option value="">-- Choose Player --</option>
+                                            {getSubstitutes().map(player => (
+                                                <option key={player.id} value={player.id}>
+                                                    #{player.shirt_number || '?'} - {player.full_name || player.name} ({player.position || 'N/A'})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
 
-                            <div className="flex justify-end gap-3 pt-4">
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => canEdit && submitEvent()}
-                                    className={`px-4 py-2 ${canEdit ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'} rounded-md font-medium`}
-                                    disabled={!canEdit}
-                                    title={!canEdit ? 'Bạn chỉ có quyền xem' : 'Confirm'}
-                                >
-                                    {canEdit ? 'Confirm' : 'Chỉ xem'}
-                                </button>
+                                {/* Minute input field */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Phút xảy ra sự kiện (Minute) *</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="130"
+                                        className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
+                                        value={eventMinute !== null && eventMinute !== undefined ? eventMinute : ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value === '' ? null : parseInt(e.target.value);
+                                            setEventMinute(val !== null && !isNaN(val) && val >= 0 ? val : null);
+                                        }}
+                                        placeholder="Nhập phút (ví dụ: 45, 90)"
+                                        required
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Nhập số phút xảy ra sự kiện (0-130). Hiện tại: {matchTime || 0}'</p>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <button
+                                        onClick={() => setShowModal(false)}
+                                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => canEdit && submitEvent()}
+                                        className={`px-4 py-2 ${canEdit ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'} rounded-md font-medium`}
+                                        disabled={!canEdit}
+                                        title={!canEdit ? 'Bạn chỉ có quyền xem' : 'Confirm'}
+                                    >
+                                        {canEdit ? 'Confirm' : 'Chỉ xem'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

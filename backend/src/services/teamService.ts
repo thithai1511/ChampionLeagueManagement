@@ -21,6 +21,10 @@ export interface TeamRecord {
   foundedYear: number | null;
   description: string | null;
   homeKitDescription: string | null;
+  homeKitColor: string | null;
+  awayKitColor: string | null;
+  homeKitImage: string | null;
+  awayKitImage: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
@@ -59,6 +63,10 @@ export interface CreateTeamInput {
   foundedYear?: number;
   description?: string;
   homeKitDescription?: string;
+  homeKitColor?: string;
+  awayKitColor?: string;
+  homeKitImage?: string;
+  awayKitImage?: string;
   phone?: string;
   email?: string;
   website?: string;
@@ -79,6 +87,10 @@ export interface UpdateTeamInput {
   foundedYear?: number;
   description?: string;
   homeKitDescription?: string;
+  homeKitColor?: string;
+  awayKitColor?: string;
+  homeKitImage?: string;
+  awayKitImage?: string;
   phone?: string;
   email?: string;
   website?: string;
@@ -104,6 +116,10 @@ const baseTeamSelect = `
     t.founded_year AS foundedYear,
     t.description,
     t.home_kit_description AS homeKitDescription,
+    t.home_kit_color AS homeKitColor,
+    t.away_kit_color AS awayKitColor,
+    t.home_kit_image AS homeKitImage,
+    t.away_kit_image AS awayKitImage,
     t.phone,
     t.email,
     t.website,
@@ -135,7 +151,7 @@ export const listTeams = async (filters: TeamFilters = {}): Promise<PaginatedTea
 
   if (filters.country) {
     conditions.push("LOWER(t.country) LIKE LOWER(@country)");
-      parameters.country = `%${filters.country.trim()}%`;
+    parameters.country = `%${filters.country.trim()}%`;
   }
 
   if (filters.city) {
@@ -170,7 +186,7 @@ export const listTeams = async (filters: TeamFilters = {}): Promise<PaginatedTea
   const total = countResult.recordset[0]?.total ?? 0;
   const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
 
-      return {
+  return {
     data: dataResult.recordset,
     total,
     page,
@@ -206,14 +222,16 @@ export const createTeam = async (input: CreateTeamInput): Promise<TeamRecord> =>
       INSERT INTO teams (
         name, short_name, code, governing_body, city, country,
         home_stadium_id, stadium_name, stadium_capacity, founded_year,
-        description, home_kit_description, phone, email, website, status,
+        description, home_kit_description, home_kit_color, away_kit_color, home_kit_image, away_kit_image,
+        phone, email, website, status,
         created_by, created_at
       )
       OUTPUT INSERTED.team_id
       VALUES (
         @name, @shortName, @code, @governingBody, @city, @country,
         @homeStadiumId, @stadiumName, @stadiumCapacity, @foundedYear,
-        @description, @homeKitDescription, @phone, @email, @website, @status,
+        @description, @homeKitDescription, @homeKitColor, @awayKitColor, @homeKitImage, @awayKitImage,
+        @phone, @email, @website, @status,
         @createdBy, SYSUTCDATETIME()
       );
     `,
@@ -230,6 +248,10 @@ export const createTeam = async (input: CreateTeamInput): Promise<TeamRecord> =>
       foundedYear: input.foundedYear || null,
       description: input.description || null,
       homeKitDescription: input.homeKitDescription || null,
+      homeKitColor: input.homeKitColor || null,
+      awayKitColor: input.awayKitColor || null,
+      homeKitImage: input.homeKitImage || null,
+      awayKitImage: input.awayKitImage || null,
       phone: input.phone || null,
       email: input.email || null,
       website: input.website || null,
@@ -300,6 +322,22 @@ export const updateTeam = async (
     fields.push("home_kit_description = @homeKitDescription");
     params.homeKitDescription = input.homeKitDescription;
   }
+  if (input.homeKitColor !== undefined) {
+    fields.push("home_kit_color = @homeKitColor");
+    params.homeKitColor = input.homeKitColor;
+  }
+  if (input.awayKitColor !== undefined) {
+    fields.push("away_kit_color = @awayKitColor");
+    params.awayKitColor = input.awayKitColor;
+  }
+  if (input.homeKitImage !== undefined) {
+    fields.push("home_kit_image = @homeKitImage");
+    params.homeKitImage = input.homeKitImage;
+  }
+  if (input.awayKitImage !== undefined) {
+    fields.push("away_kit_image = @awayKitImage");
+    params.awayKitImage = input.awayKitImage;
+  }
   if (input.phone !== undefined) {
     fields.push("phone = @phone");
     params.phone = input.phone;
@@ -326,7 +364,7 @@ export const updateTeam = async (
   }
 
   fields.push("updated_at = SYSUTCDATETIME()");
-  
+
   await query(
     `UPDATE teams SET ${fields.join(", ")} WHERE team_id = @id;`,
     params
@@ -357,7 +395,7 @@ export const deleteTeam = async (id: number): Promise<boolean> => {
     `,
     { id }
   );
-  
+
   const references: string[] = [];
   for (const row of refCheckResult.recordset || []) {
     if (row.ref_count > 0) {
@@ -410,16 +448,16 @@ export const deleteTeam = async (id: number): Promise<boolean> => {
  */
 export const getTeamsByIds = async (ids: number[]): Promise<TeamRecord[]> => {
   if (ids.length === 0) return [];
-  
+
   const placeholders = ids.map((_, i) => `@id${i}`).join(', ');
   const params: Record<string, unknown> = {};
   ids.forEach((id, i) => { params[`id${i}`] = id; });
-  
+
   const result = await query<TeamRecord>(
     `${baseTeamSelect} WHERE t.team_id IN (${placeholders}) ORDER BY t.name ASC;`,
     params
   );
-  
+
   return result.recordset;
 };
 

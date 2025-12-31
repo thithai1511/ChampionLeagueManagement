@@ -35,7 +35,12 @@ const EMPTY_TEAM = {
   code: '',
   city: '',
   country: '',
-  founded_year: ''
+  founded_year: '',
+  home_kit_description: '',
+  home_kit_color: '#ff0000',
+  away_kit_color: '#ffffff',
+  home_kit_image: '',
+  away_kit_image: ''
 }
 
 const STATUS_STYLES = {
@@ -57,7 +62,7 @@ const TeamsManagement = () => {
 
   // Tab state
   const [activeTab, setActiveTab] = useState('teams') // 'teams' | 'invitations' | 'registration'
-  
+
   // Registration workflow state
   const [registrationRefreshTrigger, setRegistrationRefreshTrigger] = useState(0)
 
@@ -93,7 +98,7 @@ const TeamsManagement = () => {
   const [generatingInvitations, setGeneratingInvitations] = useState(false)
   const [sendingInvitations, setSendingInvitations] = useState(false)
   const [selectedDraftIds, setSelectedDraftIds] = useState([]) // For checkbox selection
-  
+
   // Add/Edit invitation modal
   const [showInvitationModal, setShowInvitationModal] = useState(false)
   const [editingInvitation, setEditingInvitation] = useState(null)
@@ -123,13 +128,13 @@ const TeamsManagement = () => {
   // Load invitations when season changes
   useEffect(() => {
     if (!selectedSeasonId || activeTab !== 'invitations') return
-    
+
     const loadInvitations = async () => {
       setInvitationsLoading(true)
       try {
         const response = await ApiService.get(`/seasons/${selectedSeasonId}/invitations`)
         setInvitations(response?.data || [])
-        
+
         // Load stats
         try {
           const statsResponse = await ApiService.get(`/seasons/${selectedSeasonId}/invitations/stats`)
@@ -149,7 +154,7 @@ const TeamsManagement = () => {
 
   useEffect(() => {
     if (activeTab !== 'teams') return
-    
+
     let isMounted = true
     setLoading(true)
     setError(null)
@@ -165,7 +170,7 @@ const TeamsManagement = () => {
         }
         const response = await TeamsService.getAllTeams(apiFilters)
         if (!isMounted) return
-        
+
         // Apply client-side filtering for founded year range
         let filteredTeams = response.teams || []
         if (appliedFilters.foundedFrom) {
@@ -176,7 +181,7 @@ const TeamsManagement = () => {
           const toYear = parseInt(appliedFilters.foundedTo)
           filteredTeams = filteredTeams.filter(t => !t.founded_year || t.founded_year <= toYear)
         }
-        
+
         setTeams(filteredTeams)
         setPagination(prev => ({
           ...prev,
@@ -221,7 +226,12 @@ const TeamsManagement = () => {
       code: team.code || '',
       city: team.city || '',
       country: team.country || '',
-      founded_year: team.founded_year || ''
+      founded_year: team.founded_year || '',
+      home_kit_description: team.homeKitDescription || '',
+      home_kit_color: team.homeKitColor || '#ff0000',
+      away_kit_color: team.awayKitColor || '#ffffff',
+      home_kit_image: team.homeKitImage || '',
+      away_kit_image: team.awayKitImage || ''
     })
     setShowTeamModal(true)
   }
@@ -267,7 +277,12 @@ const TeamsManagement = () => {
         code: editingTeam.code?.trim() ? editingTeam.code.trim() : null,
         city: editingTeam.city?.trim() ? editingTeam.city.trim() : null,
         country: editingTeam.country?.trim() ? editingTeam.country.trim() : null,
-        founded_year: editingTeam.founded_year ? Number(editingTeam.founded_year) : null
+        founded_year: editingTeam.founded_year ? Number(editingTeam.founded_year) : null,
+        homeKitDescription: editingTeam.home_kit_description || null,
+        homeKitColor: editingTeam.home_kit_color || null,
+        awayKitColor: editingTeam.away_kit_color || null,
+        homeKitImage: editingTeam.home_kit_image || null,
+        awayKitImage: editingTeam.away_kit_image || null
       }
 
       if (isCreating) {
@@ -311,7 +326,7 @@ const TeamsManagement = () => {
     const date = new Date(dateString)
     const now = new Date()
     const daysLeft = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-    
+
     if (daysLeft < 0) return <span className="text-red-600 font-semibold">Đã hết hạn</span>
     if (daysLeft === 0) return <span className="text-orange-600 font-semibold">Hết hạn hôm nay</span>
     if (daysLeft <= 3) return <span className="text-orange-600">{daysLeft} ngày còn lại</span>
@@ -325,10 +340,10 @@ const TeamsManagement = () => {
     setGeneratingInvitations(true)
     try {
       const response = await ApiService.post(`/seasons/${selectedSeasonId}/invitations/generate-suggested`)
-      
+
       // Show success message
       toast.success(response?.message || `Đã tạo ${response?.data?.created || 0} lời mời đề xuất`)
-      
+
       // Show warnings if any
       const warnings = response?.warnings || response?.data?.errors || []
       if (warnings.length > 0) {
@@ -340,7 +355,7 @@ const TeamsManagement = () => {
           })
         }, 1000)
       }
-      
+
       setReloadKey(prev => prev + 1)
     } catch (err) {
       logger.error('Failed to generate invitations', err)
@@ -359,8 +374,8 @@ const TeamsManagement = () => {
 
   // Toggle selection for a draft invitation
   const handleToggleSelect = (invitationId) => {
-    setSelectedDraftIds(prev => 
-      prev.includes(invitationId) 
+    setSelectedDraftIds(prev =>
+      prev.includes(invitationId)
         ? prev.filter(id => id !== invitationId)
         : [...prev, invitationId]
     )
@@ -379,8 +394,8 @@ const TeamsManagement = () => {
   const handleSendSingleInvitation = async (invitationId) => {
     setSendingInvitations(true)
     try {
-      await ApiService.patch(`/seasons/${selectedSeasonId}/invitations/${invitationId}/status`, { 
-        status: 'INVITED' 
+      await ApiService.patch(`/seasons/${selectedSeasonId}/invitations/${invitationId}/status`, {
+        status: 'INVITED'
       })
       toast.success('Đã gửi lời mời')
       setSelectedDraftIds(prev => prev.filter(id => id !== invitationId))
@@ -406,17 +421,17 @@ const TeamsManagement = () => {
       toast.error('Vui lòng chọn ít nhất một lời mời')
       return
     }
-    
+
     setSendingInvitations(true)
     let sent = 0
     let skipped = 0
     let failed = 0
-    
+
     try {
       for (const invitationId of selectedDraftIds) {
         try {
-          await ApiService.patch(`/seasons/${selectedSeasonId}/invitations/${invitationId}/status`, { 
-            status: 'INVITED' 
+          await ApiService.patch(`/seasons/${selectedSeasonId}/invitations/${invitationId}/status`, {
+            status: 'INVITED'
           })
           sent++
         } catch (err) {
@@ -430,7 +445,7 @@ const TeamsManagement = () => {
           }
         }
       }
-      
+
       if (sent > 0) {
         let msg = `Đã gửi ${sent} lời mời`
         if (skipped > 0) msg += `, ${skipped} đã gửi trước`
@@ -441,7 +456,7 @@ const TeamsManagement = () => {
       } else {
         toast.error('Không thể gửi lời mời')
       }
-      
+
       setSelectedDraftIds([])
       setReloadKey(prev => prev + 1)
     } catch (err) {
@@ -460,11 +475,11 @@ const TeamsManagement = () => {
       toast.error('Không có lời mời nháp nào cần gửi')
       return
     }
-    
+
     if (!window.confirm(`Bạn có chắc muốn gửi tất cả ${draftCount} lời mời?`)) {
       return
     }
-    
+
     setSendingInvitations(true)
     try {
       const response = await ApiService.post(`/seasons/${selectedSeasonId}/invitations/send-all`, { deadlineDays: 14 })
@@ -674,33 +689,30 @@ const TeamsManagement = () => {
       <div className="mb-6 flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
         <button
           onClick={() => setActiveTab('teams')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'teams'
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'teams'
               ? 'bg-white text-blue-600 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           <Users size={18} />
           <span>Đội bóng</span>
         </button>
         <button
           onClick={() => setActiveTab('invitations')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'invitations'
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'invitations'
               ? 'bg-white text-blue-600 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           <Mail size={18} />
           <span>Lời mời đội bóng</span>
         </button>
         <button
           onClick={() => setActiveTab('registration')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'registration'
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === 'registration'
               ? 'bg-white text-blue-600 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           <CheckCircle2 size={18} />
           <span>Đăng ký đội</span>
@@ -729,11 +741,10 @@ const TeamsManagement = () => {
                 <button
                   type="button"
                   onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
-                  className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${
-                    showAdvancedFilter || Object.values(appliedFilters).some(v => v)
+                  className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${showAdvancedFilter || Object.values(appliedFilters).some(v => v)
                       ? 'border-blue-500 bg-blue-50 text-blue-600'
                       : 'border-gray-300 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <Filter size={16} />
                   <span>Bộ lọc</span>
@@ -826,177 +837,177 @@ const TeamsManagement = () => {
             )}
           </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Teams ({pagination.total})</h2>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
-                disabled={pagination.page <= 1 || loading}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-gray-600">
-                Page {pagination.page} of {pagination.totalPages}
-              </span>
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.totalPages, prev.page + 1) }))}
-                disabled={pagination.page >= pagination.totalPages || loading}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Teams ({pagination.total})</h2>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                    disabled={pagination.page <= 1 || loading}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.totalPages, prev.page + 1) }))}
+                    disabled={pagination.page >= pagination.totalPages || loading}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {error && <div className="p-6 text-red-600 bg-red-50 border-b border-red-100">{error}</div>}
+            {error && <div className="p-6 text-red-600 bg-red-50 border-b border-red-100">{error}</div>}
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Founded</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Players</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-500">
-                    <div className="flex items-center justify-center space-x-2">
-                      <Loader2 className="animate-spin" size={20} />
-                      <span>Loading teams...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : teams.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-500">
-                    No teams found for the selected criteria.
-                  </td>
-                </tr>
-              ) : (
-                teams.map(team => (
-                  <tr key={team.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-3 overflow-hidden bg-gray-100 border border-gray-200">
-                          {team.logo || team.crest ? (
-                            <img 
-                              src={team.logo || team.crest} 
-                              alt={team.name}
-                              className="w-8 h-8 object-contain"
-                              onError={(e) => {
-                                e.target.style.display = 'none'
-                                e.target.nextElementSibling?.classList.remove('hidden')
-                              }}
-                            />
-                          ) : null}
-                          <div className={`${team.logo || team.crest ? 'hidden' : ''} w-full h-full flex items-center justify-center ${getStatusColor(team.status)} text-white`}>
-                            <Shield size={20} />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">{team.name}</div>
-                          <div className="text-gray-500 text-sm">{team.short_name || 'No short name'}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className="font-mono bg-gray-100 px-2 py-1 rounded">{team.code || '-'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div>
-                        {team.city && <div>{team.city}</div>}
-                        {team.country && <div className="text-gray-500">{team.country}</div>}
-                        {!team.city && !team.country && '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.founded_year || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(team.status)}`}
-                      >
-                        {team.status || 'active'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">{team.playerCount || 0}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/admin/teams/${team.id}`)}
-                          className="text-blue-600 hover:text-blue-900 transition-colors"
-                          title="View team details"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(team)}
-                          className="text-gray-600 hover:text-gray-900 transition-colors"
-                          title="Edit team"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(team.id)}
-                          className="text-red-600 hover:text-red-900 transition-colors"
-                          title="Delete team"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Founded</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Players</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <Users size={24} className="text-blue-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{pagination.total}</div>
-                <div className="text-gray-600 text-sm">Tổng đội bóng</div>
-              </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Loader2 className="animate-spin" size={20} />
+                          <span>Loading teams...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : teams.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
+                        No teams found for the selected criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    teams.map(team => (
+                      <tr key={team.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-3 overflow-hidden bg-gray-100 border border-gray-200">
+                              {team.logo || team.crest ? (
+                                <img
+                                  src={team.logo || team.crest}
+                                  alt={team.name}
+                                  className="w-8 h-8 object-contain"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none'
+                                    e.target.nextElementSibling?.classList.remove('hidden')
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`${team.logo || team.crest ? 'hidden' : ''} w-full h-full flex items-center justify-center ${getStatusColor(team.status)} text-white`}>
+                                <Shield size={20} />
+                              </div>
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{team.name}</div>
+                              <div className="text-gray-500 text-sm">{team.short_name || 'No short name'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <span className="font-mono bg-gray-100 px-2 py-1 rounded">{team.code || '-'}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div>
+                            {team.city && <div>{team.city}</div>}
+                            {team.country && <div className="text-gray-500">{team.country}</div>}
+                            {!team.city && !team.country && '-'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.founded_year || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(team.status)}`}
+                          >
+                            {team.status || 'active'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">{team.playerCount || 0}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/admin/teams/${team.id}`)}
+                              className="text-blue-600 hover:text-blue-900 transition-colors"
+                              title="View team details"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(team)}
+                              className="text-gray-600 hover:text-gray-900 transition-colors"
+                              title="Edit team"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(team.id)}
+                              className="text-red-600 hover:text-red-900 transition-colors"
+                              title="Delete team"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <Shield size={24} className="text-green-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{totalPlayers}</div>
-                <div className="text-gray-600 text-sm">Tổng cầu thủ</div>
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <Users size={24} className="text-blue-500 mr-3" />
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{pagination.total}</div>
+                  <div className="text-gray-600 text-sm">Tổng đội bóng</div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <Trophy size={24} className="text-yellow-500 mr-3" />
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{teams.filter(t => t.status === 'active').length}</div>
-                <div className="text-gray-600 text-sm">Đội đang hoạt động</div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <Shield size={24} className="text-green-500 mr-3" />
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{totalPlayers}</div>
+                  <div className="text-gray-600 text-sm">Tổng cầu thủ</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <Trophy size={24} className="text-yellow-500 mr-3" />
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{teams.filter(t => t.status === 'active').length}</div>
+                  <div className="text-gray-600 text-sm">Đội đang hoạt động</div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </>
+        </>
       )}
 
       {/* Invitations Tab Content */}
@@ -1065,17 +1076,15 @@ const TeamsManagement = () => {
             <div className="mb-4 flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
               <button
                 onClick={() => setInvitationSubTab('overview')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  invitationSubTab === 'overview' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${invitationSubTab === 'overview' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 Tổng quan
               </button>
               <button
                 onClick={() => setInvitationSubTab('list')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  invitationSubTab === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${invitationSubTab === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 Danh sách lời mời
               </button>
@@ -1094,7 +1103,7 @@ const TeamsManagement = () => {
                     <span className="font-semibold">{invitationStats.qualified || invitationStats.acceptedCount || 0} / 10</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-4">
-                    <div 
+                    <div
                       className="bg-gradient-to-r from-green-500 to-emerald-500 h-4 rounded-full transition-all duration-500"
                       style={{ width: `${Math.min(100, ((invitationStats.qualified || invitationStats.acceptedCount || 0) / 10) * 100)}%` }}
                     />
@@ -1198,7 +1207,7 @@ const TeamsManagement = () => {
                       <div className="flex items-center gap-2 text-amber-800">
                         <AlertCircle size={16} />
                         <span className="text-sm">
-                          Có <strong>{draftInvitations.length}</strong> lời mời nháp chưa gửi. 
+                          Có <strong>{draftInvitations.length}</strong> lời mời nháp chưa gửi.
                           Chọn lời mời và bấm "Gửi đã chọn" hoặc "Gửi tất cả" để gửi cho đội bóng.
                         </span>
                       </div>
@@ -1206,139 +1215,139 @@ const TeamsManagement = () => {
                   )}
 
                   <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        {/* Checkbox column for draft items */}
-                        <th className="px-3 py-3 text-center w-12">
-                          {draftInvitations.length > 0 && (
-                            <input
-                              type="checkbox"
-                              checked={selectedDraftIds.length === draftInvitations.length && draftInvitations.length > 0}
-                              onChange={handleToggleSelectAll}
-                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                              title="Chọn tất cả nháp"
-                            />
-                          )}
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đội bóng</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nguồn</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hạn</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {invitations.map((inv) => (
-                        <tr key={inv.invitationId} className={`hover:bg-gray-50 transition-colors ${inv.status === 'draft' ? 'bg-amber-50/50' : ''}`}>
-                          {/* Checkbox for draft items */}
-                          <td className="px-3 py-4 text-center">
-                            {inv.status === 'draft' && (
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {/* Checkbox column for draft items */}
+                          <th className="px-3 py-3 text-center w-12">
+                            {draftInvitations.length > 0 && (
                               <input
                                 type="checkbox"
-                                checked={selectedDraftIds.includes(inv.invitationId)}
-                                onChange={() => handleToggleSelect(inv.invitationId)}
+                                checked={selectedDraftIds.length === draftInvitations.length && draftInvitations.length > 0}
+                                onChange={handleToggleSelectAll}
                                 className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                title="Chọn tất cả nháp"
                               />
                             )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              {inv.teamLogo ? (
-                                <img src={inv.teamLogo} alt="" className="w-8 h-8 object-contain" />
-                              ) : (
-                                <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
-                                  <Shield size={16} className="text-gray-400" />
-                                </div>
-                              )}
-                              <div>
-                                <div className="font-semibold text-gray-900">{inv.teamName}</div>
-                                {inv.shortName && <div className="text-sm text-gray-500">{inv.shortName}</div>}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full border ${getInviteTypeBadgeColor(inv.inviteType)}`}>
-                              {getInviteTypeLabel(inv.inviteType)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(inv.status)}`}>
-                              {getStatusLabel(inv.status)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm">{formatDeadline(inv.responseDeadline)}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              {/* Draft status - show send button */}
-                              {inv.status === 'draft' && (
-                                <>
-                                  <button
-                                    onClick={() => handleSendSingleInvitation(inv.invitationId)}
-                                    disabled={sendingInvitations}
-                                    className="text-xs px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                    title="Gửi lời mời này"
-                                  >
-                                    <Send size={12} />
-                                    <span>Gửi</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteInvitation(inv.invitationId)}
-                                    className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                                    title="Xóa lời mời"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </>
-                              )}
-                              {/* Pending status - waiting for team response */}
-                              {inv.status === 'pending' && (
-                                <>
-                                  <span className="text-xs text-yellow-600 italic">Chờ đội phản hồi...</span>
-                                  {/* Edit & Delete buttons */}
-                                  <button
-                                    onClick={() => handleOpenEditInvitationModal(inv)}
-                                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                                    title="Sửa hạn trả lời"
-                                  >
-                                    <Edit size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteInvitation(inv.invitationId)}
-                                    className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                                    title="Thu hồi lời mời"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </>
-                              )}
-                              {inv.status === 'accepted' && (
-                                <span className="text-xs text-green-600 font-medium">✓ Đội đã chấp nhận</span>
-                              )}
-                              {inv.status === 'declined' && (
-                                <span className="text-xs text-red-600">✗ Đội đã từ chối</span>
-                              )}
-                              {inv.status === 'submitted' && (
-                                <span className="text-xs text-blue-600 font-medium">📋 Đã nộp hồ sơ</span>
-                              )}
-                              {inv.status === 'approved' && (
-                                <span className="text-xs text-emerald-600 font-medium">✓ Đã duyệt</span>
-                              )}
-                              {inv.status === 'expired' && (
-                                <span className="text-xs text-gray-400">⏱ Đã hết hạn</span>
-                              )}
-                              {inv.status === 'rescinded' && (
-                                <span className="text-xs text-purple-600">↩ Đã thu hồi</span>
-                              )}
-                              {inv.status === 'replaced' && (
-                                <span className="text-xs text-purple-600">🔄 Đã thay thế</span>
-                              )}
-                            </div>
-                          </td>
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đội bóng</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nguồn</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hạn</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {invitations.map((inv) => (
+                          <tr key={inv.invitationId} className={`hover:bg-gray-50 transition-colors ${inv.status === 'draft' ? 'bg-amber-50/50' : ''}`}>
+                            {/* Checkbox for draft items */}
+                            <td className="px-3 py-4 text-center">
+                              {inv.status === 'draft' && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDraftIds.includes(inv.invitationId)}
+                                  onChange={() => handleToggleSelect(inv.invitationId)}
+                                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                {inv.teamLogo ? (
+                                  <img src={inv.teamLogo} alt="" className="w-8 h-8 object-contain" />
+                                ) : (
+                                  <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
+                                    <Shield size={16} className="text-gray-400" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-semibold text-gray-900">{inv.teamName}</div>
+                                  {inv.shortName && <div className="text-sm text-gray-500">{inv.shortName}</div>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full border ${getInviteTypeBadgeColor(inv.inviteType)}`}>
+                                {getInviteTypeLabel(inv.inviteType)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(inv.status)}`}>
+                                {getStatusLabel(inv.status)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm">{formatDeadline(inv.responseDeadline)}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                {/* Draft status - show send button */}
+                                {inv.status === 'draft' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleSendSingleInvitation(inv.invitationId)}
+                                      disabled={sendingInvitations}
+                                      className="text-xs px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                      title="Gửi lời mời này"
+                                    >
+                                      <Send size={12} />
+                                      <span>Gửi</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteInvitation(inv.invitationId)}
+                                      className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                      title="Xóa lời mời"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
+                                {/* Pending status - waiting for team response */}
+                                {inv.status === 'pending' && (
+                                  <>
+                                    <span className="text-xs text-yellow-600 italic">Chờ đội phản hồi...</span>
+                                    {/* Edit & Delete buttons */}
+                                    <button
+                                      onClick={() => handleOpenEditInvitationModal(inv)}
+                                      className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                      title="Sửa hạn trả lời"
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteInvitation(inv.invitationId)}
+                                      className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                      title="Thu hồi lời mời"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
+                                {inv.status === 'accepted' && (
+                                  <span className="text-xs text-green-600 font-medium">✓ Đội đã chấp nhận</span>
+                                )}
+                                {inv.status === 'declined' && (
+                                  <span className="text-xs text-red-600">✗ Đội đã từ chối</span>
+                                )}
+                                {inv.status === 'submitted' && (
+                                  <span className="text-xs text-blue-600 font-medium">📋 Đã nộp hồ sơ</span>
+                                )}
+                                {inv.status === 'approved' && (
+                                  <span className="text-xs text-emerald-600 font-medium">✓ Đã duyệt</span>
+                                )}
+                                {inv.status === 'expired' && (
+                                  <span className="text-xs text-gray-400">⏱ Đã hết hạn</span>
+                                )}
+                                {inv.status === 'rescinded' && (
+                                  <span className="text-xs text-purple-600">↩ Đã thu hồi</span>
+                                )}
+                                {inv.status === 'replaced' && (
+                                  <span className="text-xs text-purple-600">🔄 Đã thay thế</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </>
               )}
@@ -1408,9 +1417,9 @@ const TeamsManagement = () => {
                 <span className="font-medium text-gray-900">Bản nháp</span>
                 <span className="text-xs text-gray-500">DRAFT_INVITE</span>
               </div>
-              
+
               <div className="text-blue-400 text-2xl">→</div>
-              
+
               <div className="flex flex-col items-center min-w-[100px]">
                 <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-2">
                   <span className="text-2xl">📧</span>
@@ -1418,9 +1427,9 @@ const TeamsManagement = () => {
                 <span className="font-medium text-gray-900">Gửi lời mời</span>
                 <span className="text-xs text-gray-500">INVITED</span>
               </div>
-              
+
               <div className="text-blue-400 text-2xl">→</div>
-              
+
               <div className="flex flex-col items-center min-w-[100px]">
                 <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-2">
                   <span className="text-2xl">👍</span>
@@ -1428,9 +1437,9 @@ const TeamsManagement = () => {
                 <span className="font-medium text-gray-900">Chấp nhận</span>
                 <span className="text-xs text-gray-500">ACCEPTED</span>
               </div>
-              
+
               <div className="text-blue-400 text-2xl">→</div>
-              
+
               <div className="flex flex-col items-center min-w-[100px]">
                 <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mb-2">
                   <span className="text-2xl">📄</span>
@@ -1438,9 +1447,9 @@ const TeamsManagement = () => {
                 <span className="font-medium text-gray-900">Nộp hồ sơ</span>
                 <span className="text-xs text-gray-500">SUBMITTED</span>
               </div>
-              
+
               <div className="text-blue-400 text-2xl">→</div>
-              
+
               <div className="flex flex-col items-center min-w-[100px]">
                 <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mb-2">
                   <span className="text-2xl">✅</span>
@@ -1448,9 +1457,9 @@ const TeamsManagement = () => {
                 <span className="font-medium text-gray-900">Duyệt</span>
                 <span className="text-xs text-gray-500">APPROVED</span>
               </div>
-              
+
               <div className="text-blue-400 text-2xl">→</div>
-              
+
               <div className="flex flex-col items-center min-w-[100px]">
                 <div className="w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center mb-2">
                   <span className="text-2xl">📅</span>
@@ -1459,7 +1468,7 @@ const TeamsManagement = () => {
                 <span className="text-xs text-gray-500">≥10 đội</span>
               </div>
             </div>
-            
+
             {/* Alternative Flow */}
             <div className="mt-4 pt-4 border-t border-gray-300">
               <p className="text-xs text-yellow-600 mb-2 font-semibold">
@@ -1475,8 +1484,8 @@ const TeamsManagement = () => {
 
           {/* Workflow Component */}
           {selectedSeasonId ? (
-            <TeamRegistrationWorkflow 
-              seasonId={selectedSeasonId} 
+            <TeamRegistrationWorkflow
+              seasonId={selectedSeasonId}
               refreshTrigger={registrationRefreshTrigger}
             />
           ) : (
@@ -1553,34 +1562,90 @@ const TeamsManagement = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Thành phố</label>
                   <input
                     type="text"
                     value={editingTeam.city}
-                    onChange={(e) => setEditingTeam(prev => ({ ...prev, city: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={isSaving}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, city: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quốc gia</label>
                   <input
                     type="text"
                     value={editingTeam.country}
-                    onChange={(e) => setEditingTeam(prev => ({ ...prev, country: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={isSaving}
+                    onChange={(e) => setEditingTeam({ ...editingTeam, country: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
+
+              {/* Kit Colors Section */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium text-gray-900 mb-3 block">Màu áo thi đấu & Hình ảnh</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Home Kit */}
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <span className="text-sm font-semibold text-gray-700 block mb-2">Trang phục Sân nhà (Home)</span>
+                    <div className="flex items-center space-x-3 mb-3">
+                      <input
+                        type="color"
+                        value={editingTeam.home_kit_color || '#ff0000'}
+                        onChange={(e) => setEditingTeam({ ...editingTeam, home_kit_color: e.target.value })}
+                        className="h-10 w-16 p-1 rounded cursor-pointer border border-gray-300"
+                      />
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-500 block">Link ảnh áo (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="https://..."
+                          value={editingTeam.home_kit_image || ''}
+                          onChange={(e) => setEditingTeam({ ...editingTeam, home_kit_image: e.target.value })}
+                          className="w-full text-sm px-2 py-1 border rounded"
+                        />
+                      </div>
+                    </div>
+                    {editingTeam.home_kit_image && (
+                      <img src={editingTeam.home_kit_image} alt="Home Kit" className="h-20 object-contain mx-auto" />
+                    )}
+                  </div>
+
+                  {/* Away Kit */}
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <span className="text-sm font-semibold text-gray-700 block mb-2">Trang phục Sân khách (Away)</span>
+                    <div className="flex items-center space-x-3 mb-3">
+                      <input
+                        type="color"
+                        value={editingTeam.away_kit_color || '#ffffff'}
+                        onChange={(e) => setEditingTeam({ ...editingTeam, away_kit_color: e.target.value })}
+                        className="h-10 w-16 p-1 rounded cursor-pointer border border-gray-300"
+                      />
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-500 block">Link ảnh áo (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="https://..."
+                          value={editingTeam.away_kit_image || ''}
+                          onChange={(e) => setEditingTeam({ ...editingTeam, away_kit_image: e.target.value })}
+                          className="w-full text-sm px-2 py-1 border rounded"
+                        />
+                      </div>
+                    </div>
+                    {editingTeam.away_kit_image && (
+                      <img src={editingTeam.away_kit_image} alt="Away Kit" className="h-20 object-contain mx-auto" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Founded Year</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả thêm về đội</label>
                 <input
                   type="number"
                   value={editingTeam.founded_year}
                   onChange={(e) => setEditingTeam(prev => ({ ...prev, founded_year: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="1900"
                   max="2100"
                   disabled={isSaving}
                 />

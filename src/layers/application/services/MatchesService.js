@@ -28,18 +28,18 @@ class MatchesService {
         homeTeamShortName: match.homeTeamShortName,
         homeTeamLogo: match.homeTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder') 
-              ? match.homeTeamLogo 
-              : null),
+          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder')
+            ? match.homeTeamLogo
+            : null),
         awaySeasonTeamId: match.awaySeasonTeamId, // Added for lineup generation
         awayTeamId: match.awayTeamId, // Added ID
         awayTeamName: match.awayTeamName,
         awayTeamShortName: match.awayTeamShortName,
         awayTeamLogo: match.awayTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder') 
-              ? match.awayTeamLogo 
-              : null),
+          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder')
+            ? match.awayTeamLogo
+            : null),
         utcDate: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') ? match.scheduledKickoff + 'Z' : match.scheduledKickoff,
         scheduledKickoff: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') ? match.scheduledKickoff + 'Z' : match.scheduledKickoff, // Explicitly mapped for edit modal
         status: match.status,
@@ -80,17 +80,17 @@ class MatchesService {
         homeTeamShortName: match.homeTeamShortName,
         homeTeamLogo: match.homeTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder') 
-              ? match.homeTeamLogo 
-              : null),
+          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder')
+            ? match.homeTeamLogo
+            : null),
         awayTeamId: match.awayTeamId,
         awayTeamName: match.awayTeamName,
         awayTeamShortName: match.awayTeamShortName,
         awayTeamLogo: match.awayTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder') 
-              ? match.awayTeamLogo 
-              : null),
+          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder')
+            ? match.awayTeamLogo
+            : null),
         utcDate: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') ? match.scheduledKickoff + 'Z' : match.scheduledKickoff,
         scheduledKickoff: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') ? match.scheduledKickoff + 'Z' : match.scheduledKickoff,
         status: match.status,
@@ -117,7 +117,7 @@ class MatchesService {
       const endpoint = APP_CONFIG.API.ENDPOINTS.MATCHES.DETAIL.replace(':id', matchId)
       const response = await ApiService.get(endpoint)
       const match = response?.data
-      
+
       if (!match) {
         return null
       }
@@ -131,22 +131,22 @@ class MatchesService {
         homeTeamShortName: match.homeTeamShortName,
         homeTeamLogo: match.homeTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder') 
-              ? match.homeTeamLogo 
-              : null),
+          : (match.homeTeamLogo && !match.homeTeamLogo.includes('via.placeholder') && !match.homeTeamLogo.includes('placeholder')
+            ? match.homeTeamLogo
+            : null),
         awayTeamId: match.awayTeamId,
         awayTeamName: match.awayTeamName,
         awayTeamShortName: match.awayTeamShortName,
         awayTeamLogo: match.awayTeamName?.includes("Monaco")
           ? "https://tmssl.akamaized.net/images/wappen/head/162.png"
-          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder') 
-              ? match.awayTeamLogo 
-              : null),
-        utcDate: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') 
-          ? match.scheduledKickoff + 'Z' 
+          : (match.awayTeamLogo && !match.awayTeamLogo.includes('via.placeholder') && !match.awayTeamLogo.includes('placeholder')
+            ? match.awayTeamLogo
+            : null),
+        utcDate: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z')
+          ? match.scheduledKickoff + 'Z'
           : match.scheduledKickoff,
-        scheduledKickoff: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z') 
-          ? match.scheduledKickoff + 'Z' 
+        scheduledKickoff: match.scheduledKickoff && !match.scheduledKickoff.endsWith('Z')
+          ? match.scheduledKickoff + 'Z'
           : match.scheduledKickoff,
         status: match.status,
         // Map scores to both formats for compatibility
@@ -203,7 +203,9 @@ class MatchesService {
         attendance: matchData.attendance,
         scheduledKickoff: matchData.scheduledKickoff,
         stadiumId: matchData.stadiumId,
-        description: matchData.description
+        description: matchData.description,
+        homeTeamKit: matchData.homeTeamKit,
+        awayTeamKit: matchData.awayTeamKit
       }
       const response = await ApiService.put(endpoint, payload)
 

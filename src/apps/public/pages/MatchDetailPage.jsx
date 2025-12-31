@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Clock, MapPin, Users, Calendar, Trophy, Activity, 
-  ChevronRight, AlertCircle, TrendingUp, Shield, Zap, Target 
+import {
+  ArrowLeft, Clock, MapPin, Users, Calendar, Trophy, Activity,
+  ChevronRight, AlertCircle, TrendingUp, Shield, Zap, Target
 } from 'lucide-react';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import ApiService from '../../../layers/application/services/ApiService';
@@ -56,15 +56,15 @@ const MatchDetailPage = () => {
       // Split lineups by team
       const allLineups = lineupsData?.data || [];
       if (matchData) {
-        const home = allLineups.filter(p => 
-          p.seasonTeamId === matchData.home_season_team_id || 
+        const home = allLineups.filter(p =>
+          p.seasonTeamId === matchData.home_season_team_id ||
           p.seasonTeamId === matchData.homeSeasonTeamId
         );
-        const away = allLineups.filter(p => 
-          p.seasonTeamId === matchData.away_season_team_id || 
+        const away = allLineups.filter(p =>
+          p.seasonTeamId === matchData.away_season_team_id ||
           p.seasonTeamId === matchData.awaySeasonTeamId
         );
-        
+
         setHomeLineup(home);
         setAwayLineup(away);
       }
@@ -152,6 +152,35 @@ const MatchDetailPage = () => {
   const isFinished = match.status === 'FINISHED';
   const hasScore = match.home_score !== null || match.away_score !== null;
 
+  // Helper: Determine kit color
+  const getEffectiveKitColor = (teamType) => {
+    // Default Blue/Red
+    if (!match) return teamType === 'home' ? '#3b82f6' : '#ef4444';
+
+    const kitType = teamType === 'home'
+      ? (match.homeTeamKit || 'home')
+      : (match.awayTeamKit || 'away');
+
+    let color = null;
+
+    if (teamType === 'home') {
+      if (kitType === 'home') color = match.homeTeamHomeKitColor;
+      else if (kitType === 'away') color = match.homeTeamAwayKitColor;
+    } else {
+      if (kitType === 'home') color = match.awayTeamHomeKitColor;
+      else if (kitType === 'away') color = match.awayTeamAwayKitColor;
+    }
+
+    if (!color) {
+      return teamType === 'home' ? '#3b82f6' : '#ef4444';
+    }
+    return color;
+  };
+
+  const homeKitColor = getEffectiveKitColor('home');
+  const awayKitColor = getEffectiveKitColor('away');
+
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
       {/* Header Section */}
@@ -212,9 +241,9 @@ const MatchDetailPage = () => {
               <div className="flex flex-col items-center text-center">
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-white/10 flex items-center justify-center mb-4 overflow-hidden">
                   {match.homeTeamLogo || match.home_team_logo ? (
-                    <img 
-                      src={match.homeTeamLogo || match.home_team_logo} 
-                      alt={match.homeTeamName || match.home_team_name} 
+                    <img
+                      src={match.homeTeamLogo || match.home_team_logo}
+                      alt={match.homeTeamName || match.home_team_name}
                       className="w-16 h-16 md:w-20 md:h-20 object-contain"
                       onError={(e) => {
                         e.target.style.display = 'none';
@@ -228,6 +257,17 @@ const MatchDetailPage = () => {
                 <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
                   {match.homeTeamName || match.home_team_name}
                 </h2>
+                <div className="flex items-center gap-2 mb-1">
+                  {match.homeTeamKit && (
+                    <div className="px-2 py-0.5 rounded text-[10px] bg-white/10 text-white/70 uppercase font-bold tracking-wider">
+                      {match.homeTeamKit} Kit
+                    </div>
+                  )}
+                  <div
+                    className="w-4 h-4 rounded-full border border-white/50 shadow-sm"
+                    style={{ backgroundColor: homeKitColor }}
+                  />
+                </div>
                 <p className="text-white/50 text-sm uppercase tracking-wider">
                   {match.homeTeamTla || 'HOME'}
                 </p>
@@ -266,9 +306,9 @@ const MatchDetailPage = () => {
               <div className="flex flex-col items-center text-center">
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-white/10 flex items-center justify-center mb-4 overflow-hidden">
                   {match.awayTeamLogo || match.away_team_logo ? (
-                    <img 
-                      src={match.awayTeamLogo || match.away_team_logo} 
-                      alt={match.awayTeamName || match.away_team_name} 
+                    <img
+                      src={match.awayTeamLogo || match.away_team_logo}
+                      alt={match.awayTeamName || match.away_team_name}
                       className="w-16 h-16 md:w-20 md:h-20 object-contain"
                       onError={(e) => {
                         e.target.style.display = 'none';
@@ -282,6 +322,17 @@ const MatchDetailPage = () => {
                 <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
                   {match.awayTeamName || match.away_team_name}
                 </h2>
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className="w-4 h-4 rounded-full border border-white/50 shadow-sm"
+                    style={{ backgroundColor: awayKitColor }}
+                  />
+                  {match.awayTeamKit && (
+                    <div className="px-2 py-0.5 rounded text-[10px] bg-white/10 text-white/70 uppercase font-bold tracking-wider">
+                      {match.awayTeamKit} Kit
+                    </div>
+                  )}
+                </div>
                 <p className="text-white/50 text-sm uppercase tracking-wider">
                   {match.awayTeamTla || 'AWAY'}
                 </p>
@@ -322,11 +373,10 @@ const MatchDetailPage = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-4 font-medium text-sm transition-all border-b-2 whitespace-nowrap ${
-                    activeTab === tab.id
+                  className={`flex items-center gap-2 px-6 py-4 font-medium text-sm transition-all border-b-2 whitespace-nowrap ${activeTab === tab.id
                       ? 'border-cyan-400 text-cyan-400'
                       : 'border-transparent text-white/50 hover:text-white/80 hover:border-white/20'
-                  }`}
+                    }`}
                 >
                   <Icon size={18} />
                   {tab.label}
@@ -404,18 +454,18 @@ const MatchDetailPage = () => {
         {activeTab === 'lineups' && (
           <div className="grid lg:grid-cols-2 gap-8">
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
-              <LineupDisplay 
-                lineup={homeLineup} 
+              <LineupDisplay
+                lineup={homeLineup}
                 teamName={match.homeTeamName || match.home_team_name}
-                teamColor="#3b82f6"
+                teamColor={homeKitColor}
                 formation={match.homeFormation || '4-4-2'}
               />
             </div>
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
-              <LineupDisplay 
-                lineup={awayLineup} 
+              <LineupDisplay
+                lineup={awayLineup}
                 teamName={match.awayTeamName || match.away_team_name}
-                teamColor="#ef4444"
+                teamColor={awayKitColor}
                 formation={match.awayFormation || '4-4-2'}
               />
             </div>
@@ -432,10 +482,10 @@ const MatchDetailPage = () => {
             {events.length > 0 ? (
               <div className="space-y-3 relative before:absolute before:left-1/2 before:-translate-x-1/2 before:h-full before:w-px before:bg-white/10">
                 {events.map((event, idx) => {
-                  const isHome = event.teamId === match.homeTeamId || 
-                                 event.teamId === match.home_team_id ||
-                                 event.seasonTeamId === match.homeSeasonTeamId ||
-                                 event.seasonTeamId === match.home_season_team_id;
+                  const isHome = event.teamId === match.homeTeamId ||
+                    event.teamId === match.home_team_id ||
+                    event.seasonTeamId === match.homeSeasonTeamId ||
+                    event.seasonTeamId === match.home_season_team_id;
                   return (
                     <div key={idx} className={`flex items-center gap-4 ${isHome ? 'flex-row' : 'flex-row-reverse'}`}>
                       <div className={`flex-1 ${isHome ? 'text-right' : 'text-left'}`}>
@@ -484,13 +534,13 @@ const MatchDetailPage = () => {
                       <span className="text-white font-semibold">{match.awayTeamName || 'Away'}</span>
                     </div>
                     <div className="relative h-8 bg-white/10 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="absolute left-0 top-0 h-full bg-cyan-500/30 flex items-center justify-end pr-2"
                         style={{ width: `${match.stats.home?.possession || 50}%` }}
                       >
                         <span className="text-xs font-bold text-white">{match.stats.home?.possession || 0}%</span>
                       </div>
-                      <div 
+                      <div
                         className="absolute right-0 top-0 h-full bg-purple-500/30 flex items-center justify-start pl-2"
                         style={{ width: `${match.stats.away?.possession || 50}%` }}
                       >

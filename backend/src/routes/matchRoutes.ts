@@ -136,6 +136,8 @@ const updateSchema = z.object({
     .refine((value) => (value ? isValidDate(value) : true), { message: "scheduledKickoff must be a valid ISO date" }),
   stadiumId: z.number().int().positive().optional(),
   description: z.string().trim().optional(),
+  homeTeamKit: z.string().trim().optional(),
+  awayTeamKit: z.string().trim().optional(),
 });
 
 router.get("/", async (req, res, next) => {
@@ -184,7 +186,7 @@ router.get("/external", async (req, res, next) => {
 });
 
 const createEventSchema = z.object({
-  teamId: z.number().int().positive(),
+  teamId: z.preprocess((v) => Number(v), z.number().int().positive()),
   // Accept type as string; we'll normalize later in the handler
   type: z.string().trim().min(1).max(32),
   // Accept minute as string or number or empty; normalize to number|null
@@ -196,9 +198,9 @@ const createEventSchema = z.object({
     if (digits === '') return null
     const n = Number(digits)
     return Number.isNaN(n) ? null : n
-  }, z.number().int().min(0).max(130).nullable().optional()),
+  }, z.number().int().min(0).max(300).nullable().optional()),
   description: z.string().trim().max(255).optional().nullable(),
-playerId: z.preprocess((v) => {
+  playerId: z.preprocess((v) => {
     if (v === undefined || v === null || v === '') return null;
     return Number(v);
   }, z.number().int().positive().nullable().optional()),
@@ -409,7 +411,7 @@ router.post(
       }
 
       const result = await autoGenerateLineup(matchId, seasonTeamId, userId);
-      
+
       if (!result.success) {
         return res.status(400).json({
           success: false,
