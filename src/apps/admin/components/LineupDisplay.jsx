@@ -96,9 +96,16 @@ const LineupDisplay = ({
     // Admin format: object with starters array (IDs)
     const starterIds = lineup.starters || [];
     const subIds = lineup.substitutes || [];
-
-    starters = squad.filter(p => starterIds.includes(p.id));
-    substitutes = squad.filter(p => subIds.includes(p.id));
+    
+    // If lineup has players array with full info, use that instead of squad
+    if (lineup.players && Array.isArray(lineup.players) && lineup.players.length > 0) {
+      starters = lineup.players.filter(p => starterIds.includes(p.id) || starterIds.includes(p.player_id));
+      substitutes = lineup.players.filter(p => subIds.includes(p.id) || subIds.includes(p.player_id));
+    } else {
+      // Fallback to squad if players array not available
+      starters = squad.filter(p => starterIds.includes(p.id) || starterIds.includes(p.player_id));
+      substitutes = squad.filter(p => subIds.includes(p.id) || subIds.includes(p.player_id));
+    }
   }
 
   if (starters.length === 0 && substitutes.length === 0) {
@@ -135,14 +142,14 @@ const LineupDisplay = ({
         <div className="flex flex-col items-center animate-fadeIn">
           {/* Jersey Circle with Number */}
           <div className="relative mb-2">
-            <div
-              className="w-12 h-12 md:w-14 md:h-14 rounded-full shadow-xl flex items-center justify-center border-4 border-white/30 group-hover:scale-110 transition-all duration-300 group-hover:shadow-2xl"
-              style={{
+            <div 
+              className="w-12 h-12 md:w-14 md:h-14 rounded-full shadow-xl flex items-center justify-center border-4 border-white group-hover:scale-110 transition-all duration-300 group-hover:shadow-2xl"
+              style={{ 
                 backgroundColor: teamColor,
-                boxShadow: `0 4px 20px ${teamColor}50, 0 0 0 3px white`
+                boxShadow: `0 4px 20px ${teamColor}80, 0 0 0 4px white, 0 0 0 6px rgba(0,0,0,0.1)`
               }}
             >
-              <span className="text-xl md:text-2xl font-black text-white drop-shadow-lg">
+              <span className="text-xl md:text-2xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                 {player.jerseyNumber || player.jersey_number || player.shirtNumber || player.shirt_number || '?'}
               </span>
             </div>
@@ -166,15 +173,19 @@ const LineupDisplay = ({
           </div>
 
           {/* Player Info Card */}
-          <div
-            className="bg-white/95 backdrop-blur-sm px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-lg border-2 min-w-[80px] md:min-w-[100px] max-w-[100px] md:max-w-[140px] group-hover:scale-105 transition-all duration-300"
-            style={{ borderColor: teamColor }}
+          <div 
+            className="bg-white backdrop-blur-sm px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-xl border-3 min-w-[80px] md:min-w-[100px] max-w-[100px] md:max-w-[140px] group-hover:scale-105 transition-all duration-300"
+            style={{ 
+              borderColor: teamColor,
+              borderWidth: '3px',
+              boxShadow: `0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px ${teamColor}40`
+            }}
           >
-            <p className="text-[10px] md:text-xs font-extrabold truncate text-center leading-tight" style={{ color: '#000000', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
+            <p className="text-[10px] md:text-xs font-bold text-gray-900 truncate text-center leading-tight drop-shadow-sm">
               {player.playerName || player.full_name || player.name || 'Unknown'}
             </p>
-            <p className="text-[8px] md:text-[10px] uppercase text-center font-bold" style={{ color: '#334155' }}>
-              {player.position || 'N/A'}
+            <p className="text-[8px] md:text-[10px] text-gray-700 uppercase text-center font-bold">
+              {player.position || player.position_code || 'N/A'}
             </p>
           </div>
 
@@ -230,46 +241,73 @@ const LineupDisplay = ({
       {/* Football Pitch - Starting XI */}
       <div className="relative rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl" style={{ aspectRatio: '5/7' }}>
         {/* Beautiful Grass Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-emerald-500 via-green-600 to-emerald-700">
+        <div className="absolute inset-0 bg-gradient-to-b from-green-500 via-green-600 to-green-700">
           {/* Grass Texture Pattern */}
-          <div className="absolute inset-0 opacity-10" style={{
-            backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)`
+          <div className="absolute inset-0 opacity-15" style={{
+            backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)`
           }} />
         </div>
 
         {/* Field Markings */}
-        <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.3 }}>
+        <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.5 }}>
           {/* Center Circle */}
-          <circle cx="50%" cy="50%" r="12%" fill="none" stroke="white" strokeWidth="2" />
-          <circle cx="50%" cy="50%" r="1%" fill="white" />
-
+          <circle cx="50%" cy="50%" r="12%" fill="none" stroke="white" strokeWidth="2.5" />
+          <circle cx="50%" cy="50%" r="1.5%" fill="white" />
+          
           {/* Center Line */}
-          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="white" strokeWidth="2" />
-
+          <line x1="0" y1="50%" x2="100%" y2="50%" stroke="white" strokeWidth="2.5" />
+          
           {/* Penalty Areas */}
-          <rect x="20%" y="2%" width="60%" height="16%" fill="none" stroke="white" strokeWidth="2" />
-          <rect x="30%" y="2%" width="40%" height="8%" fill="none" stroke="white" strokeWidth="2" />
-
-          <rect x="20%" y="82%" width="60%" height="16%" fill="none" stroke="white" strokeWidth="2" />
-          <rect x="30%" y="90%" width="40%" height="8%" fill="none" stroke="white" strokeWidth="2" />
-
+          <rect x="20%" y="2%" width="60%" height="16%" fill="none" stroke="white" strokeWidth="2.5" />
+          <rect x="30%" y="2%" width="40%" height="8%" fill="none" stroke="white" strokeWidth="2.5" />
+          
+          <rect x="20%" y="82%" width="60%" height="16%" fill="none" stroke="white" strokeWidth="2.5" />
+          <rect x="30%" y="90%" width="40%" height="8%" fill="none" stroke="white" strokeWidth="2.5" />
+          
           {/* Outer Border */}
-          <rect x="1%" y="1%" width="98%" height="98%" fill="none" stroke="white" strokeWidth="3" strokeOpacity="0.5" rx="20" />
+          <rect x="1%" y="1%" width="98%" height="98%" fill="none" stroke="white" strokeWidth="4" strokeOpacity="0.6" rx="20" />
         </svg>
 
         {/* Players Positioned */}
         <div className="relative w-full h-full">
-          {starters.slice(0, 11).map((player, index) => {
-            const position = allPositions[index] || allPositions[0];
-            return (
-              <PlayerBadge
-                key={player.playerId || player.player_id || player.id || index}
-                player={player}
-                position={position}
-                index={index}
-              />
-            );
-          })}
+          {starters.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center text-white/80 bg-black/30 px-4 py-2 rounded-lg">
+                <p className="text-sm font-semibold">Chưa có đội hình</p>
+                <p className="text-xs mt-1">Cần 11 cầu thủ đá chính</p>
+              </div>
+            </div>
+          ) : starters.length < 11 ? (
+            <>
+              {starters.map((player, index) => {
+                const position = allPositions[index] || allPositions[0];
+                return (
+                  <PlayerBadge 
+                    key={player.playerId || player.player_id || player.id || index}
+                    player={player}
+                    position={position}
+                    index={index}
+                  />
+                );
+              })}
+              {/* Warning message if less than 11 */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-yellow-500/90 text-white px-4 py-2 rounded-lg shadow-lg border-2 border-yellow-300">
+                <p className="text-xs font-bold">⚠️ Thiếu {11 - starters.length} cầu thủ ({starters.length}/11)</p>
+              </div>
+            </>
+          ) : (
+            starters.slice(0, 11).map((player, index) => {
+              const position = allPositions[index] || allPositions[0];
+              return (
+                <PlayerBadge 
+                  key={player.playerId || player.player_id || player.id || index}
+                  player={player}
+                  position={position}
+                  index={index}
+                />
+              );
+            })
+          )}
         </div>
       </div>
 

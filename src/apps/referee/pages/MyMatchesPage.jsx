@@ -166,7 +166,12 @@ const MyMatchesPage = () => {
       {filteredMatches.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
           <AlertCircle size={48} className="mx-auto text-slate-300 mb-4" />
-          <p className="text-slate-500 font-medium">Không có trận đấu nào</p>
+          <p className="text-slate-500 font-medium mb-2">Không có trận đấu nào được phân công</p>
+          <p className="text-sm text-slate-400">
+            {matches.length === 0 
+              ? "Bạn chưa được phân công trận đấu nào. Vui lòng liên hệ BTC để được phân công."
+              : `Không có trận đấu nào trong mục "${filter === 'upcoming' ? 'Sắp tới' : filter === 'today' ? 'Hôm nay' : filter === 'past' ? 'Đã qua' : 'Tất cả'}"`}
+          </p>
         </div>
       ) : (
         <div className="grid gap-4">

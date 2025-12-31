@@ -1,6 +1,7 @@
 import { query, transaction } from "../db/sqlServer";
-import { NotFoundError } from "../utils/httpError";
+import { NotFoundError, BadRequestError } from "../utils/httpError";
 import { logEvent } from "./auditService";
+import { listGoalTypes } from "./goalTypeService";
 
 interface RulesetInput {
   name: string;
@@ -149,7 +150,7 @@ export async function getRuleset(rulesetId: number) {
     throw NotFoundError("Ruleset not found");
   }
 
-  const [constraintsResult, scoringResult, rankingResult] = await Promise.all([
+  const [constraintsResult, scoringResult, rankingResult, goalTypesResult] = await Promise.all([
     query(
       `SELECT min_age,
               max_age,
@@ -175,6 +176,7 @@ export async function getRuleset(rulesetId: number) {
        WHERE ruleset_id = @rulesetId`,
       { rulesetId }
     ),
+    listGoalTypes(rulesetId, false), // Get active goal types from ruleset_goal_types
   ]);
 
   const assignmentsResult = await fetchSeasonAssignments(rulesetId);
@@ -193,10 +195,20 @@ export async function getRuleset(rulesetId: number) {
       }
     : null;
 
+  // Use goal types from ruleset_goal_types table if available, otherwise fallback to JSON array
+  const goalTypesFromTable = goalTypesResult.map((gt) => gt.code);
   const scoringRules: ScoringRules | null = scoringRulesRow
     ? {
         maxGoalTime: scoringRulesRow.max_goal_time,
-        acceptedGoalTypes: parseJsonArray(scoringRulesRow.accepted_goal_types),
+        acceptedGoalTypes:
+          goalTypesFromTable.length > 0
+            ? goalTypesFromTable
+            : parseJsonArray(scoringRulesRow.accepted_goal_types),
+      }
+    : goalTypesFromTable.length > 0
+    ? {
+        maxGoalTime: 90, // Default
+        acceptedGoalTypes: goalTypesFromTable,
       }
     : null;
 
@@ -226,6 +238,18 @@ export async function getRuleset(rulesetId: number) {
 }
 
 export async function createRuleset(input: RulesetInput) {
+  // Check for duplicate name
+  const existing = await query(
+    `SELECT ruleset_id, name FROM rulesets WHERE name = @name`,
+    { name: input.name }
+  );
+
+  if (existing.recordset.length > 0) {
+    throw BadRequestError(
+      `Bộ quy tắc với tên "${input.name}" đã tồn tại. Vui lòng chọn tên khác.`
+    );
+  }
+
   const result = await query(
     `INSERT INTO rulesets (
       name,
@@ -272,6 +296,20 @@ export async function createRuleset(input: RulesetInput) {
 }
 
 export async function updateRuleset(rulesetId: number, input: Partial<RulesetInput>) {
+  // If name is being updated, check for duplicate
+  if (input.name) {
+    const existing = await query(
+      `SELECT ruleset_id, name FROM rulesets WHERE name = @name AND ruleset_id != @rulesetId`,
+      { name: input.name, rulesetId }
+    );
+
+    if (existing.recordset.length > 0) {
+      throw BadRequestError(
+        `Bộ quy tắc với tên "${input.name}" đã tồn tại. Vui lòng chọn tên khác.`
+      );
+    }
+  }
+
   await query(
     `UPDATE rulesets
      SET name = COALESCE(@name, name),

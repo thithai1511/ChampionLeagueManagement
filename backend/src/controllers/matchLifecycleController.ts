@@ -8,6 +8,8 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../types";
 import * as matchLifecycleService from "../services/matchLifecycleService";
 import * as supervisorReportService from "../services/supervisorReportService";
+import * as matchReportService from "../services/matchReportService";
+import { query } from "../db/sqlServer";
 
 /**
  * GET /api/matches/:matchId/details
@@ -328,6 +330,7 @@ export async function getDisciplinaryReports(req: AuthenticatedRequest, res: Res
 /**
  * POST /api/admin/supervisor-reports/:reportId/review
  * Review supervisor report
+ * Body: { action: 'approve' | 'rejected' | 'request_changes', feedback?: string }
  */
 export async function reviewSupervisorReport(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
@@ -337,11 +340,28 @@ export async function reviewSupervisorReport(req: AuthenticatedRequest, res: Res
       return;
     }
 
-    const { notes } = req.body;
+    const { action = 'approve', feedback, notes } = req.body;
+    
+    // Validate action
+    const validActions = ['approve', 'rejected', 'request_changes'];
+    if (!validActions.includes(action)) {
+      res.status(400).json({ error: "Invalid action. Must be: approve, rejected, or request_changes" });
+      return;
+    }
 
-    await supervisorReportService.reviewSupervisorReport(reportId, req.user!.sub, notes);
+    await supervisorReportService.reviewSupervisorReport(
+      reportId, 
+      req.user!.sub, 
+      action, 
+      feedback || notes
+    );
 
-    res.json({ message: "Report reviewed successfully" });
+    res.json({ 
+      message: action === 'approve' ? "Đã duyệt báo cáo" :
+               action === 'rejected' ? "Đã từ chối báo cáo" :
+               "Đã gửi yêu cầu sửa đổi",
+      action 
+    });
   } catch (error: any) {
     console.error("Review supervisor report error:", error);
     res.status(500).json({ error: "Failed to review report" });
@@ -385,5 +405,186 @@ export async function getSupervisorReportStatistics(req: AuthenticatedRequest, r
   } catch (error: any) {
     console.error("Get supervisor report statistics error:", error);
     res.status(500).json({ error: "Failed to get statistics" });
+  }
+}
+
+// ============================================================
+// REFEREE REPORT CONTROLLERS
+// ============================================================
+
+/**
+ * POST /api/matches/:matchId/referee-report
+ * Submit referee match report
+ */
+export async function submitRefereeReport(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const matchId = parseInt(req.params.matchId, 10);
+    if (isNaN(matchId)) {
+      res.status(400).json({ error: "Invalid match ID" });
+      return;
+    }
+
+    const {
+      weather,
+      attendance,
+      matchSummary,
+      notes,
+      incidents,
+      mvpPlayerId,
+      mvpPlayerName,
+      mvpTeamName,
+      homeScore,
+      awayScore,
+      goalScorers,
+      goalDetails, // Accept both goalScorers and goalDetails
+      cardDetails,
+      totalYellowCards,
+      totalRedCards,
+    } = req.body;
+
+    const userId = req.user?.sub;
+    if (!userId) {
+      res.status(401).json({ error: "User not authenticated" });
+      return;
+    }
+
+    // Log incoming data for debugging
+    console.log("[submitRefereeReport] Incoming data:", {
+      matchId,
+      userId,
+      hasWeather: !!weather,
+      hasAttendance: !!attendance,
+      hasMatchSummary: !!matchSummary,
+      hasMvpPlayerId: !!mvpPlayerId,
+      mvpPlayerId,
+      homeScore,
+      awayScore,
+      totalYellowCards,
+      totalRedCards,
+      hasGoalDetails: !!goalDetails,
+      hasCardDetails: !!cardDetails
+    });
+
+    // Create/update match report
+    const report = await matchReportService.createMatchReport(matchId, userId, {
+      weather_condition: weather || null,
+      attendance: attendance ? parseInt(String(attendance), 10) : null,
+      match_summary: matchSummary || null,
+      referee_notes: notes || null,
+      incidents: incidents || null,
+      mvp_player_id: mvpPlayerId ? parseInt(String(mvpPlayerId), 10) : null,
+      mvp_player_name: mvpPlayerName || null,
+      mvp_team_name: mvpTeamName || null,
+      home_score: homeScore !== undefined && homeScore !== null ? parseInt(String(homeScore), 10) : null,
+      away_score: awayScore !== undefined && awayScore !== null ? parseInt(String(awayScore), 10) : null,
+      total_yellow_cards: totalYellowCards !== undefined && totalYellowCards !== null ? parseInt(String(totalYellowCards), 10) : 0,
+      total_red_cards: totalRedCards !== undefined && totalRedCards !== null ? parseInt(String(totalRedCards), 10) : 0,
+      goal_details: goalDetails || (goalScorers ? JSON.stringify(goalScorers) : null),
+      card_details: cardDetails || null,
+    });
+
+    // Also create/update MVP record in match_mvps table if MVP provided
+    if (mvpPlayerId && mvpPlayerName) {
+      try {
+        await query(
+          `
+          MERGE match_mvps AS target
+          USING (SELECT @matchId AS match_id) AS source
+          ON target.match_id = source.match_id
+          WHEN MATCHED THEN
+            UPDATE SET player_id = @mvpPlayerId, player_name = @mvpPlayerName, team_name = @mvpTeamName, selected_by = @selectedBy, created_at = SYSUTCDATETIME()
+          WHEN NOT MATCHED THEN
+            INSERT (match_id, player_id, player_name, team_name, selected_by, created_at)
+            VALUES (@matchId, @mvpPlayerId, @mvpPlayerName, @mvpTeamName, @selectedBy, SYSUTCDATETIME());
+          `,
+          {
+            matchId,
+            mvpPlayerId: parseInt(mvpPlayerId, 10),
+            mvpPlayerName,
+            mvpTeamName: mvpTeamName || null,
+            selectedBy: userId,
+          }
+        );
+      } catch (mvpError) {
+        console.error("Error saving MVP:", mvpError);
+        // Don't fail the whole request if MVP save fails
+      }
+    }
+
+    res.json({ data: report, message: "Báo cáo trọng tài đã được gửi thành công" });
+  } catch (error: any) {
+    console.error("Submit referee report error:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      number: error.number,
+      originalError: error.originalError,
+      stack: error.stack
+    });
+    
+    // Return more detailed error in development
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? error.message || "Failed to submit referee report"
+      : "Failed to submit referee report";
+    
+    res.status(500).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? {
+        code: error.code,
+        number: error.number,
+        sqlError: error.originalError?.message
+      } : undefined
+    });
+  }
+}
+
+/**
+ * POST /api/matches/:matchId/mark-referee-report
+ * Mark that referee has submitted their report
+ */
+export async function markRefereeReportSubmitted(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const matchId = parseInt(req.params.matchId, 10);
+    if (isNaN(matchId)) {
+      res.status(400).json({ error: "Invalid match ID" });
+      return;
+    }
+
+    await query(
+      `UPDATE matches SET referee_report_submitted = 1, referee_report_at = SYSUTCDATETIME() WHERE match_id = @matchId`,
+      { matchId }
+    );
+
+    res.json({ message: "Referee report marked as submitted" });
+  } catch (error: any) {
+    console.error("Mark referee report error:", error);
+    res.status(500).json({ error: "Failed to mark referee report" });
+  }
+}
+
+/**
+ * POST /api/matches/:matchId/mark-supervisor-report
+ * Mark that supervisor has submitted their report
+ */
+export async function markSupervisorReportSubmitted(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const matchId = parseInt(req.params.matchId, 10);
+    if (isNaN(matchId)) {
+      res.status(400).json({ error: "Invalid match ID" });
+      return;
+    }
+
+    const userId = req.user?.sub;
+    if (!userId) {
+      res.status(401).json({ error: "User not authenticated" });
+      return;
+    }
+
+    await matchLifecycleService.markSupervisorReportSubmitted(matchId, userId);
+
+    res.json({ message: "Supervisor report marked as submitted" });
+  } catch (error: any) {
+    console.error("Mark supervisor report error:", error);
+    res.status(500).json({ error: "Failed to mark supervisor report" });
   }
 }

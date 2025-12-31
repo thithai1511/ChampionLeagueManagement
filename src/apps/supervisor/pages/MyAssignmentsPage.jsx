@@ -25,7 +25,11 @@ const MyAssignmentsPage = () => {
       setLoading(true);
       // Get matches where current user is assigned as supervisor
       const response = await ApiService.get('/matches');
-      const supervisedMatches = response.data.filter(m => m.supervisor_id === user?.userId);
+      const userId = user?.user_id || user?.userId || user?.id;
+      const supervisedMatches = (response.data?.matches || response.data || []).filter(m => {
+        const matchSupervisorId = m.supervisor_id || m.supervisorId;
+        return matchSupervisorId === userId;
+      });
       setMatches(supervisedMatches);
     } catch (error) {
       console.error('Error fetching assignments:', error);
@@ -41,32 +45,38 @@ const MyAssignmentsPage = () => {
 
     switch (filter) {
       case 'upcoming':
-        return matches.filter(m => new Date(m.date) > now);
+        return matches.filter(m => {
+          const matchDate = new Date(m.scheduledKickoff || m.scheduled_kickoff || m.date);
+          return matchDate > now;
+        });
       case 'today':
         return matches.filter(m => {
-          const matchDate = new Date(m.date);
+          const matchDate = new Date(m.scheduledKickoff || m.scheduled_kickoff || m.date);
           return matchDate >= today && matchDate < new Date(today.getTime() + 24 * 60 * 60 * 1000);
         });
       case 'past':
-        return matches.filter(m => new Date(m.date) < now);
+        return matches.filter(m => {
+          const matchDate = new Date(m.scheduledKickoff || m.scheduled_kickoff || m.date);
+          return matchDate < now;
+        });
       default:
         return matches;
     }
   };
 
   const getStatusBadge = (match) => {
-    const matchDate = new Date(match.date);
+    const matchDate = new Date(match.scheduledKickoff || match.scheduled_kickoff || match.date);
     const now = new Date();
 
-    if (match.supervisor_report_submitted) {
+    if (match.supervisor_report_submitted || match.supervisorReportSubmitted) {
       return <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">Đã báo cáo</span>;
     }
 
-    if (match.status === 'COMPLETED') {
+    if (match.status === 'COMPLETED' || match.status === 'completed') {
       return <span className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">Chưa báo cáo</span>;
     }
 
-    if (match.status === 'IN_PROGRESS') {
+    if (match.status === 'IN_PROGRESS' || match.status === 'in_progress' || match.status === 'IN_PLAY') {
       return <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full animate-pulse">Đang diễn ra</span>;
     }
 
@@ -74,14 +84,21 @@ const MyAssignmentsPage = () => {
       return <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">Sắp tới</span>;
     }
 
-    return <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">{match.status}</span>;
+    return <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">{match.status || 'N/A'}</span>;
   };
 
   const filteredMatches = getFilteredMatches();
   const stats = {
     total: matches.length,
-    upcoming: matches.filter(m => new Date(m.date) > new Date()).length,
-    pending: matches.filter(m => m.status === 'COMPLETED' && !m.supervisor_report_submitted).length,
+    upcoming: matches.filter(m => {
+      const matchDate = new Date(m.scheduledKickoff || m.scheduled_kickoff || m.date);
+      return matchDate > new Date();
+    }).length,
+    pending: matches.filter(m => {
+      const isCompleted = m.status === 'COMPLETED' || m.status === 'completed';
+      const notReported = !m.supervisor_report_submitted && !m.supervisorReportSubmitted;
+      return isCompleted && notReported;
+    }).length,
   };
 
   return (
@@ -163,62 +180,65 @@ const MyAssignmentsPage = () => {
         </div>
       ) : (
         <div className="grid gap-4">
-          {filteredMatches.map((match) => (
-            <div
-              key={match.match_id}
-              className="bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-200 p-6 transition-all duration-200 hover:scale-[1.01]"
-            >
-              <div className="flex items-center justify-between">
-                {/* Match Info */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-4 mb-3">
-                    {getStatusBadge(match)}
-                    <span className="text-sm text-gray-500 flex items-center gap-1">
-                      <Calendar size={14} />
-                      {new Date(match.date).toLocaleDateString('vi-VN', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
-                    <span className="text-sm text-gray-500 flex items-center gap-1">
-                      <Clock size={14} />
-                      {new Date(match.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+          {filteredMatches.map((match) => {
+            const matchId = match.matchId || match.match_id || match.id;
+            return (
+              <div
+                key={matchId}
+                className="bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-200 p-6 transition-all duration-200 hover:scale-[1.01]"
+              >
+                <div className="flex items-center justify-between">
+                  {/* Match Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-4 mb-3">
+                      {getStatusBadge(match)}
+                      <span className="text-sm text-gray-500 flex items-center gap-1">
+                        <Calendar size={14} />
+                        {new Date(match.scheduledKickoff || match.scheduled_kickoff || match.date).toLocaleDateString('vi-VN', {
+                          weekday: 'short',
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                      <span className="text-sm text-gray-500 flex items-center gap-1">
+                        <Clock size={14} />
+                        {new Date(match.scheduledKickoff || match.scheduled_kickoff || match.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    {/* Teams */}
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className="flex items-center gap-3">
+                        <Users size={20} className="text-blue-600" />
+                        <span className="font-semibold text-lg text-gray-900">{match.homeTeamName || match.home_team_name || 'N/A'}</span>
+                      </div>
+                      <span className="text-gray-400 font-bold">VS</span>
+                      <div className="flex items-center gap-3">
+                        <Users size={20} className="text-red-600" />
+                        <span className="font-semibold text-lg text-gray-900">{match.awayTeamName || match.away_team_name || 'N/A'}</span>
+                      </div>
+                    </div>
+
+                    {/* Venue */}
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <MapPin size={16} className="text-indigo-500" />
+                      <span>{match.venue || match.stadiumName || match.stadium_name || 'Chưa xác định địa điểm'}</span>
+                    </div>
                   </div>
 
-                  {/* Teams */}
-                  <div className="flex items-center gap-4 mb-3">
-                    <div className="flex items-center gap-3">
-                      <Users size={20} className="text-blue-600" />
-                      <span className="font-semibold text-lg text-gray-900">{match.home_team_name}</span>
-                    </div>
-                    <span className="text-gray-400 font-bold">VS</span>
-                    <div className="flex items-center gap-3">
-                      <Users size={20} className="text-red-600" />
-                      <span className="font-semibold text-lg text-gray-900">{match.away_team_name}</span>
-                    </div>
-                  </div>
-
-                  {/* Venue */}
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin size={16} className="text-indigo-500" />
-                    <span>{match.venue || 'Chưa xác định địa điểm'}</span>
-                  </div>
+                  {/* Action Button */}
+                  <button
+                    onClick={() => navigate(`/supervisor/match/${matchId}`)}
+                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-lg"
+                  >
+                    <Eye size={18} />
+                    Giám sát
+                  </button>
                 </div>
-
-                {/* Action Button */}
-                <button
-                  onClick={() => navigate(`/supervisor/match/${match.match_id}`)}
-                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-lg"
-                >
-                  <Eye size={18} />
-                  Giám sát
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

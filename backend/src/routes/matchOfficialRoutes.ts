@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, requirePermission } from "../middleware/authMiddleware";
 import * as matchOfficialService from "../services/matchOfficialService";
+import { query } from "../db/sqlServer";
 
 const router = Router();
 
@@ -260,6 +261,184 @@ router.post(
     } catch (error: any) {
       console.error("Auto assign officials error:", error);
       res.status(500).json({ error: error.message || "Failed to auto assign officials" });
+    }
+  }
+);
+
+/**
+ * GET /api/match-officials/my-reports
+ * Get all match reports submitted by the current user (referee/official)
+ */
+router.get(
+  "/my-reports",
+  requireAuth,
+  async (req: any, res: Response) => {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Get reports submitted by this user
+      // Try both schema versions: old (reported_by_user_id) and new (reporting_official_id)
+      let reportsResult;
+      
+      try {
+        // First, try to get official_id for this user
+        const officialCheck = await query<{ official_id: number }>(
+          `SELECT official_id FROM officials WHERE user_id = @userId AND status = 'active'`,
+          { userId }
+        );
+        
+        const officialId = officialCheck.recordset?.[0]?.official_id;
+        
+        // Use actual database schema columns (from 20250205_full_system_schema.sql)
+        // Columns: match_report_id, match_id, season_id, reporting_official_id, submitted_at,
+        //          home_score, away_score, player_of_match_id, weather, attendance, additional_notes
+        if (officialId) {
+          reportsResult = await query<{
+            id: number;
+            match_id: number;
+            home_team_name: string;
+            away_team_name: string;
+            match_date: string;
+            weather: string | null;
+            attendance: number | null;
+            notes: string | null;
+            submitted_at: string;
+          }>(
+            `
+            SELECT 
+              mr.match_report_id AS id,
+              mr.match_id,
+              CONVERT(VARCHAR(33), m.scheduled_kickoff, 127) AS match_date,
+              mr.weather,
+              mr.attendance,
+              mr.additional_notes AS notes,
+              CONVERT(VARCHAR(23), mr.submitted_at, 126) AS submitted_at,
+              ht.name AS home_team_name,
+              at.name AS away_team_name
+            FROM match_reports mr
+            INNER JOIN matches m ON mr.match_id = m.match_id
+            INNER JOIN season_team_participants hstp ON m.home_season_team_id = hstp.season_team_id
+            INNER JOIN teams ht ON hstp.team_id = ht.team_id
+            INNER JOIN season_team_participants astp ON m.away_season_team_id = astp.season_team_id
+            INNER JOIN teams at ON astp.team_id = at.team_id
+            WHERE mr.reporting_official_id = @officialId
+            ORDER BY mr.submitted_at DESC
+            `,
+            { officialId }
+          );
+        } else {
+          // No official record - return empty array (user not yet linked to an official)
+          reportsResult = { recordset: [] };
+        }
+      } catch (schemaError: any) {
+        // If all queries fail, return empty array
+        console.error('Error querying reports:', schemaError);
+        console.error('Error details:', {
+          message: schemaError.message,
+          code: schemaError.code,
+          number: schemaError.number
+        });
+        return res.json({ data: [] });
+      }
+
+      res.json({ data: reportsResult.recordset || [] });
+    } catch (error: any) {
+      console.error("Get my reports error:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        number: error.number,
+        originalError: error.originalError
+      });
+      
+      // Return empty array instead of error if it's a schema/table issue
+      if (error.message?.includes('Invalid object name') || 
+          error.message?.includes('Invalid column name') ||
+          error.number === 208) {
+        console.log('Table or column not found, returning empty array');
+        return res.json({ data: [] });
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to fetch reports",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/match-officials/my-assignments
+ * Get all matches assigned to the current user (referee/official)
+ */
+router.get(
+  "/my-assignments",
+  requireAuth,
+  async (req: any, res: Response) => {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Get official_id from user_id (officials table has user_id column)
+      const officialResult = await query<{ official_id: number }>(
+        `SELECT official_id FROM officials WHERE user_id = @userId AND status = 'active'`,
+        { userId }
+      );
+
+      if (!officialResult.recordset || officialResult.recordset.length === 0) {
+        // No official record found for this user - return empty array
+        // This is normal if user hasn't been assigned as an official yet
+        console.log(`No official record found for user ${userId}`);
+        return res.json({ data: [] });
+      }
+
+      const officialId = officialResult.recordset[0].official_id;
+
+      // Get all matches assigned to this official
+      const matchesResult = await query<{
+        match_id: number;
+        scheduled_kickoff: string;
+        status: string;
+        home_team_name: string;
+        away_team_name: string;
+        home_score: number | null;
+        away_score: number | null;
+        venue: string | null;
+        role: string;
+      }>(
+        `
+        SELECT 
+          m.match_id,
+          CONVERT(VARCHAR(33), m.scheduled_kickoff, 127) AS scheduled_kickoff,
+          m.status,
+          ht.name AS home_team_name,
+          at.name AS away_team_name,
+          m.home_score,
+          m.away_score,
+          s.name AS venue,
+          moa.role_code AS role
+        FROM match_official_assignments moa
+        INNER JOIN matches m ON moa.match_id = m.match_id
+        INNER JOIN season_team_participants hstp ON m.home_season_team_id = hstp.season_team_id
+        INNER JOIN teams ht ON hstp.team_id = ht.team_id
+        INNER JOIN season_team_participants astp ON m.away_season_team_id = astp.season_team_id
+        INNER JOIN teams at ON astp.team_id = at.team_id
+        LEFT JOIN stadiums s ON m.stadium_id = s.stadium_id
+        WHERE moa.official_id = @officialId
+        ORDER BY m.scheduled_kickoff DESC
+        `,
+        { officialId }
+      );
+
+      res.json({ data: matchesResult.recordset || [] });
+    } catch (error: any) {
+      console.error("Get my assignments error:", error);
+      res.status(500).json({ error: "Failed to fetch assignments" });
     }
   }
 );

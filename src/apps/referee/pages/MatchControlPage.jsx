@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, Clock, Goal, Square, Replace, Users, Eye, FileText,
-  Activity, Trash2, AlertCircle, Target, Save, Send
+  Activity, Trash2, AlertCircle, Target, Save, Send, Award, Star, 
+  Shield, Plus, X, Download, Printer, CheckCircle
 } from 'lucide-react';
 import ApiService from '@/layers/application/services/ApiService';
 import LineupDisplay from '../../admin/components/LineupDisplay';
@@ -30,13 +31,20 @@ const MatchControlPage = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [selectedSubstituteId, setSelectedSubstituteId] = useState('');
 
-  // Report
+  // Report - Enhanced with MVP, goals, cards details
   const [report, setReport] = useState({
     weather: '',
     attendance: '',
     notes: '',
-    incidents: ''
+    incidents: '',
+    mvpPlayerId: '',
+    mvpTeamId: '',
+    matchSummary: ''
   });
+
+  // Goals and Cards lists (from match events)
+  const [goalScorers, setGoalScorers] = useState([]);
+  const [cardRecipients, setCardRecipients] = useState([]);
 
   useEffect(() => {
     fetchMatchData();
@@ -67,7 +75,17 @@ const MatchControlPage = () => {
 
       const matchData = matchRes.data;
       setMatch(matchData);
-      setMatchEvents(eventsRes.data || []);
+      const events = eventsRes.data || [];
+      setMatchEvents(events);
+
+      // Extract goals and cards from events
+      const goals = events.filter(e => e.type === 'GOAL' || e.event_type === 'GOAL');
+      const cards = events.filter(e => 
+        ['YELLOW_CARD', 'RED_CARD', 'SECOND_YELLOW'].includes(e.type) ||
+        ['YELLOW_CARD', 'RED_CARD', 'SECOND_YELLOW'].includes(e.event_type)
+      );
+      setGoalScorers(goals);
+      setCardRecipients(cards);
 
       // Fetch lineups and squads
       try {
@@ -80,11 +98,87 @@ const MatchControlPage = () => {
         setHomeSquad(homeSquadRes.data || []);
         setAwaySquad(awaySquadRes.data || []);
 
-        const lineupsData = lineupsRes.data;
-        if (lineupsData.home) setHomeLineup(lineupsData.home);
-        if (lineupsData.away) setAwayLineup(lineupsData.away);
+        // Process lineups - API returns array of lineup items
+        const lineupsArray = Array.isArray(lineupsRes.data) ? lineupsRes.data : [];
+        
+        // Get match season team IDs
+        const homeSeasonTeamId = matchData.homeSeasonTeamId;
+        const awaySeasonTeamId = matchData.awaySeasonTeamId;
+
+        // Process home lineup
+        if (homeSeasonTeamId) {
+          const homeLineupItems = lineupsArray.filter(l => 
+            Number(l.seasonTeamId) === Number(homeSeasonTeamId)
+          );
+          
+          const homeStarters = homeLineupItems.filter(l => l.isStarting).map(l => l.playerId);
+          const homeSubstitutes = homeLineupItems.filter(l => !l.isStarting).map(l => l.playerId);
+          
+          // Build players array from lineup items
+          const homePlayers = homeLineupItems.map(l => ({
+            id: l.playerId,
+            player_id: l.playerId,
+            full_name: l.playerName || 'Unknown',
+            name: l.playerName || 'Unknown',
+            shirt_number: l.jerseyNumber,
+            jerseyNumber: l.jerseyNumber,
+            position: l.position,
+            isStarting: l.isStarting
+          }));
+
+          setHomeLineup({
+            starters: homeStarters,
+            substitutes: homeSubstitutes,
+            players: homePlayers,
+            formation: '4-4-2' // Default, can be enhanced later
+          });
+          console.log('[fetchMatchData] Home lineup set:', homePlayers.length, 'players');
+        }
+
+        // Process away lineup
+        if (awaySeasonTeamId) {
+          const awayLineupItems = lineupsArray.filter(l => 
+            Number(l.seasonTeamId) === Number(awaySeasonTeamId)
+          );
+          
+          const awayStarters = awayLineupItems.filter(l => l.isStarting).map(l => l.playerId);
+          const awaySubstitutes = awayLineupItems.filter(l => !l.isStarting).map(l => l.playerId);
+          
+          // Build players array from lineup items
+          const awayPlayers = awayLineupItems.map(l => ({
+            id: l.playerId,
+            player_id: l.playerId,
+            full_name: l.playerName || 'Unknown',
+            name: l.playerName || 'Unknown',
+            shirt_number: l.jerseyNumber,
+            jerseyNumber: l.jerseyNumber,
+            position: l.position,
+            isStarting: l.isStarting
+          }));
+
+          setAwayLineup({
+            starters: awayStarters,
+            substitutes: awaySubstitutes,
+            players: awayPlayers,
+            formation: '4-4-2' // Default, can be enhanced later
+          });
+          console.log('[fetchMatchData] Away lineup set:', awayPlayers.length, 'players');
+        }
+        
+        // Debug log final lineups
+        console.log('[fetchMatchData] Match IDs:', {
+          homeTeamId: matchData.homeTeamId,
+          awayTeamId: matchData.awayTeamId,
+          homeSeasonTeamId,
+          awaySeasonTeamId
+        });
+        console.log('[fetchMatchData] Lineups from API:', lineupsArray.length, 'items');
       } catch (err) {
         console.error('Error loading lineups:', err);
+        // Don't show toast error for squad permission issues
+        if (!err?.response?.status === 403) {
+          toast.error('Không thể tải đội hình');
+        }
       }
     } catch (error) {
       console.error('Error fetching match:', error);
@@ -149,16 +243,176 @@ const MatchControlPage = () => {
     }
   };
 
+  // Report submission state
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
+  const matchSheetRef = useRef(null);
+
+  // Print/Export functionality
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPDF = () => {
+    toast.loading('Đang tạo PDF...', { id: 'export-pdf' });
+    setTimeout(() => {
+      window.print();
+      toast.success('Mở hộp thoại in để lưu PDF', { id: 'export-pdf' });
+    }, 500);
+  };
+
   const submitReport = async () => {
+    console.log('[submitReport] Called with report:', report);
+    console.log('[submitReport] mvpPlayerId:', report.mvpPlayerId, 'matchSummary:', report.matchSummary);
+    
+    if (!report.mvpPlayerId) {
+      console.log('[submitReport] FAILED: No MVP selected');
+      toast.error('Vui lòng chọn cầu thủ xuất sắc nhất (MVP)');
+      return;
+    }
+    if (!report.matchSummary) {
+      console.log('[submitReport] FAILED: No matchSummary');
+      toast.error('Vui lòng nhập tóm tắt trận đấu');
+      return;
+    }
+    
+    console.log('[submitReport] Validation passed, submitting...');
+
+    setReportSubmitting(true);
     try {
-      await ApiService.post(`/matches/${matchId}/referee-report`, report);
+      // Find MVP player name
+      let mvpPlayerName = '';
+      let mvpTeamName = '';
+      if (report.mvpPlayerId && report.mvpTeamId) {
+        const mvpPlayers = getAllPlayersFromLineup(report.mvpTeamId);
+        const mvpPlayer = mvpPlayers.find(p => p.id === parseInt(report.mvpPlayerId));
+        mvpPlayerName = mvpPlayer?.full_name || mvpPlayer?.name || '';
+        mvpTeamName = Number(report.mvpTeamId) === Number(match?.homeTeamId)
+          ? match?.homeTeamName 
+          : match?.awayTeamName;
+      }
+
+      const enhancedReport = {
+        ...report,
+        mvpPlayerName,
+        mvpTeamName,
+        homeScore: match?.homeScore ?? 0,
+        awayScore: match?.awayScore ?? 0,
+        goalDetails: JSON.stringify(goalScorers.map(g => ({
+          playerId: g.playerId || g.player_id,
+          playerName: g.player || g.player_name,
+          minute: g.minute || g.event_minute,
+          teamId: g.teamId || g.team_id
+        }))),
+        cardDetails: JSON.stringify(cardRecipients.map(c => ({
+          playerId: c.playerId || c.player_id,
+          playerName: c.player || c.player_name,
+          cardType: c.type || c.event_type || c.card_type,
+          minute: c.minute || c.event_minute,
+          teamId: c.teamId || c.team_id
+        }))),
+        totalYellowCards: cardRecipients.filter(c => 
+          (c.type || c.event_type) === 'YELLOW_CARD'
+        ).length,
+        totalRedCards: cardRecipients.filter(c => 
+          ['RED_CARD', 'SECOND_YELLOW'].includes(c.type || c.event_type)
+        ).length
+      };
+
+      await ApiService.post(`/matches/${matchId}/referee-report`, enhancedReport);
       await ApiService.post(`/matches/${matchId}/mark-referee-report`);
-      toast.success('Báo cáo đã được nộp thành công!');
-      navigate('/referee/reports');
+      
+      // Send notification to admin
+      try {
+        await ApiService.post('/notifications/send', {
+          type: 'REFEREE_REPORT_SUBMITTED',
+          matchId: parseInt(matchId),
+          message: `Trọng tài đã gửi báo cáo trận ${match?.homeTeamName} vs ${match?.awayTeamName}`,
+          targetRole: 'super_admin'
+        });
+      } catch (notifError) {
+        console.log('Notification not sent:', notifError);
+      }
+
+      toast.success('Báo cáo đã được gửi cho Admin!');
+      setReportSubmitted(true);
     } catch (error) {
       console.error('Error submitting report:', error);
-      toast.error('Không thể nộp báo cáo');
+      toast.error(error.response?.data?.error || 'Không thể nộp báo cáo');
+    } finally {
+      setReportSubmitting(false);
     }
+  };
+
+  // Get all players from lineup (for MVP selection)
+  // teamId can be either team_id or 'home'/'away' string
+  const getAllPlayersFromLineup = (teamIdOrType) => {
+    let lineup = null;
+    let squad = [];
+    
+    // Support both team ID and 'home'/'away' type
+    const isHome = 
+      teamIdOrType === 'home' || 
+      Number(teamIdOrType) === Number(match?.homeTeamId) ||
+      Number(teamIdOrType) === Number(match?.homeSeasonTeamId);
+    const isAway = 
+      teamIdOrType === 'away' || 
+      Number(teamIdOrType) === Number(match?.awayTeamId) ||
+      Number(teamIdOrType) === Number(match?.awaySeasonTeamId);
+
+    if (isHome) {
+      lineup = homeLineup;
+      squad = homeSquad;
+    } else if (isAway) {
+      lineup = awayLineup;
+      squad = awaySquad;
+    }
+
+    // Debug log
+    console.log('[getAllPlayersFromLineup] teamIdOrType:', teamIdOrType, 'isHome:', isHome, 'isAway:', isAway, 'lineup:', lineup);
+
+    // If lineup has players array, use it (preferred)
+    if (lineup?.players && Array.isArray(lineup.players) && lineup.players.length > 0) {
+      return lineup.players.map(p => ({
+        id: p.id || p.player_id,
+        full_name: p.full_name || p.name || p.playerName || 'Unknown',
+        name: p.name || p.full_name || p.playerName || 'Unknown',
+        shirt_number: p.shirt_number || p.jerseyNumber || p.shirtNumber,
+        position: p.position
+      }));
+    }
+
+    // Otherwise, build from starters and substitutes
+    if (lineup && (lineup.starters || lineup.substitutes)) {
+      const allPlayerIds = [
+        ...(Array.isArray(lineup.starters) ? lineup.starters : []),
+        ...(Array.isArray(lineup.substitutes) ? lineup.substitutes : [])
+      ];
+      
+      if (allPlayerIds.length > 0 && squad.length > 0) {
+        return squad.filter(p => allPlayerIds.includes(Number(p.id))).map(p => ({
+          id: p.id,
+          full_name: p.full_name || p.name || 'Unknown',
+          name: p.name || p.full_name || 'Unknown',
+          shirt_number: p.shirt_number || p.jerseyNumber,
+          position: p.position
+        }));
+      }
+    }
+
+    // Fallback to squad (if no lineup data)
+    if (squad && squad.length > 0) {
+      return squad.map(p => ({
+        id: p.id,
+        full_name: p.full_name || p.name || 'Unknown',
+        name: p.name || p.full_name || 'Unknown',
+        shirt_number: p.shirt_number || p.jerseyNumber,
+        position: p.position
+      }));
+    }
+
+    // Return empty array if no data
+    return [];
   };
 
   const getActivePlayers = () => {
@@ -174,7 +428,14 @@ const MatchControlPage = () => {
     }
 
     if (!lineup || !lineup.starters || lineup.starters.length === 0) {
-      return [];
+      // Fallback to all squad players
+      return squad.map(p => ({
+        id: p.id,
+        full_name: p.full_name || p.name,
+        name: p.name || p.full_name,
+        shirt_number: p.shirt_number || p.jerseyNumber,
+        position: p.position
+      }));
     }
 
     const starterIds = lineup.starters || [];
@@ -192,7 +453,13 @@ const MatchControlPage = () => {
       ...substitutedInIds
     ];
 
-    return squad.filter(player => activePlayerIds.includes(player.id));
+    return squad.filter(player => activePlayerIds.includes(player.id)).map(p => ({
+      id: p.id,
+      full_name: p.full_name || p.name,
+      name: p.name || p.full_name,
+      shirt_number: p.shirt_number || p.jerseyNumber,
+      position: p.position
+    }));
   };
 
   const getStarters = () => {
@@ -214,7 +481,13 @@ const MatchControlPage = () => {
 
       return squad.filter(player =>
         lineup.starters.includes(player.id) && !substitutedOutIds.includes(player.id)
-      );
+      ).map(p => ({
+        id: p.id,
+        full_name: p.full_name || p.name,
+        name: p.name || p.full_name,
+        shirt_number: p.shirt_number || p.jerseyNumber,
+        position: p.position
+      }));
     }
     return [];
   };
@@ -239,7 +512,13 @@ const MatchControlPage = () => {
 
       return squad.filter(player =>
         lineup.substitutes.includes(player.id) && !substitutedInIds.includes(player.id)
-      );
+      ).map(p => ({
+        id: p.id,
+        full_name: p.full_name || p.name,
+        name: p.name || p.full_name,
+        shirt_number: p.shirt_number || p.jerseyNumber,
+        position: p.position
+      }));
     }
     return [];
   };
@@ -424,57 +703,273 @@ const MatchControlPage = () => {
       )}
 
       {activeTab === 'report' && (
-        <div className="bg-white rounded-2xl p-8 shadow-sm border max-w-3xl mx-auto">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
             <FileText size={28} className="text-yellow-500" />
-            Báo Cáo Trận Đấu
+            Báo Cáo Trận Đấu - Trọng Tài
           </h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Thời tiết</label>
-              <input
-                type="text"
-                value={report.weather}
-                onChange={(e) => setReport({ ...report, weather: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-3"
-                placeholder="VD: Nắng, 28°C"
-              />
+
+          {/* Match Score Summary */}
+          <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl p-6 mb-6 text-white">
+            <div className="flex items-center justify-center gap-8">
+              <div className="text-center">
+                <p className="text-sm text-slate-300 mb-1">Đội nhà</p>
+                <p className="text-xl font-bold">{match?.homeTeamName}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-black font-mono">
+                  {match?.homeScore ?? 0} - {match?.awayScore ?? 0}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">Tỷ số cuối cùng</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-slate-300 mb-1">Đội khách</p>
+                <p className="text-xl font-bold">{match?.awayTeamName}</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Số khán giả</label>
-              <input
-                type="number"
-                value={report.attendance}
-                onChange={(e) => setReport({ ...report, attendance: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-3"
-                placeholder="VD: 5000"
-              />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* MVP Selection */}
+              <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-5 border-2 border-yellow-200">
+                <label className="block text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                  <Award className="text-yellow-500" size={20} />
+                  Cầu Thủ Xuất Sắc Nhất (MVP) *
+                </label>
+                <div className="space-y-3">
+                  <select
+                    value={report.mvpTeamId || ''}
+                    onChange={(e) => {
+                      const teamId = e.target.value;
+                      setReport({ ...report, mvpTeamId: teamId, mvpPlayerId: '' });
+                    }}
+                    className="w-full border border-yellow-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-yellow-400"
+                    disabled={reportSubmitted}
+                  >
+                    <option value="">-- Chọn đội --</option>
+                    {match?.homeTeamId && (
+                      <option value={String(match.homeTeamId)}>{match.homeTeamName}</option>
+                    )}
+                    {match?.awayTeamId && (
+                      <option value={String(match.awayTeamId)}>{match.awayTeamName}</option>
+                    )}
+                  </select>
+                  {report.mvpTeamId && (
+                    <select
+                      value={report.mvpPlayerId || ''}
+                      onChange={(e) => setReport({ ...report, mvpPlayerId: e.target.value })}
+                      className="w-full border border-yellow-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-yellow-400"
+                      disabled={reportSubmitted}
+                    >
+                      <option value="">-- Chọn cầu thủ --</option>
+                      {getAllPlayersFromLineup(report.mvpTeamId).map(player => (
+                        <option key={player.id} value={String(player.id)}>
+                          #{player.shirt_number || '?'} - {player.full_name || player.name}
+                          {player.position ? ` (${player.position})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {report.mvpTeamId && getAllPlayersFromLineup(report.mvpTeamId).length === 0 && (
+                    <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <p className="text-xs text-orange-600 font-medium">
+                        ⚠️ Chưa có dữ liệu cầu thủ cho đội này.
+                      </p>
+                      <p className="text-xs text-orange-500 mt-1">
+                        Vui lòng đảm bảo đội hình đã được đăng ký trong tab "Đội hình".
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Goals Summary */}
+              <div className="bg-green-50 rounded-xl p-5 border-2 border-green-200">
+                <label className="block text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                  <Goal className="text-green-600" size={20} />
+                  Danh Sách Ghi Bàn ({goalScorers.length} bàn)
+                </label>
+                {goalScorers.length === 0 ? (
+                  <p className="text-sm text-slate-500 italic">Chưa có bàn thắng nào</p>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {goalScorers.map((goal, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-lg border border-green-200">
+                        <span className="font-medium text-sm">{goal.player || goal.player_name || 'Unknown'}</span>
+                        <span className="text-xs text-green-600 font-bold">{goal.minute || goal.event_minute}'</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-slate-500 mt-2">* Ghi bàn được nhập từ tab Điều khiển</p>
+              </div>
+
+              {/* Cards Summary */}
+              <div className="bg-red-50 rounded-xl p-5 border-2 border-red-200">
+                <label className="block text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                  <Square fill="currentColor" className="text-red-600" size={18} />
+                  Thẻ Phạt ({cardRecipients.length} thẻ)
+                </label>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-yellow-100 rounded-lg p-3 text-center border border-yellow-300">
+                    <p className="text-2xl font-bold text-yellow-700">
+                      {cardRecipients.filter(c => (c.type || c.event_type) === 'YELLOW_CARD').length}
+                    </p>
+                    <p className="text-xs text-yellow-600">Thẻ Vàng</p>
+                  </div>
+                  <div className="bg-red-100 rounded-lg p-3 text-center border border-red-300">
+                    <p className="text-2xl font-bold text-red-700">
+                      {cardRecipients.filter(c => ['RED_CARD', 'SECOND_YELLOW'].includes(c.type || c.event_type)).length}
+                    </p>
+                    <p className="text-xs text-red-600">Thẻ Đỏ</p>
+                  </div>
+                </div>
+                {cardRecipients.length > 0 && (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {cardRecipients.map((card, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-lg border border-red-200">
+                        <span className="font-medium text-sm">{card.player || card.player_name || 'Unknown'}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold px-2 py-1 rounded ${
+                            (card.type || card.event_type) === 'YELLOW_CARD' 
+                              ? 'bg-yellow-200 text-yellow-700' 
+                              : 'bg-red-200 text-red-700'
+                          }`}>
+                            {(card.type || card.event_type) === 'YELLOW_CARD' ? 'Vàng' : 'Đỏ'}
+                          </span>
+                          <span className="text-xs text-slate-600">{card.minute || card.event_minute}'</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-slate-500 mt-2">* Thẻ phạt được nhập từ tab Điều khiển</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Ghi chú chung</label>
-              <textarea
-                value={report.notes}
-                onChange={(e) => setReport({ ...report, notes: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-3 h-32"
-                placeholder="Ghi chú về trận đấu..."
-              />
+
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Match Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Thời tiết</label>
+                  <input
+                    type="text"
+                    value={report.weather}
+                    onChange={(e) => setReport({ ...report, weather: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-yellow-400"
+                    placeholder="VD: Nắng, 28°C"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Số khán giả</label>
+                  <input
+                    type="number"
+                    value={report.attendance}
+                    onChange={(e) => setReport({ ...report, attendance: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-yellow-400"
+                    placeholder="VD: 5000"
+                  />
+                </div>
+              </div>
+
+              {/* Match Summary */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                  <Activity size={18} className="text-blue-500" />
+                  Tóm tắt trận đấu *
+                </label>
+                <textarea
+                  value={report.matchSummary}
+                  onChange={(e) => setReport({ ...report, matchSummary: e.target.value })}
+                  className="w-full border border-slate-300 rounded-lg p-3 h-24 focus:ring-2 focus:ring-yellow-400"
+                  placeholder="Mô tả diễn biến chính của trận đấu..."
+                />
+              </div>
+
+              {/* General Notes */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Ghi chú chuyên môn</label>
+                <textarea
+                  value={report.notes}
+                  onChange={(e) => setReport({ ...report, notes: e.target.value })}
+                  className="w-full border border-slate-300 rounded-lg p-3 h-24 focus:ring-2 focus:ring-yellow-400"
+                  placeholder="Ghi chú kỹ thuật, chiến thuật..."
+                />
+              </div>
+
+              {/* Incidents */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                  <AlertCircle size={18} className="text-orange-500" />
+                  Sự cố / Vấn đề cần báo cáo
+                </label>
+                <textarea
+                  value={report.incidents}
+                  onChange={(e) => setReport({ ...report, incidents: e.target.value })}
+                  className="w-full border border-slate-300 rounded-lg p-3 h-24 focus:ring-2 focus:ring-yellow-400"
+                  placeholder="Ghi nhận sự cố, tranh cãi, hành vi phi thể thao..."
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Sự cố (nếu có)</label>
-              <textarea
-                value={report.incidents}
-                onChange={(e) => setReport({ ...report, incidents: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-3 h-32"
-                placeholder="Ghi nhận sự cố, tranh cãi..."
-              />
-            </div>
+          </div>
+
+          {/* Export Buttons */}
+          <div className="mt-6 flex gap-3 print:hidden">
             <button
-              onClick={submitReport}
-              className="w-full flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold py-4 rounded-lg transition-colors shadow-md"
+              onClick={handlePrint}
+              className="flex-1 flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl transition-all"
             >
-              <Send size={20} />
-              Nộp Báo Cáo
+              <Printer size={18} />
+              In báo cáo
             </button>
+            <button
+              onClick={handleExportPDF}
+              className="flex-1 flex items-center justify-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium py-3 rounded-xl transition-all"
+            >
+              <Download size={18} />
+              Xuất PDF
+            </button>
+          </div>
+
+          {/* Submit Button */}
+          <div className="mt-4 pt-6 border-t border-slate-200">
+            {!reportSubmitted ? (
+              <button
+                onClick={submitReport}
+                disabled={reportSubmitting || !report.mvpPlayerId}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 disabled:from-slate-300 disabled:to-slate-400 text-slate-900 disabled:text-slate-600 font-bold py-4 rounded-xl transition-all shadow-lg"
+              >
+                {reportSubmitting ? (
+                  <>
+                    <div className="animate-spin h-5 w-5 border-2 border-slate-900 border-t-transparent rounded-full"></div>
+                    Đang gửi...
+                  </>
+                ) : (
+                  <>
+                    <Send size={20} />
+                    Gửi Báo Cáo Cho Admin
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="text-center py-4 bg-green-50 rounded-xl border-2 border-green-200">
+                <CheckCircle size={32} className="mx-auto text-green-500 mb-2" />
+                <p className="font-bold text-green-700">Báo cáo đã được gửi thành công!</p>
+                <p className="text-sm text-green-600 mt-1">Admin sẽ xem xét và phản hồi</p>
+                <button
+                  onClick={() => navigate('/referee/reports')}
+                  className="mt-4 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Xem danh sách báo cáo
+                </button>
+              </div>
+            )}
+            {!report.mvpPlayerId && !reportSubmitted && (
+              <p className="text-center text-sm text-orange-500 mt-2">* Vui lòng chọn Cầu thủ xuất sắc nhất (MVP) để gửi báo cáo</p>
+            )}
           </div>
         </div>
       )}
@@ -499,11 +994,17 @@ const MatchControlPage = () => {
                 >
                   <option value="">-- Chọn cầu thủ --</option>
                   {(selectedEventType === 'SUBSTITUTION' ? getStarters() : getActivePlayers()).map(player => (
-                    <option key={player.id} value={player.id}>
+                    <option key={player.id} value={String(player.id)}>
                       #{player.shirt_number || '?'} - {player.full_name || player.name}
+                      {player.position ? ` (${player.position})` : ''}
                     </option>
                   ))}
                 </select>
+                {(selectedEventType === 'SUBSTITUTION' ? getStarters() : getActivePlayers()).length === 0 && (
+                  <p className="text-xs text-orange-500 mt-1">
+                    ⚠️ Chưa có cầu thủ. Vui lòng đảm bảo đội hình đã được đăng ký.
+                  </p>
+                )}
               </div>
 
               {selectedEventType === 'SUBSTITUTION' && (
@@ -516,11 +1017,17 @@ const MatchControlPage = () => {
                   >
                     <option value="">-- Chọn cầu thủ --</option>
                     {getSubstitutes().map(player => (
-                      <option key={player.id} value={player.id}>
+                      <option key={player.id} value={String(player.id)}>
                         #{player.shirt_number || '?'} - {player.full_name || player.name}
+                        {player.position ? ` (${player.position})` : ''}
                       </option>
                     ))}
                   </select>
+                  {getSubstitutes().length === 0 && (
+                    <p className="text-xs text-orange-500 mt-1">
+                      ⚠️ Không còn cầu thủ dự bị. Tất cả đã vào sân hoặc chưa có đội hình.
+                    </p>
+                  )}
                 </div>
               )}
 

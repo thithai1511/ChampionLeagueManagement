@@ -141,17 +141,33 @@ const TeamAdminRoute = ({ children }) => {
 
 const AdminLoginRoute = ({ children }) => {
   const { isAuthenticated, user, status } = useAuth()
-  const isAdminAuthenticated = isAuthenticated && hasAdminPortalAccess(user)
-
+  
   if (status === 'checking') {
     return null
   }
 
-  if (isAdminAuthenticated) {
-    return <Navigate to="/admin/dashboard" replace />
-  }
-
-  if (isAuthenticated && !isAdminAuthenticated) {
+  if (isAuthenticated && user) {
+    const userRoles = Array.isArray(user.roles) ? user.roles : []
+    const isSupervisor = user.role === 'supervisor' || userRoles.includes('supervisor')
+    const isMatchOfficial = user.role === 'match_official' || userRoles.includes('match_official')
+    
+    // Redirect supervisor to supervisor portal
+    if (isSupervisor) {
+      return <Navigate to="/supervisor/my-assignments" replace />
+    }
+    
+    // Redirect match_official to referee portal
+    if (isMatchOfficial) {
+      return <Navigate to="/referee/my-matches" replace />
+    }
+    
+    // For other admin roles, redirect to admin dashboard
+    const isAdminAuthenticated = hasAdminPortalAccess(user)
+    if (isAdminAuthenticated) {
+      return <Navigate to="/admin/dashboard" replace />
+    }
+    
+    // If authenticated but not admin, redirect to portal
     return <Navigate to="/portal" replace />
   }
 

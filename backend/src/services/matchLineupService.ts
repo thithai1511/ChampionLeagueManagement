@@ -142,8 +142,11 @@ export const approveLineup = async (
         
         // Get current match status to check if we need to transition
         const match = await lifecycleService.getMatchDetails(matchId);
-        if (match && match.status !== 'READY' && match.status !== 'IN_PROGRESS' && 
-            match.status !== 'FINISHED' && match.status !== 'REPORTED' && match.status !== 'COMPLETED') {
+        const currentStatus = match?.status?.toUpperCase() || '';
+        
+        // Only transition if match is in an early status (not already READY or beyond)
+        const skipTransitionStatuses = ['READY', 'IN_PROGRESS', 'LIVE', 'IN_PLAY', 'FINISHED', 'REPORTED', 'COMPLETED'];
+        if (match && !skipTransitionStatuses.includes(currentStatus)) {
             // Only transition if match is not already in READY or higher status
             await lifecycleService.changeMatchStatus(matchId, 'READY', {
                 note: 'Both lineups approved',
