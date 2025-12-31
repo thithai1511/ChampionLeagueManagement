@@ -142,16 +142,12 @@ export async function getTopScorersBySeason(seasonId: number, limit: number = 20
      INNER JOIN players p ON spr.player_id = p.player_id
      INNER JOIN season_team_participants stp ON spr.season_team_id = stp.season_team_id
      INNER JOIN teams t ON stp.team_id = t.team_id
-<<<<<<< HEAD
-     LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id
-=======
      LEFT JOIN match_events me ON spr.season_player_id = me.season_player_id 
        AND me.event_type IN ('GOAL', 'ASSIST')
        AND me.season_id = @seasonId
      LEFT JOIN matches m ON me.match_id = m.match_id
        AND m.season_id = @seasonId
        AND m.status IN ('COMPLETED', 'FINISHED')
->>>>>>> upstream/main
      WHERE spr.season_id = @seasonId
        AND spr.registration_status = 'approved'
      GROUP BY p.player_id, p.full_name, t.team_id, t.name, spr.season_id, spr.position_code, spr.shirt_number
