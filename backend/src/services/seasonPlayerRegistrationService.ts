@@ -405,13 +405,17 @@ async function validateRegistrationRulesForApproval(
 ) {
     // 1. Get Season Start Date & Check Age
     // We need player DOB and Season Start
-    const ageInfo = await new sql.Request(tx).query(`
+    const ageReq = new sql.Request(tx);
+    ageReq.input("pid", sql.Int, player_id);
+    ageReq.input("sid", sql.Int, season_id);
+
+    const ageInfo = await ageReq.query(`
         SELECT 
             p.date_of_birth,
             s.start_date
         FROM players p
-        JOIN seasons s ON s.season_id = ${season_id}
-        WHERE p.player_id = ${player_id}
+        JOIN seasons s ON s.season_id = @sid
+        WHERE p.player_id = @pid
     `);
 
     const info = ageInfo.recordset[0];
@@ -432,10 +436,14 @@ async function validateRegistrationRulesForApproval(
     }
 
     // 2. Check Duplicate Approved (Player valid for ONE team per season)
-    const dupCheck = await new sql.Request(tx).query(`
-        SELECT 1 FROM season_player_registrations
-        WHERE season_id = ${season_id}
-          AND player_id = ${player_id}
+    const dupReq = new sql.Request(tx);
+    dupReq.input("sid", sql.Int, season_id);
+    dupReq.input("pid", sql.Int, player_id);
+
+    const dupCheck = await dupReq.query(`
+        SELECT 1 FROM season_player_registrations WITH (UPDLOCK, HOLDLOCK)
+        WHERE season_id = @sid
+          AND player_id = @pid
           AND registration_status = 'approved'
     `);
     if (dupCheck.recordset.length > 0) {
@@ -443,11 +451,15 @@ async function validateRegistrationRulesForApproval(
     }
 
     // 3. Check Squad Size (Max 22 Approved)
-    const countRes = await new sql.Request(tx).query(`
+    const countReq = new sql.Request(tx);
+    countReq.input("sid", sql.Int, season_id);
+    countReq.input("stid", sql.Int, season_team_id);
+
+    const countRes = await countReq.query(`
         SELECT count(*) as total 
-        FROM season_player_registrations
-        WHERE season_id = ${season_id}
-          AND season_team_id = ${season_team_id}
+        FROM season_player_registrations WITH (UPDLOCK, HOLDLOCK)
+        WHERE season_id = @sid
+          AND season_team_id = @stid
           AND registration_status = 'approved'
     `);
     const totalApproved = countRes.recordset[0].total;
@@ -457,11 +469,15 @@ async function validateRegistrationRulesForApproval(
 
     // 4. Check Foreign Quota (Max 5 Approved)
     if (is_foreign) {
-        const foreignRes = await new sql.Request(tx).query(`
+        const foreignReq = new sql.Request(tx);
+        foreignReq.input("sid", sql.Int, season_id);
+        foreignReq.input("stid", sql.Int, season_team_id);
+
+        const foreignRes = await foreignReq.query(`
             SELECT count(*) as total
-            FROM season_player_registrations
-            WHERE season_id = ${season_id}
-              AND season_team_id = ${season_team_id}
+            FROM season_player_registrations WITH (UPDLOCK, HOLDLOCK)
+            WHERE season_id = @sid
+              AND season_team_id = @stid
               AND registration_status = 'approved'
               AND is_foreign = 1
         `);
@@ -543,7 +559,7 @@ export async function approveRegistration(
             }
             throw err;
         }
-    });
+    }, sql.ISOLATION_LEVEL.SERIALIZABLE);
 }
 
 /**
@@ -748,7 +764,7 @@ export async function approveAllPendingRegistrations(userId?: number): Promise<v
                 throw BadRequestError(`Cannot approve ${reg.full_name}: ${err.message}`);
             }
         }
-    });
+    }, sql.ISOLATION_LEVEL.SERIALIZABLE);
 }
 
 /**
