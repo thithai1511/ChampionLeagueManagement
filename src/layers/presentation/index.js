@@ -42,7 +42,6 @@ export const PRESENTATION_CONFIG = {
     '/admin/news',
     '/admin/users',
     '/admin/settings',
-    '/admin/reports'
   ],
   PROTECTED_ROUTES: [
     '/admin/*'

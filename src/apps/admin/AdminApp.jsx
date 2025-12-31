@@ -12,7 +12,6 @@ import PlayersManagement from './pages/PlayersManagement'
 import UsersManagement from './pages/UsersManagement'
 import RolesPermissions from './pages/RolesPermissions'
 import SettingsPage from './pages/SettingsPage'
-import ReportsPage from './pages/ReportsPage'
 import SupervisorReportsPage from './pages/SupervisorReportsPage'
 import RefereeReportsPage from './pages/RefereeReportsPage'
 import StandingsPage from "../public/pages/StandingsPage";
@@ -108,7 +107,6 @@ const AdminApp = ({ onLogout, currentUser }) => {
             </AccessGuard>
           }
         />
-        <Route path="reports" element={<ReportsPage />} />
         <Route
           path="supervisor-reports"
           element={

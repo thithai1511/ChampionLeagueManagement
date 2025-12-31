@@ -72,3 +72,4 @@ sqlcmd -S localhost -d ChampionLeague -U sa -P yourpassword -i "backend/src/db/m
 
 
 
+

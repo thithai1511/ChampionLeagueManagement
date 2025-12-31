@@ -1,16 +1,14 @@
 import React, { useMemo } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { hasAnyPermission, hasPermission } from '../utils/accessControl'
 import uclLogo from '@/assets/images/UEFA_CHAMPIONS_LEAGUE.png'
 // 1. Import icon mới
 import {
-  LayoutDashboard,
   Users,
   Calendar,
   UserCheck,
   FileText,
   Settings,
-  BarChart3,
   Trophy,
   Target,
   Shield,
@@ -48,13 +46,6 @@ const MENU_SECTIONS = [
     ]
   },
   {
-    title: 'Tổng quan',
-    items: [
-      { name: 'Bảng điều khiển', path: '/admin/dashboard', icon: LayoutDashboard },
-      { name: 'Báo cáo', path: '/admin/reports', icon: BarChart3 }
-    ]
-  },
-  {
     title: 'Quản lý giải đấu',
     items: [
       { name: 'Mùa giải & Quy tắc', path: '/admin/seasons', icon: Swords, permission: 'manage_teams' },
@@ -84,6 +75,7 @@ const MENU_SECTIONS = [
 
 const AdminSidebar = ({ currentUser }) => {
   const location = useLocation()
+  const navigate = useNavigate()
 
   const hasAllowedRole = (allowedRoles) => {
     if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) {
@@ -149,18 +141,21 @@ const AdminSidebar = ({ currentUser }) => {
 
       {/* Logo Section */}
       <div className="relative z-10 p-5 border-b border-white/10">
-        <div className="flex items-center gap-4">
+        <div 
+          className="flex items-center gap-4 cursor-pointer group/logo"
+          onClick={() => navigate('/admin/dashboard')}
+        >
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl blur-lg opacity-60 group-hover:opacity-80 transition-opacity"></div>
-            <div className="relative w-14 h-14 bg-gradient-to-br from-[#0a1628] to-[#071020] rounded-xl p-1.5 ring-1 ring-white/20">
+            <div className="relative w-14 h-14 bg-gradient-to-br from-[#0a1628] to-[#071020] rounded-xl p-1.5 ring-1 ring-white/20 group-hover/logo:ring-cyan-400/50 transition-all">
               <img src={uclLogo} alt="UEFA Champions League" className="w-full h-full object-contain" />
             </div>
           </div>
           <div>
-            <div className="font-black text-lg tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-cyan-200">
+            <div className="font-black text-lg tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-cyan-200 group-hover/logo:from-cyan-200 group-hover/logo:via-blue-200 group-hover/logo:to-white transition-all">
               UEFA Admin
             </div>
-            <div className="text-[11px] uppercase tracking-[0.2em] text-blue-300/50 font-semibold flex items-center gap-1">
+            <div className="text-[11px] uppercase tracking-[0.2em] text-blue-300/50 font-semibold flex items-center gap-1 group-hover/logo:text-cyan-300/70 transition-colors">
               <Sparkles size={10} className="text-cyan-400" />
               Champions League
             </div>
