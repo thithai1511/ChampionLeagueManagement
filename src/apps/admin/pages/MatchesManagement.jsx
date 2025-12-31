@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   Plus,
   Calendar,
@@ -99,10 +99,11 @@ const formatTime = (isoString) => {
 const MatchesManagement = () => {
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
-const canEdit = hasPermission(currentUser, 'manage_matches')
+  const canEdit = hasPermission(currentUser, 'manage_matches')
   const isSuperAdmin = Array.isArray(currentUser?.roles) && currentUser.roles.includes('super_admin')
   // Tab state
-  const [activeTab, setActiveTab] = useState('all') // 'all' | 'today'
+  const location = useLocation()
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'all') // 'all' | 'today'
 
   const [filters, setFilters] = useState({
     dateFrom: '',
@@ -127,7 +128,7 @@ const canEdit = hasPermission(currentUser, 'manage_matches')
   const [showOfficialModal, setShowOfficialModal] = useState(false)
   const [selectedMatchForOfficials, setSelectedMatchForOfficials] = useState(null)
 
-// Today matches state
+  // Today matches state
   const [todayMatches, setTodayMatches] = useState([])
   const [todayLoading, setTodayLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -536,7 +537,7 @@ const canEdit = hasPermission(currentUser, 'manage_matches')
           return
         }
         minute = parsed
-      } catch (_) { 
+      } catch (_) {
         alert('Không thể đọc phút. Vui lòng thử lại.')
         return
       }
@@ -548,8 +549,8 @@ const canEdit = hasPermission(currentUser, 'manage_matches')
 
       const payload = { type, playerId: pId, teamId: tId, minute }
       const created = await MatchesService.createMatchEvent(editingMatch.id, payload)
-      setEditingMatch(prev => ({ ...prev, events: [...(prev.events||[]), created] }))
-      
+      setEditingMatch(prev => ({ ...prev, events: [...(prev.events || []), created] }))
+
       // Reset player selection after successful event creation to prevent accidental reuse
       if (tId === editingMatch.homeTeamId) {
         setSelectedHomePlayerId(null)
@@ -620,36 +621,36 @@ const canEdit = hasPermission(currentUser, 'manage_matches')
           </div>
           <div className="flex space-x-3">
             {activeTab === 'all' && (
-                <>
-                  {canEdit && (
-                    <>
-                      <button
-                        onClick={handleSync}
-                        className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                        disabled={syncing}
-                      >
-                        {syncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                        <span>{syncing ? 'Đang đồng bộ...' : 'Đồng bộ trận đấu'}</span>
-                      </button>
-                      <button className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
-                        <Download size={16} />
-                        <span>Xuất lịch</span>
-                      </button>
-                      <Link
-                        to="/admin/schedule"
-                        className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
-                      >
-                        <Calendar size={16} />
-                        <span>Tạo lịch thi đấu</span>
-                      </Link>
-                    </>
-                  )}
-                  {!canEdit && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">Bạn chỉ có quyền xem</span>
-                    </div>
-                  )}
-                </>
+              <>
+                {canEdit && (
+                  <>
+                    <button
+                      onClick={handleSync}
+                      className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={syncing}
+                    >
+                      {syncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                      <span>{syncing ? 'Đang đồng bộ...' : 'Đồng bộ trận đấu'}</span>
+                    </button>
+                    <button className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                      <Download size={16} />
+                      <span>Xuất lịch</span>
+                    </button>
+                    <Link
+                      to="/admin/schedule"
+                      className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      <Calendar size={16} />
+                      <span>Tạo lịch thi đấu</span>
+                    </Link>
+                  </>
+                )}
+                {!canEdit && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Bạn chỉ có quyền xem</span>
+                  </div>
+                )}
+              </>
             )}
             {activeTab === 'today' && (
               <button
@@ -909,13 +910,15 @@ const canEdit = hasPermission(currentUser, 'manage_matches')
                               </button>
                             ) : (
                               <>
-                                <button
-                                  onClick={() => openEditModal(match)}
-                                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                                  title="Chỉnh sửa"
-                                >
-                                  <Edit size={16} />
-                                </button>
+                                {match.status?.toUpperCase() !== 'COMPLETED' && (
+                                  <button
+                                    onClick={() => openEditModal(match)}
+                                    className="text-gray-600 hover:text-gray-900 transition-colors"
+                                    title="Chỉnh sửa"
+                                  >
+                                    <Edit size={16} />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleDelete(match.id)}
                                   className="text-red-600 hover:text-red-900 transition-colors"
@@ -928,11 +931,11 @@ const canEdit = hasPermission(currentUser, 'manage_matches')
                           </div>
                         </td>
                       </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
             {/* Pagination Footer */}
             <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200 bg-gray-50">
@@ -1106,30 +1109,30 @@ const canEdit = hasPermission(currentUser, 'manage_matches')
                       <div className="text-xs text-gray-500 mt-1">Không có bàn thắng được ghi (ví dụ: Trần Văn B - phút 45+1, Hồng Lĩnh Hà Tĩnh)</div>
                     ) : (
                       <ul className="text-sm text-gray-700 mt-1 list-disc list-inside">
-                          {editingMatch.events.filter(e => (e.type === 'GOAL' || e.type === 'G' || e.type === 'OWN_GOAL' || e.type === 'PENALTY')).map((ev, idx) => (
-                            <li key={`g-${idx}`} className="flex items-center justify-between">
-                              <span>{ev.playerName || ev.player || 'Unknown'} — {ev.teamName || ev.team || 'Team'} (phút {ev.minute || ev.time || '?'}){ev.type === 'OWN_GOAL' ? ' (phản lưới nhà)' : ev.type === 'PENALTY' ? ' (penalty)' : ''}</span>
-                              {canEdit && ev.id && (
-                                <button onClick={() => removeEvent(ev.id)} className="text-red-600 hover:text-red-800 text-sm ml-3">Xóa</button>
-                              )}
-                            </li>
-                          ))}
+                        {editingMatch.events.filter(e => (e.type === 'GOAL' || e.type === 'G' || e.type === 'OWN_GOAL' || e.type === 'PENALTY')).map((ev, idx) => (
+                          <li key={`g-${idx}`} className="flex items-center justify-between">
+                            <span>{ev.playerName || ev.player || 'Unknown'} — {ev.teamName || ev.team || 'Team'} (phút {ev.minute || ev.time || '?'}){ev.type === 'OWN_GOAL' ? ' (phản lưới nhà)' : ev.type === 'PENALTY' ? ' (penalty)' : ''}</span>
+                            {canEdit && ev.id && (
+                              <button onClick={() => removeEvent(ev.id)} className="text-red-600 hover:text-red-800 text-sm ml-3">Xóa</button>
+                            )}
+                          </li>
+                        ))}
                       </ul>
                     )}
-                      {canEdit && (
-                        <div className="mt-2 flex gap-2">
-                          <select className="border px-2 py-1 rounded" value={selectedHomePlayerId || ''} onChange={(e) => setSelectedHomePlayerId(e.target.value)}>
-                            <option value="">Chọn cầu thủ (Home)</option>
-                            {homePlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
-                          </select>
-                          <button onClick={() => addEvent('GOAL', selectedHomePlayerId, editingMatch.homeTeamId)} className="px-3 py-1 bg-green-600 text-white rounded">Thêm bàn Home</button>
-                          <select className="border px-2 py-1 rounded" value={selectedAwayPlayerId || ''} onChange={(e) => setSelectedAwayPlayerId(e.target.value)}>
-                            <option value="">Chọn cầu thủ (Away)</option>
-                            {awayPlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
-                          </select>
-                          <button onClick={() => addEvent('GOAL', selectedAwayPlayerId, editingMatch.awayTeamId)} className="px-3 py-1 bg-green-600 text-white rounded">Thêm bàn Away</button>
-                        </div>
-                      )}
+                    {canEdit && (
+                      <div className="mt-2 flex gap-2">
+                        <select className="border px-2 py-1 rounded" value={selectedHomePlayerId || ''} onChange={(e) => setSelectedHomePlayerId(e.target.value)}>
+                          <option value="">Chọn cầu thủ (Home)</option>
+                          {homePlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
+                        </select>
+                        <button onClick={() => addEvent('GOAL', selectedHomePlayerId, editingMatch.homeTeamId)} className="px-3 py-1 bg-green-600 text-white rounded">Thêm bàn Home</button>
+                        <select className="border px-2 py-1 rounded" value={selectedAwayPlayerId || ''} onChange={(e) => setSelectedAwayPlayerId(e.target.value)}>
+                          <option value="">Chọn cầu thủ (Away)</option>
+                          {awayPlayers.map(p => (<option key={p.id} value={p.id}>{p.name}{p.shirtNumber ? ` (#${p.shirtNumber})` : ''}</option>))}
+                        </select>
+                        <button onClick={() => addEvent('GOAL', selectedAwayPlayerId, editingMatch.awayTeamId)} className="px-3 py-1 bg-green-600 text-white rounded">Thêm bàn Away</button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Yellow Cards */}

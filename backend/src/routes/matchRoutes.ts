@@ -265,7 +265,9 @@ router.get("/:id/lineups", async (req, res, next) => {
 router.post("/:id/lineups", requireAuth, async (req: any, res, next) => {
   try {
     const matchId = Number(req.params.id);
+    console.log(`[POST /:id/lineups] matchId=${matchId}`);
     if (!Number.isInteger(matchId) || matchId <= 0) {
+      console.log(`[POST /:id/lineups] Invalid matchId`);
       return res.status(400).json({ message: "Invalid match id" });
     }
 
@@ -278,12 +280,16 @@ router.post("/:id/lineups", requireAuth, async (req: any, res, next) => {
       kitType,
     } = req.body ?? {};
 
+    console.log(`[POST /:id/lineups] Payload:`, JSON.stringify(req.body, null, 2));
+
     if (
       !seasonTeamId ||
       !seasonId ||
       !Array.isArray(startingPlayerIds) ||
       !Array.isArray(substitutePlayerIds)
     ) {
+
+      console.log(`[POST /:id/lineups] Missing required fields`, { seasonTeamId, seasonId, hasStarters: Array.isArray(startingPlayerIds), hasSubs: Array.isArray(substitutePlayerIds) });
       return res.status(400).json({
         message:
           "Invalid payload. Required: seasonTeamId, seasonId, startingPlayerIds[], substitutePlayerIds[]",
@@ -348,6 +354,7 @@ router.post("/:id/lineups", requireAuth, async (req: any, res, next) => {
       );
 
       if (!result.success) {
+        console.log(`[POST /:id/lineups] SubmitLineup failed:`, result.errors);
         return res.status(400).json({
           message: "Lineup validation failed",
           errors: result.errors,

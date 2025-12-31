@@ -380,7 +380,7 @@ const LiveMatchUpdatePage = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/admin/matches-today')} className="text-gray-600 hover:text-gray-900 flex items-center gap-2">
+                    <button onClick={() => navigate('/admin/matches', { state: { activeTab: 'today' } })} className="text-gray-600 hover:text-gray-900 flex items-center gap-2">
                         <ChevronLeft size={20} /> Back to Match Day
                     </button>
                     <button
