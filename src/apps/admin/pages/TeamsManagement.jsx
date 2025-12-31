@@ -120,28 +120,34 @@ const TeamsManagement = () => {
     loadSeasons()
   }, [])
 
-  // Load invitations when season changes
+  // Load invitations when season changes (for both invitations tab and teams tab)
   useEffect(() => {
-    if (!selectedSeasonId || activeTab !== 'invitations') return
+    if (!selectedSeasonId) return
     
     const loadInvitations = async () => {
-      setInvitationsLoading(true)
+      if (activeTab === 'invitations') {
+        setInvitationsLoading(true)
+      }
       try {
         const response = await ApiService.get(`/seasons/${selectedSeasonId}/invitations`)
         setInvitations(response?.data || [])
         
-        // Load stats
-        try {
-          const statsResponse = await ApiService.get(`/seasons/${selectedSeasonId}/invitations/stats`)
-          setInvitationStats(statsResponse?.data || null)
-        } catch (e) {
-          console.error('Failed to load invitation stats', e)
+        // Load stats only for invitations tab
+        if (activeTab === 'invitations') {
+          try {
+            const statsResponse = await ApiService.get(`/seasons/${selectedSeasonId}/invitations/stats`)
+            setInvitationStats(statsResponse?.data || null)
+          } catch (e) {
+            console.error('Failed to load invitation stats', e)
+          }
         }
       } catch (err) {
         console.error('Failed to load invitations', err)
         setInvitations([])
       } finally {
-        setInvitationsLoading(false)
+        if (activeTab === 'invitations') {
+          setInvitationsLoading(false)
+        }
       }
     }
     loadInvitations()
@@ -619,6 +625,16 @@ const TeamsManagement = () => {
     return labels[status] || status
   }
 
+  // Get invitation status for a team (if season is selected)
+  const getTeamInvitationStatus = (teamId) => {
+    if (!selectedSeasonId || !invitations.length) return null
+    const invitation = invitations.find(inv => {
+      const invTeamId = inv.teamId || inv.team_id
+      return invTeamId === teamId || invTeamId === String(teamId)
+    })
+    return invitation ? invitation.status : null
+  }
+
   return (
     <div>
       <Toaster position="top-right" />
@@ -710,6 +726,32 @@ const TeamsManagement = () => {
       {/* Teams Tab Content */}
       {activeTab === 'teams' && (
         <>
+          {/* Season selector for teams tab to show invitation status */}
+          {seasons.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium text-gray-700">Hiển thị trạng thái lời mời cho mùa giải:</label>
+                <select
+                  value={selectedSeasonId || ''}
+                  onChange={(e) => setSelectedSeasonId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Không chọn (ẩn trạng thái lời mời)</option>
+                  {seasons.map((season) => (
+                    <option key={season.id} value={season.id}>
+                      {season.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedSeasonId && (
+                  <span className="text-sm text-gray-500">
+                    ({invitations.filter(inv => inv.status === 'accepted' || inv.status === 'ACCEPTED').length} đội đã chấp nhận)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
@@ -884,81 +926,131 @@ const TeamsManagement = () => {
                   </td>
                 </tr>
               ) : (
-                teams.map(team => (
-                  <tr key={team.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-3 overflow-hidden bg-gray-100 border border-gray-200">
-                          {team.logo || team.crest ? (
-                            <img 
-                              src={team.logo || team.crest} 
-                              alt={team.name}
-                              className="w-8 h-8 object-contain"
-                              onError={(e) => {
-                                e.target.style.display = 'none'
-                                e.target.nextElementSibling?.classList.remove('hidden')
-                              }}
-                            />
-                          ) : null}
-                          <div className={`${team.logo || team.crest ? 'hidden' : ''} w-full h-full flex items-center justify-center ${getStatusColor(team.status)} text-white`}>
-                            <Shield size={20} />
+                teams.map(team => {
+                  const invitationStatus = getTeamInvitationStatus(team.id)
+                  const statusLower = invitationStatus ? String(invitationStatus).toLowerCase() : null
+                  const hasAcceptedInvitation = statusLower === 'accepted'
+                  const hasPendingInvitation = statusLower === 'pending' || statusLower === 'invited' || statusLower === 'draft'
+                  const hasDeclinedInvitation = statusLower === 'declined' || statusLower === 'rejected'
+                  const hasSubmittedInvitation = statusLower === 'submitted'
+                  const hasApprovedInvitation = statusLower === 'approved'
+                  
+                  return (
+                    <tr 
+                      key={team.id} 
+                      className={`hover:bg-gray-50 transition-colors ${
+                        hasApprovedInvitation ? 'bg-emerald-50/50 border-l-4 border-l-emerald-500' :
+                        hasAcceptedInvitation || hasSubmittedInvitation ? 'bg-green-50/50 border-l-4 border-l-green-500' : 
+                        hasPendingInvitation ? 'bg-yellow-50/50 border-l-4 border-l-yellow-500' :
+                        hasDeclinedInvitation ? 'bg-red-50/50 border-l-4 border-l-red-500' : ''
+                      }`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-3 overflow-hidden bg-gray-100 border border-gray-200">
+                            {team.logo || team.crest ? (
+                              <img 
+                                src={team.logo || team.crest} 
+                                alt={team.name}
+                                className="w-8 h-8 object-contain"
+                                onError={(e) => {
+                                  e.target.style.display = 'none'
+                                  e.target.nextElementSibling?.classList.remove('hidden')
+                                }}
+                              />
+                            ) : null}
+                            <div className={`${team.logo || team.crest ? 'hidden' : ''} w-full h-full flex items-center justify-center ${getStatusColor(team.status)} text-white`}>
+                              <Shield size={20} />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="font-medium text-gray-900">{team.name}</div>
+                              {hasApprovedInvitation && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-300" title="Đã được duyệt tham gia">
+                                  <CheckCircle2 size={12} className="mr-1" />
+                                  Đã duyệt
+                                </span>
+                              )}
+                              {hasSubmittedInvitation && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-300" title="Đã nộp hồ sơ">
+                                  <CheckCircle2 size={12} className="mr-1" />
+                                  Đã nộp hồ sơ
+                                </span>
+                              )}
+                              {hasAcceptedInvitation && !hasSubmittedInvitation && !hasApprovedInvitation && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-300" title="Đã chấp nhận lời mời">
+                                  <CheckCircle2 size={12} className="mr-1" />
+                                  Đã chấp nhận
+                                </span>
+                              )}
+                              {hasPendingInvitation && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300" title="Chờ phản hồi lời mời">
+                                  <Clock size={12} className="mr-1" />
+                                  Chờ phản hồi
+                                </span>
+                              )}
+                              {hasDeclinedInvitation && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-300" title="Đã từ chối lời mời">
+                                  <XCircle size={12} className="mr-1" />
+                                  Đã từ chối
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-gray-500 text-sm">{team.short_name || 'No short name'}</div>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span className="font-mono bg-gray-100 px-2 py-1 rounded">{team.code || '-'}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div>
-                          <div className="font-medium text-gray-900">{team.name}</div>
-                          <div className="text-gray-500 text-sm">{team.short_name || 'No short name'}</div>
+                          {team.city && <div>{team.city}</div>}
+                          {team.country && <div className="text-gray-500">{team.country}</div>}
+                          {!team.city && !team.country && '-'}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className="font-mono bg-gray-100 px-2 py-1 rounded">{team.code || '-'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div>
-                        {team.city && <div>{team.city}</div>}
-                        {team.country && <div className="text-gray-500">{team.country}</div>}
-                        {!team.city && !team.country && '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.founded_year || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(team.status)}`}
-                      >
-                        {team.status || 'active'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">{team.playerCount || 0}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/admin/teams/${team.id}`)}
-                          className="text-blue-600 hover:text-blue-900 transition-colors"
-                          title="View team details"
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.founded_year || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(team.status)}`}
                         >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(team)}
-                          className="text-gray-600 hover:text-gray-900 transition-colors"
-                          title="Edit team"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(team.id)}
-                          className="text-red-600 hover:text-red-900 transition-colors"
-                          title="Delete team"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {team.status || 'active'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">{team.playerCount || 0}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/admin/teams/${team.id}`)}
+                            className="text-blue-600 hover:text-blue-900 transition-colors"
+                            title="View team details"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(team)}
+                            className="text-gray-600 hover:text-gray-900 transition-colors"
+                            title="Edit team"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(team.id)}
+                            className="text-red-600 hover:text-red-900 transition-colors"
+                            title="Delete team"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
