@@ -16,6 +16,7 @@ import UsersManagement from './pages/UsersManagement'
 import RolesPermissions from './pages/RolesPermissions'
 import SettingsPage from './pages/SettingsPage'
 import ReportsPage from './pages/ReportsPage'
+import SupervisorReportsPage from './pages/SupervisorReportsPage'
 import StandingsPage from "../public/pages/StandingsPage";
 import ScheduleManagement from './pages/ScheduleManagement';
 import LiveMatchUpdatePage from './pages/LiveMatchUpdatePage';
@@ -62,7 +63,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
         <Route
           path="matches"
           element={
-            <AccessGuard permission="manage_matches" currentUser={currentUser}>
+            <AccessGuard permission="manage_matches" allowedRoles={["supervisor"]} currentUser={currentUser}>
               <MatchesManagement />
             </AccessGuard>
           }
@@ -128,6 +129,14 @@ const AdminApp = ({ onLogout, currentUser }) => {
           }
         />
         <Route path="reports" element={<ReportsPage />} />
+        <Route
+          path="supervisor-reports"
+          element={
+            <AccessGuard permission="manage_matches" currentUser={currentUser}>
+              <SupervisorReportsPage />
+            </AccessGuard>
+          }
+        />
         <Route
           path="settings"
           element={
@@ -207,7 +216,7 @@ const AdminApp = ({ onLogout, currentUser }) => {
         <Route
           path="matches/:matchId/live"
           element={
-            <AccessGuard permission="manage_matches" currentUser={currentUser}>
+            <AccessGuard permission="manage_matches" allowedRoles={["supervisor"]} currentUser={currentUser}>
               <LiveMatchUpdatePage />
             </AccessGuard>
           }

@@ -13,10 +13,21 @@ const createEventSchema = z.object({
     matchId: z.number().int().positive(),
     seasonId: z.number().int().positive(),
     seasonTeamId: z.number().int().positive(),
-    type: z.enum(['GOAL', 'ASSIST', 'YELLOW_CARD', 'RED_CARD', 'SUBSTITUTION', 'OWN_GOAL', 'PENALTY_MISS', 'OTHER']),
-    minute: z.number().int().min(0).max(130),
+    // Accept type as string (will be normalized by service)
+    type: z.string().trim().min(1).max(32),
+    minute: z.preprocess((val) => {
+        if (val === undefined || val === null || val === '') return null
+        const s = String(val)
+        const digits = s.replace(/[^0-9]/g, '')
+        if (digits === '') return null
+        const n = Number(digits)
+        return Number.isNaN(n) ? null : n
+    }, z.number().int().min(0).max(130).nullable().optional()),
     description: z.string().optional(),
-    playerId: z.number().int().positive().optional(),
+    playerId: z.preprocess((v) => {
+        if (v === undefined || v === null || v === '') return null
+        return Number(v)
+    }, z.number().int().positive().nullable().optional()),
     assistPlayerId: z.number().int().positive().optional(),
     inPlayerId: z.number().int().positive().optional(),
     outPlayerId: z.number().int().positive().optional(),

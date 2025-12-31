@@ -1,4 +1,5 @@
 import React from 'react'
+import { safeBtoaUnicode } from '../shared/utils/base64'
 import { Clock, MapPin, Calendar, Users } from 'lucide-react'
 import { formatDateGMT7, formatTimeGMT7 } from '../utils/timezone'
 
@@ -50,7 +51,7 @@ const MatchCard = ({ match }) => {
             alt={match.homeTeam.name}
             className="w-10 h-10 object-contain"
             onError={(e) => {
-              e.target.src = `data:image/svg+xml;base64,${btoa(`<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#003399"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${match.homeTeam.shortName}</text></svg>`)}`
+              e.target.src = `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#003399"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${match.homeTeam.shortName}</text></svg>`)}`
             }}
           />
           <div>
@@ -96,7 +97,7 @@ const MatchCard = ({ match }) => {
             alt={match.awayTeam.name}
             className="w-10 h-10 object-contain"
             onError={(e) => {
-              e.target.src = `data:image/svg+xml;base64,${btoa(`<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#003399"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${match.awayTeam.shortName}</text></svg>`)}`
+              e.target.src = `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#003399"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${match.awayTeam.shortName}</text></svg>`)}`
             }}
           />
         </div>

@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import MatchesService from '../../../layers/application/services/MatchesService';
 import TeamsService from '../../../layers/application/services/TeamsService';
+import { useAuth } from '../../../layers/application/context/AuthContext';
+import { hasPermission } from '../utils/accessControl';
 import toast from 'react-hot-toast';
 import TeamLineupEditor from '../components/TeamLineupEditor';
 
@@ -15,6 +17,9 @@ const LiveMatchUpdatePage = () => {
     const [match, setMatch] = useState(null);
     const [activeTab, setActiveTab] = useState('control');
     const [loading, setLoading] = useState(true);
+
+    const { user: currentUser } = useAuth();
+    const canEdit = hasPermission(currentUser, 'manage_matches');
 
     // Lineup State
     const [homeSquad, setHomeSquad] = useState([]);
@@ -152,6 +157,7 @@ const LiveMatchUpdatePage = () => {
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [selectedPlayerId, setSelectedPlayerId] = useState('');
     const [selectedSubstituteId, setSelectedSubstituteId] = useState(''); // For SUB event: player coming IN
+    const [eventMinute, setEventMinute] = useState(null); // Separate minute for event modal
 
     // Open Modal logic
     const openEventModal = (type, teamId) => {
@@ -164,6 +170,7 @@ const LiveMatchUpdatePage = () => {
         setSelectedTeamId(teamId);
         setSelectedPlayerId(''); // Reset selection
         setSelectedSubstituteId(''); // Reset substitute selection
+        setEventMinute(matchTime || null); // Initialize with current match time
         setShowModal(true);
     };
 
@@ -187,9 +194,15 @@ const LiveMatchUpdatePage = () => {
         }
 
         try {
-            const time = matchTime || 0;
+            // Use eventMinute from modal, fallback to matchTime, or require input
+            const time = eventMinute !== null && eventMinute !== undefined ? eventMinute : (matchTime || null);
+            
+            if (time === null || time === undefined) {
+                toast.error('Vui lòng nhập phút xảy ra sự kiện');
+                return;
+            }
+
             const payload = {
-                matchId,
                 teamId: selectedTeamId,
                 playerId: parseInt(selectedPlayerId),
                 type: selectedEventType,
@@ -203,11 +216,18 @@ const LiveMatchUpdatePage = () => {
 
             await MatchesService.createMatchEvent(matchId, payload);
             toast.success(`${selectedEventType} recorded!`);
+            
+            // Reset selections after successful submission
+            setSelectedPlayerId('');
+            setSelectedSubstituteId('');
+            setEventMinute(null);
+            
             fetchMatchData();
             setShowModal(false); // Close modal
         } catch (error) {
             console.error('Error saving event:', error);
-            toast.error('Failed to save event');
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to save event';
+            toast.error(errorMsg);
         }
     };
 
@@ -469,26 +489,34 @@ const LiveMatchUpdatePage = () => {
                             <h3 className="font-bold text-gray-700 border-b pb-2">{match.homeTeamName} Actions</h3>
                             <div className="grid grid-cols-2 gap-3">
                                 <button
-                                    onClick={() => openEventModal('GOAL', match.homeTeamId)}
-                                    className="p-4 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg border border-green-200 flex flex-col items-center gap-2 transition-colors"
+                                    onClick={() => canEdit && openEventModal('GOAL', match.homeTeamId)}
+                                    className={`p-4 ${canEdit ? 'bg-green-50 hover:bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'} rounded-lg border border-green-200 flex flex-col items-center gap-2 transition-colors`}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Bạn chỉ có quyền xem kết quả' : 'Record Goal'}
                                 >
                                     <Goal size={24} /> <span>Goal</span>
                                 </button>
                                 <button
-                                    onClick={() => openEventModal('YELLOW_CARD', match.homeTeamId)}
-                                    className="p-4 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-lg border border-yellow-200 flex flex-col items-center gap-2 transition-colors"
+                                    onClick={() => canEdit && openEventModal('YELLOW_CARD', match.homeTeamId)}
+                                    className={`p-4 ${canEdit ? 'bg-yellow-50 hover:bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'} rounded-lg border border-yellow-200 flex flex-col items-center gap-2 transition-colors`}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Bạn chỉ có quyền xem kết quả' : 'Yellow Card'}
                                 >
                                     <Square fill="currentColor" size={24} /> <span>Yellow Card</span>
                                 </button>
                                 <button
-                                    onClick={() => openEventModal('RED_CARD', match.homeTeamId)}
-                                    className="p-4 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg border border-red-200 flex flex-col items-center gap-2 transition-colors"
+                                    onClick={() => canEdit && openEventModal('RED_CARD', match.homeTeamId)}
+                                    className={`p-4 ${canEdit ? 'bg-red-50 hover:bg-red-100 text-red-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'} rounded-lg border border-red-200 flex flex-col items-center gap-2 transition-colors`}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Bạn chỉ có quyền xem kết quả' : 'Red Card'}
                                 >
                                     <Square fill="currentColor" size={24} /> <span>Red Card</span>
                                 </button>
                                 <button
-                                    onClick={() => openEventModal('SUBSTITUTION', match.homeTeamId)}
-                                    className="p-4 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg border border-blue-200 flex flex-col items-center gap-2 transition-colors"
+                                    onClick={() => canEdit && openEventModal('SUBSTITUTION', match.homeTeamId)}
+                                    className={`p-4 ${canEdit ? 'bg-blue-50 hover:bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'} rounded-lg border border-blue-200 flex flex-col items-center gap-2 transition-colors`}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Bạn chỉ có quyền xem kết quả' : 'Substitution'}
                                 >
                                     <Replace size={24} /> <span>Sub</span>
                                 </button>
@@ -515,13 +543,19 @@ const LiveMatchUpdatePage = () => {
                                                     {event.player || 'Unknown Player'} ({event.teamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName})
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => handleDeleteEvent(event)}
-                                                className="text-red-400 hover:text-red-600 p-1"
-                                                title="Delete or Disallow"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
+                                            {canEdit ? (
+                                                <button
+                                                    onClick={() => handleDeleteEvent(event)}
+                                                    className="text-red-400 hover:text-red-600 p-1"
+                                                    title="Delete or Disallow"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            ) : (
+                                                <div className="text-gray-300 p-1" title="Bạn chỉ có quyền xem">
+                                                    <Trash2 size={14} />
+                                                </div>
+                                            )}
                                         </div>
                                     ))
                                 )}
@@ -534,12 +568,15 @@ const LiveMatchUpdatePage = () => {
                                         onChange={(e) => setMatchTime(parseInt(e.target.value))}
                                         className="w-20 p-2 border rounded text-center font-mono"
                                         min="0" max="120"
+                                        disabled={!canEdit}
                                     />
                                     <button
-                                        className="flex-1 bg-red-600 text-white rounded font-bold hover:bg-red-700 transition-colors py-2 flex items-center justify-center gap-2"
-                                        onClick={handleFinalize}
+                                        className={`flex-1 ${canEdit ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'} rounded font-bold transition-colors py-2 flex items-center justify-center gap-2`}
+                                        onClick={() => canEdit && handleFinalize()}
+                                        disabled={!canEdit}
+                                        title={!canEdit ? 'Bạn chỉ có quyền xem' : 'End Match'}
                                     >
-                                        <ShieldCheck size={18} /> End Match
+                                        <ShieldCheck size={18} /> {canEdit ? 'End Match' : 'Chỉ xem'}
                                     </button>
                                 </div>
                             </div>
@@ -580,19 +617,22 @@ const LiveMatchUpdatePage = () => {
 
                 {activeTab === 'lineups' && (
                     <div className="grid grid-cols-2 gap-8">
+                        {!canEdit && (
+                            <div className="col-span-2 p-3 bg-yellow-50 text-yellow-800 rounded mb-2">Bạn chỉ có quyền xem đội hình (giám sát).</div>
+                        )}
                         <TeamLineupEditor
                             teamId={match.homeTeamId}
                             teamName={match.homeTeamName}
                             squad={homeSquad}
                             initialLineup={homeLineup}
-                            onSave={handleLineupSave}
+                            onSave={canEdit ? handleLineupSave : undefined}
                         />
                         <TeamLineupEditor
                             teamId={match.awayTeamId}
                             teamName={match.awayTeamName}
                             squad={awaySquad}
                             initialLineup={awayLineup}
-                            onSave={handleLineupSave}
+                            onSave={canEdit ? handleLineupSave : undefined}
                         />
                     </div>
                 )}
@@ -650,6 +690,25 @@ const LiveMatchUpdatePage = () => {
                                 </div>
                             )}
 
+                            {/* Minute input field */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Phút xảy ra sự kiện (Minute) *</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="130"
+                                    className="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
+                                    value={eventMinute !== null && eventMinute !== undefined ? eventMinute : ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value === '' ? null : parseInt(e.target.value);
+                                        setEventMinute(val !== null && !isNaN(val) && val >= 0 ? val : null);
+                                    }}
+                                    placeholder="Nhập phút (ví dụ: 45, 90)"
+                                    required
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Nhập số phút xảy ra sự kiện (0-130). Hiện tại: {matchTime || 0}'</p>
+                            </div>
+
                             <div className="flex justify-end gap-3 pt-4">
                                 <button
                                     onClick={() => setShowModal(false)}
@@ -658,10 +717,12 @@ const LiveMatchUpdatePage = () => {
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={submitEvent}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium"
+                                    onClick={() => canEdit && submitEvent()}
+                                    className={`px-4 py-2 ${canEdit ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'} rounded-md font-medium`}
+                                    disabled={!canEdit}
+                                    title={!canEdit ? 'Bạn chỉ có quyền xem' : 'Confirm'}
                                 >
-                                    Confirm
+                                    {canEdit ? 'Confirm' : 'Chỉ xem'}
                                 </button>
                             </div>
                         </div>

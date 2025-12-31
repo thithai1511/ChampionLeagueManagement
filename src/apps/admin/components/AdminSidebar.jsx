@@ -62,7 +62,8 @@ const MENU_SECTIONS = [
       { name: 'Cầu thủ', path: '/admin/players', icon: UserCheck, anyPermissions: ['manage_teams', 'approve_player_registrations'] },
       { name: 'Trận đấu', path: '/admin/matches', icon: Calendar, permission: 'manage_matches' },
       { name: 'Thống kê', path: '/admin/statistics', icon: Trophy, permission: 'manage_matches' },
-      { name: 'Trọng tài & Giám sát', path: '/admin/officials', icon: Shield, permission: 'manage_matches' }
+      { name: 'Trọng tài & Giám sát', path: '/admin/officials', icon: Shield, permission: 'manage_matches' },
+      { name: 'Báo cáo Giám sát', path: '/admin/supervisor-reports', icon: FileText, permission: 'manage_matches' }
     ]
   },
   {
@@ -108,6 +109,21 @@ const AdminSidebar = ({ currentUser }) => {
         const items = section.items.filter((item) => {
           if (!hasAllowedRole(item.allowedRoles) || hasDisallowedRole(item.disallowedRoles)) {
             return false
+          }
+
+          // If the menu item explicitly allows certain roles, grant visibility
+          // to those roles regardless of permission checks (useful for supervisor view-only links).
+          if (Array.isArray(item.allowedRoles) && item.allowedRoles.length > 0 && hasAllowedRole(item.allowedRoles)) {
+            return true
+          }
+
+          // Special case: supervisors should be able to SEE the Matches page (view-only)
+          // even if they don't hold the 'manage_matches' permission.
+          if (item.permission === 'manage_matches') {
+            const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : []
+            if (roles.includes('supervisor') || currentUser?.role === 'supervisor') {
+              return true
+            }
           }
 
           return Array.isArray(item.anyPermissions)
@@ -204,14 +220,16 @@ const AdminSidebar = ({ currentUser }) => {
 
       {/* Quick Actions */}
       <div className="relative z-10 mt-auto border-t border-white/10 p-4">
-        <div className="space-y-3">
-          <button className="group w-full relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white py-3 px-4 rounded-xl font-bold text-sm tracking-wide transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]">
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              <Zap size={16} />
-              Thêm trận đấu
-            </span>
-            <span className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-          </button>
+          <div className="space-y-3">
+          {hasPermission(currentUser, 'manage_matches') && (
+            <button className="group w-full relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white py-3 px-4 rounded-xl font-bold text-sm tracking-wide transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]">
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <Zap size={16} />
+                Thêm trận đấu
+              </span>
+              <span className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            </button>
+          )}
           <button className="w-full bg-white/5 hover:bg-white/10 text-blue-200/80 hover:text-white py-2.5 px-4 rounded-xl font-medium text-sm transition-all duration-300 border border-white/10 hover:border-white/20 flex items-center justify-center gap-2">
             <BarChart3 size={16} />
             Xuất báo cáo

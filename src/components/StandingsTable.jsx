@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { safeBtoaUnicode } from '../shared/utils/base64'
 import { TrendingUp, TrendingDown, Minus, Info, Eye, BarChart3 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -132,7 +133,7 @@ const StandingsTable = ({ standings, selectedGroup }) => {
                       alt={team.team}
                       className="w-8 h-8 object-contain hover:scale-110 transition-transform duration-300"
                       onError={(e) => {
-                        e.target.src = `data:image/svg+xml;base64,${btoa(`<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#003399"/><text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${team.team.substring(0, 3).toUpperCase()}</text></svg>`)}`
+                        e.target.src = `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#003399"/><text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${team.team.substring(0, 3).toUpperCase()}</text></svg>`)}`
                       }}
                     />
                     <div>
@@ -201,7 +202,7 @@ const StandingsTable = ({ standings, selectedGroup }) => {
                       alt={team.team}
                       className="w-8 h-8 object-contain mr-3"
                       onError={(e) => {
-                        e.target.src = `data:image/svg+xml;base64,${btoa(`<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#003399"/><text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${(team.team || 'TM').substring(0, 3).toUpperCase()}</text></svg>`)}`
+                        e.target.src = `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#003399"/><text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${(team.team || 'TM').substring(0, 3).toUpperCase()}</text></svg>`)}`
                       }}
                     />
                     {team.team} - Detailed Stats

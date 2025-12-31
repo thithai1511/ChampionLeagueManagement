@@ -41,7 +41,8 @@ const roleStyleMap = {
   team_admin: 'bg-cyan-100 text-cyan-800',
   content_manager: 'bg-indigo-100 text-indigo-800',
   match_official: 'bg-emerald-100 text-emerald-800',
-  viewer: 'bg-gray-100 text-gray-800'
+  viewer: 'bg-gray-100 text-gray-800',
+  supervisor: 'bg-amber-100 text-amber-800'
 }
 
 const formatDate = (value) => {

@@ -133,6 +133,18 @@ router.get(
 // ============================================================
 
 /**
+ * GET /api/admin/supervisor-reports
+ * Get all supervisor reports (for admin)
+ * Query: ?seasonId=1
+ */
+router.get(
+  "/admin/supervisor-reports",
+  requireAuth,
+  requirePermission("manage_matches"),
+  controller.getAllSupervisorReports
+);
+
+/**
  * GET /api/admin/supervisor-reports/disciplinary
  * Get reports flagged for disciplinary review
  * Query: ?seasonId=1

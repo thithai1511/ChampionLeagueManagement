@@ -79,17 +79,44 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     seasonPlayerId = playerData.recordset[0]?.season_player_id;
   }
 
-  // 4. Insert with Correct Schema
-  let dbEventType = input.type;
-  let cardType = null;
-  const goalTypeCode = input.type === 'GOAL' ? 'N' : null;
+  // 4. Normalize event type and decide card_type only for disciplinary events
+  const rawType = String(input.type || '').toUpperCase()
+  let dbEventType = rawType
+  let cardType: string | null = null
+  let goalTypeCode: string | null = null
 
-  if (input.type === 'YELLOW_CARD') {
-    dbEventType = 'CARD';
-    cardType = 'Yellow';
-  } else if (input.type === 'RED_CARD') {
-    dbEventType = 'CARD';
-    cardType = 'Red';
+  switch (rawType) {
+    case 'GOAL':
+    case 'G':
+      dbEventType = 'GOAL'
+      goalTypeCode = 'N'
+      break
+    case 'OWN_GOAL':
+    case 'OWN':
+      dbEventType = 'OWN_GOAL'
+      break
+    case 'YELLOW_CARD':
+    case 'YELLOW':
+    case 'Y':
+      dbEventType = 'CARD'
+      cardType = 'Yellow'
+      break
+    case 'RED_CARD':
+    case 'RED':
+    case 'R':
+      dbEventType = 'CARD'
+      cardType = 'Red'
+      break
+    case 'SUBSTITUTION':
+    case 'SUB':
+      dbEventType = 'SUBSTITUTION'
+      break
+    case 'FOUL':
+      dbEventType = 'FOUL'
+      break
+    default:
+      // Keep whatever was provided but ensure it's uppercase
+      dbEventType = rawType || 'OTHER'
   }
 
   const querySql = `
