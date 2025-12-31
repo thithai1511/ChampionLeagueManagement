@@ -1,5 +1,4 @@
 import { query } from "../db/sqlServer";
-import * as goalTypeService from "./goalTypeService";
 import { BadRequestError } from "../utils/httpError";
 
 export interface MatchEvent {
@@ -90,12 +89,13 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     seasonPlayerId = playerData.recordset[0]?.season_player_id;
   }
 
-  // 4. Validate and set goal type code
-  let dbEventType = input.type;
-  let cardType = null;
+// 4. Normalize event type and set defaults
+  const rawType = String(input.type || '').toUpperCase();
+  let dbEventType = rawType;
+  let cardType: string | null = null;
   let goalTypeCode: string | null = null;
 
-  if (input.type === 'GOAL') {
+  if (rawType === 'GOAL') {
     // Get goal type code from input or use default
     const requestedCode = (input as any).goalTypeCode || 'open_play';
     
@@ -109,7 +109,14 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     
     if (!goalTypeInfo.recordset[0]) {
       // Get list of valid codes for error message
-      const validCodes = await goalTypeService.getActiveGoalTypeCodes(rulesetId);
+      const validCodesResult = await query<{ code: string }>(
+        `SELECT code
+         FROM ruleset_goal_types
+         WHERE ruleset_id = @rulesetId AND is_active = 1
+         ORDER BY code ASC`,
+        { rulesetId }
+      );
+      const validCodes = validCodesResult.recordset.map(row => row.code);
       throw BadRequestError(
         `Invalid goal type code "${requestedCode}". Valid codes for this ruleset: ${validCodes.length > 0 ? validCodes.join(', ') : 'none configured'}`
       );
@@ -128,12 +135,38 @@ export const createMatchEvent = async (input: Partial<MatchEvent & { teamId: num
     goalTypeCode = requestedCode;
   }
 
-  if (input.type === 'YELLOW_CARD') {
-    dbEventType = 'CARD';
-    cardType = 'Yellow';
-  } else if (input.type === 'RED_CARD') {
-    dbEventType = 'CARD';
-    cardType = 'Red';
+  switch (rawType) {
+    case 'GOAL':
+    case 'G':
+      dbEventType = 'GOAL'
+      goalTypeCode = 'N'
+      break
+    case 'OWN_GOAL':
+    case 'OWN':
+      dbEventType = 'OWN_GOAL'
+      break
+    case 'YELLOW_CARD':
+    case 'YELLOW':
+    case 'Y':
+      dbEventType = 'CARD'
+      cardType = 'Yellow'
+      break
+    case 'RED_CARD':
+    case 'RED':
+    case 'R':
+      dbEventType = 'CARD'
+      cardType = 'Red'
+      break
+    case 'SUBSTITUTION':
+    case 'SUB':
+      dbEventType = 'SUBSTITUTION'
+      break
+    case 'FOUL':
+      dbEventType = 'FOUL'
+      break
+    default:
+      // Keep whatever was provided but ensure it's uppercase
+      dbEventType = rawType || 'OTHER'
   }
 
   const querySql = `

@@ -43,7 +43,8 @@ const MENU_SECTIONS = [
         anyPermissions: ['manage_teams', 'manage_own_player_registrations'],
         disallowedRoles: ['super_admin']
       },
-      { name: 'Đăng ký mùa giải', path: '/admin/player-registrations', icon: FileText, permission: 'manage_own_player_registrations' }
+      { name: 'Đăng ký mùa giải', path: '/admin/player-registrations', icon: FileText, permission: 'manage_own_player_registrations' },
+      { name: 'Đăng ký thi đấu', path: '/admin/match-lineup-registration', icon: Target, permission: 'view_own_team' }
     ]
   },
   {
@@ -61,7 +62,8 @@ const MENU_SECTIONS = [
       { name: 'Cầu thủ', path: '/admin/players', icon: UserCheck, anyPermissions: ['manage_teams', 'approve_player_registrations'] },
       { name: 'Trận đấu', path: '/admin/matches', icon: Calendar, permission: 'manage_matches' },
       { name: 'Thống kê', path: '/admin/statistics', icon: Trophy, permission: 'manage_matches' },
-      { name: 'Trọng tài & Giám sát', path: '/admin/officials', icon: Shield, permission: 'manage_matches' }
+      { name: 'Trọng tài & Giám sát', path: '/admin/officials', icon: Shield, permission: 'manage_matches' },
+      { name: 'Báo cáo Giám sát', path: '/admin/supervisor-reports', icon: FileText, permission: 'manage_matches' }
     ]
   },
   {
@@ -105,6 +107,21 @@ const AdminSidebar = ({ currentUser }) => {
         const items = section.items.filter((item) => {
           if (!hasAllowedRole(item.allowedRoles) || hasDisallowedRole(item.disallowedRoles)) {
             return false
+          }
+
+          // If the menu item explicitly allows certain roles, grant visibility
+          // to those roles regardless of permission checks (useful for supervisor view-only links).
+          if (Array.isArray(item.allowedRoles) && item.allowedRoles.length > 0 && hasAllowedRole(item.allowedRoles)) {
+            return true
+          }
+
+          // Special case: supervisors should be able to SEE the Matches page (view-only)
+          // even if they don't hold the 'manage_matches' permission.
+          if (item.permission === 'manage_matches') {
+            const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : []
+            if (roles.includes('supervisor') || currentUser?.role === 'supervisor') {
+              return true
+            }
           }
 
           return Array.isArray(item.anyPermissions)
@@ -165,11 +182,10 @@ const AdminSidebar = ({ currentUser }) => {
                   <li key={item.name}>
                     <Link
                       to={item.path}
-                      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${
-                        isActive
+                      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${isActive
                           ? 'bg-gradient-to-r from-blue-600/30 via-blue-500/20 to-transparent text-white shadow-lg shadow-blue-500/10'
                           : 'text-blue-200/60 hover:text-white hover:bg-white/5'
-                      }`}
+                        }`}
                     >
                       {isActive && (
                         <>
@@ -177,11 +193,10 @@ const AdminSidebar = ({ currentUser }) => {
                           <span className="absolute inset-0 rounded-xl ring-1 ring-blue-500/30"></span>
                         </>
                       )}
-                      <span className={`relative z-10 p-1.5 rounded-lg transition-all duration-300 ${
-                        isActive 
+                      <span className={`relative z-10 p-1.5 rounded-lg transition-all duration-300 ${isActive
                           ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30'
                           : 'bg-white/5 text-blue-300/70 group-hover:bg-white/10 group-hover:text-cyan-300'
-                      }`}>
+                        }`}>
                         <item.icon size={16} />
                       </span>
                       <span className={`font-medium text-sm transition-all duration-300 ${isActive ? 'translate-x-1' : 'group-hover:translate-x-1'}`}>
@@ -201,20 +216,22 @@ const AdminSidebar = ({ currentUser }) => {
 
       {/* Quick Actions */}
       <div className="relative z-10 mt-auto border-t border-white/10 p-4">
-        <div className="space-y-3">
-          <button className="group w-full relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white py-3 px-4 rounded-xl font-bold text-sm tracking-wide transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]">
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              <Zap size={16} />
-              Thêm trận đấu
-            </span>
-            <span className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-          </button>
+          <div className="space-y-3">
+          {hasPermission(currentUser, 'manage_matches') && (
+            <button className="group w-full relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white py-3 px-4 rounded-xl font-bold text-sm tracking-wide transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]">
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <Zap size={16} />
+                Thêm trận đấu
+              </span>
+              <span className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            </button>
+          )}
           <button className="w-full bg-white/5 hover:bg-white/10 text-blue-200/80 hover:text-white py-2.5 px-4 rounded-xl font-medium text-sm transition-all duration-300 border border-white/10 hover:border-white/20 flex items-center justify-center gap-2">
             <BarChart3 size={16} />
             Xuất báo cáo
           </button>
         </div>
-        
+
         {/* UCL Badge */}
         <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-center gap-2 text-[10px] text-blue-400/40 uppercase tracking-widest">
           <Trophy size={12} />

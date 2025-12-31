@@ -1,4 +1,5 @@
 import React from 'react'
+import { safeBtoaUnicode } from '../shared/utils/base64'
 import { TrendingUp, TrendingDown, Users, Target, Shield, Clock } from 'lucide-react'
 
 const MatchPreview = ({ homeTeam, awayTeam, venue, date, time }) => {
@@ -78,7 +79,7 @@ const MatchPreview = ({ homeTeam, awayTeam, venue, date, time }) => {
             alt={homeTeam.name}
             className="w-20 h-20 object-contain mx-auto mb-4"
             onError={(e) => {
-              e.target.src = `data:image/svg+xml;base64,${btoa(`<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="40" fill="#003399"/><text x="40" y="48" text-anchor="middle" fill="white" font-size="16" font-weight="bold">${homeTeam.name.substring(0, 3).toUpperCase()}</text></svg>`)}`
+              e.target.src = `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="40" fill="#003399"/><text x="40" y="48" text-anchor="middle" fill="white" font-size="16" font-weight="bold">${homeTeam.name.substring(0, 3).toUpperCase()}</text></svg>`)}`
             }}
           />
           <h3 className="text-xl font-bold text-uefa-dark mb-2">{homeTeam.name}</h3>
@@ -97,7 +98,7 @@ const MatchPreview = ({ homeTeam, awayTeam, venue, date, time }) => {
             alt={awayTeam.name}
             className="w-20 h-20 object-contain mx-auto mb-4"
             onError={(e) => {
-              e.target.src = `data:image/svg+xml;base64,${btoa(`<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="40" fill="#003399"/><text x="40" y="48" text-anchor="middle" fill="white" font-size="16" font-weight="bold">${awayTeam.name.substring(0, 3).toUpperCase()}</text></svg>`)}`
+              e.target.src = `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="40" fill="#003399"/><text x="40" y="48" text-anchor="middle" fill="white" font-size="16" font-weight="bold">${awayTeam.name.substring(0, 3).toUpperCase()}</text></svg>`)}`
             }}
           />
           <h3 className="text-xl font-bold text-uefa-dark mb-2">{awayTeam.name}</h3>

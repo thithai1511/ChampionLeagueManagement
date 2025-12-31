@@ -13,7 +13,8 @@ import * as matchLifecycleService from "./matchLifecycleService";
 import { NotificationService } from "./notificationService";
 
 export interface SupervisorReport {
-  report_id: number;
+  id: number;
+  report_id?: number; // Alias for backward compatibility
   match_id: number;
   supervisor_id: number;
   supervisor_name?: string;
@@ -49,7 +50,8 @@ export interface CreateSupervisorReportInput {
  * Create or update supervisor report
  */
 export async function createSupervisorReport(
-  input: CreateSupervisorReportInput
+  input: CreateSupervisorReportInput,
+  options?: { skipAssignedCheck?: boolean }
 ): Promise<SupervisorReport> {
   const {
     matchId,
@@ -65,19 +67,23 @@ export async function createSupervisorReport(
     recommendations,
   } = input;
 
-  // Check if match exists and supervisor is assigned
+  // Check if match exists and optionally check supervisor assignment
   const match = await matchLifecycleService.getMatchDetails(matchId);
   if (!match) {
     throw new Error("Match not found");
   }
-
-  if (match.supervisor_id !== supervisorId) {
-    throw new Error("User is not the assigned supervisor for this match");
+  if (!options?.skipAssignedCheck) {
+    if (match.supervisor_id !== supervisorId) {
+      throw new Error("User is not the assigned supervisor for this match");
+    }
   }
 
-  // Check if match is in valid status for reporting
-  if (match.status !== "FINISHED" && match.status !== "REPORTED") {
-    throw new Error(`Cannot submit report when match status is ${match.status}`);
+  // Check if match is in valid status for reporting (normalize casing)
+  // Allow reporting for FINISHED, REPORTED, COMPLETED, and IN_PROGRESS (for live reporting)
+  const matchStatus = String(match.status || '').toUpperCase()
+  const allowedStatuses = ['FINISHED', 'REPORTED', 'COMPLETED', 'IN_PROGRESS', 'IN_PLAY', 'LIVE']
+  if (!allowedStatuses.includes(matchStatus)) {
+    throw new Error(`Không thể gửi báo cáo khi trận đấu đang ở trạng thái "${match.status}". Trận đấu phải ở trạng thái FINISHED, REPORTED, COMPLETED, hoặc IN_PROGRESS.`);
   }
 
   // Check if report already exists
@@ -163,6 +169,9 @@ export async function createSupervisorReport(
   // Mark supervisor report as submitted in match table
   await matchLifecycleService.markSupervisorReportSubmitted(matchId, supervisorId);
 
+  // Notify admins about new supervisor report
+  await notifyAdminsAboutNewReport(match, supervisorId);
+
   // If flagged for disciplinary, notify disciplinary committee
   if (sendToDisciplinary) {
     await notifyDisciplinaryCommittee(match, incidentReport);
@@ -178,7 +187,8 @@ export async function getSupervisorReport(matchId: number): Promise<SupervisorRe
   const result = await query<SupervisorReport>(
     `
     SELECT 
-      sr.report_id,
+      sr.id,
+      sr.id as report_id,
       sr.match_id,
       sr.supervisor_id,
       u.full_name as supervisor_name,
@@ -212,7 +222,8 @@ export async function getReportsForDisciplinaryReview(
 ): Promise<SupervisorReport[]> {
   let sql = `
     SELECT 
-      sr.report_id,
+      sr.id,
+      sr.id as report_id,
       sr.match_id,
       sr.supervisor_id,
       u.full_name as supervisor_name,
@@ -265,10 +276,49 @@ export async function reviewSupervisorReport(
           THEN CONCAT(ISNULL(recommendations, ''), CHAR(13) + CHAR(10) + 'BTC Review: ', @notes)
           ELSE recommendations
         END
-    WHERE report_id = @reportId
+    WHERE id = @reportId
     `,
     { reportId, reviewedBy, notes: notes || null }
   );
+}
+
+/**
+ * Notify admins about new supervisor report
+ */
+async function notifyAdminsAboutNewReport(
+  match: any,
+  supervisorId: number
+): Promise<void> {
+  // Get all admin users (users with manage_matches permission)
+  const admins = await query<{ user_id: number }>(
+    `
+    SELECT DISTINCT ur.user_id
+    FROM user_role_assignments ur
+    INNER JOIN role_permissions rp ON ur.role_id = rp.role_id
+    INNER JOIN permissions p ON rp.permission_id = p.permission_id
+    WHERE p.code = 'manage_matches'
+    AND ur.user_id IN (SELECT user_id FROM user_accounts WHERE status = 'active')
+    `
+  );
+
+  // Get supervisor name
+  const supervisorInfo = await query<{ full_name: string }>(
+    `SELECT full_name FROM user_accounts WHERE user_id = @supervisorId`,
+    { supervisorId }
+  );
+  const supervisorName = supervisorInfo.recordset[0]?.full_name || 'Supervisor';
+
+  for (const admin of admins.recordset) {
+    await NotificationService.createNotification({
+      userId: admin.user_id,
+      type: "supervisor_report_submitted",
+      title: `📋 Báo cáo giám sát mới`,
+      message: `Giám sát ${supervisorName} đã gửi báo cáo cho trận ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`,
+      relatedEntity: "match",
+      relatedId: match.match_id || match.id,
+      actionUrl: `/admin/supervisor-reports?matchId=${match.match_id || match.id}`,
+    });
+  }
 }
 
 /**
@@ -283,7 +333,7 @@ async function notifyDisciplinaryCommittee(
     `
     SELECT DISTINCT ur.user_id
     FROM user_role_assignments ur
-    INNER JOIN role_permission_assignments rp ON ur.role_id = rp.role_id
+    INNER JOIN role_permissions rp ON ur.role_id = rp.role_id
     INNER JOIN permissions p ON rp.permission_id = p.permission_id
     WHERE p.code = 'manage_discipline'
     AND ur.user_id IN (SELECT user_id FROM user_accounts WHERE status = 'active')
@@ -312,7 +362,8 @@ export async function getSupervisorReportsBySupervisor(
 ): Promise<SupervisorReport[]> {
   let sql = `
     SELECT 
-      sr.report_id,
+      sr.id,
+      sr.id as report_id,
       sr.match_id,
       sr.supervisor_id,
       u.full_name as supervisor_name,
@@ -344,6 +395,58 @@ export async function getSupervisorReportsBySupervisor(
   sql += " ORDER BY sr.submitted_at DESC";
 
   const result = await query<SupervisorReport>(sql, params);
+  return result.recordset;
+}
+
+/**
+ * Get all supervisor reports (for admin)
+ */
+export async function getAllSupervisorReports(
+  seasonId?: number
+): Promise<SupervisorReport[]> {
+  let sql = `
+    SELECT 
+      sr.id,
+      sr.id as report_id,
+      sr.match_id,
+      sr.supervisor_id,
+      u.full_name as supervisor_name,
+      sr.organization_rating,
+      sr.home_team_rating,
+      sr.away_team_rating,
+      sr.stadium_condition_rating,
+      sr.security_rating,
+      sr.incident_report,
+      sr.has_serious_violation,
+      sr.send_to_disciplinary,
+      sr.recommendations,
+      CONVERT(VARCHAR(23), sr.submitted_at, 126) as submitted_at,
+      sr.reviewed_by,
+      CONVERT(VARCHAR(23), sr.reviewed_at, 126) as reviewed_at,
+      ht.name as home_team_name,
+      at.name as away_team_name,
+      CONVERT(VARCHAR(23), m.scheduled_kickoff, 126) as match_date
+    FROM supervisor_reports sr
+    LEFT JOIN user_accounts u ON sr.supervisor_id = u.user_id
+    INNER JOIN matches m ON sr.match_id = m.match_id
+    INNER JOIN season_team_participants stp_home ON m.home_season_team_id = stp_home.season_team_id
+    INNER JOIN teams ht ON stp_home.team_id = ht.team_id
+    INNER JOIN season_team_participants stp_away ON m.away_season_team_id = stp_away.season_team_id
+    INNER JOIN teams at ON stp_away.team_id = at.team_id
+    WHERE 1=1
+  `;
+
+  const params: any = {};
+
+  if (seasonId) {
+    sql += " AND m.season_id = @seasonId";
+    params.seasonId = seasonId;
+  }
+
+  sql += " ORDER BY sr.submitted_at DESC";
+
+  const result = await query<SupervisorReport & { home_team_name?: string; away_team_name?: string; match_date?: string }>(sql, params);
+  console.log(`[getAllSupervisorReports] Found ${result.recordset.length} reports`);
   return result.recordset;
 }
 

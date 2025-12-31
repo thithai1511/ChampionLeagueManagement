@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Trophy, Star, Zap, Award, TrendingUp, ChevronDown } from 'lucide-react';
 import StatsService from '../layers/application/services/StatsService';
 import TeamsService from '../layers/application/services/TeamsService';
+import ApiService from '../layers/application/services/ApiService';
 import { getAvatarWithFallback } from '../shared/utils/playerAvatar';
 
 // Player Card Component - FIFA Style
@@ -190,56 +191,160 @@ const BestXI = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [showFormationDropdown, setShowFormationDropdown] = useState(false);
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+  const [showSeasonDropdown, setShowSeasonDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [allPlayers, setAllPlayers] = useState([]);
   const [playerAvatars, setPlayerAvatars] = useState({});
+  const [error, setError] = useState(null);
+  const [availableSeasons, setAvailableSeasons] = useState([]);
+  const [selectedSeasonId, setSelectedSeasonId] = useState(null);
+  const [selectedSeasonYear, setSelectedSeasonYear] = useState(null);
 
   // Fetch players from public API (StatsService)
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
         setLoading(true);
+        console.log('[BestXI] ========== Starting to fetch players ==========');
         
-        // First get latest season from public endpoint
-        const seasons = await TeamsService.getCompetitionSeasons();
-        const latestSeason = seasons?.[0];
-        
-        if (!latestSeason?.season_id && !latestSeason?.id) {
-          console.warn('No seasons found for BestXI');
+        // Get seasons from internal database API (real data)
+        let seasonsResponse;
+        try {
+          seasonsResponse = await ApiService.get('/teams/seasons');
+          console.log('[BestXI] Seasons API response:', seasonsResponse);
+        } catch (seasonsError) {
+          console.error('[BestXI] Failed to fetch seasons:', seasonsError);
           setAllPlayers([]);
           setLoading(false);
           return;
         }
         
-        const seasonId = latestSeason.season_id ?? latestSeason.id;
+        const allSeasons = Array.isArray(seasonsResponse) ? seasonsResponse : (seasonsResponse?.data || []);
+        console.log('[BestXI] All seasons fetched from DB:', allSeasons?.length || 0, allSeasons);
+        
+        // Filter seasons for years 2024, 2025, 2026 only
+        const targetSeasons = (allSeasons || []).map(season => {
+          // Extract year from various possible formats
+          let year = season.year;
+          if (!year && (season.startDate || season.start_date)) {
+            const dateStr = season.startDate || season.start_date;
+            year = new Date(dateStr).getFullYear();
+          }
+          // Also check name/code for year patterns like "2024-2025", "24/25", "VL2425"
+          if (!year && season.name) {
+            const yearMatch = season.name.match(/(20\d{2})/);
+            if (yearMatch) year = parseInt(yearMatch[1], 10);
+          }
+          if (!year && season.code) {
+            const yearMatch = season.code.match(/(20\d{2})|(\d{2})(\d{2})/);
+            if (yearMatch) {
+              if (yearMatch[1]) year = parseInt(yearMatch[1], 10);
+              else if (yearMatch[2] && yearMatch[3]) {
+                const firstYear = parseInt('20' + yearMatch[2], 10);
+                year = firstYear;
+              }
+            }
+          }
+          
+          return {
+            ...season,
+            calculatedYear: year,
+            seasonId: season.season_id ?? season.id ?? season.seasonId,
+            label: season.label || season.name || `${year || 'N/A'}-${year ? year + 1 : 'N/A'}`
+          };
+        }).filter(season => {
+          const year = season.calculatedYear;
+          const isValidYear = year && (year === 2024 || year === 2025 || year === 2026);
+          console.log('[BestXI] Season check:', { 
+            id: season.seasonId, 
+            name: season.name || season.label,
+            year, 
+            isValidYear,
+            startDate: season.startDate || season.start_date 
+          });
+          return isValidYear;
+        }).sort((a, b) => {
+          const yearA = a.calculatedYear || 0;
+          const yearB = b.calculatedYear || 0;
+          return yearB - yearA; // Sort descending (newest first)
+        });
+        
+        console.log('[BestXI] Filtered seasons (2024-2026):', targetSeasons.length, targetSeasons);
+        
+        if (targetSeasons.length === 0) {
+          console.warn('[BestXI] No seasons found for 2024-2026');
+          setAvailableSeasons([]);
+          setAllPlayers([]);
+          setLoading(false);
+          return;
+        }
+        
+        // Store available seasons for dropdown
+        setAvailableSeasons(targetSeasons);
+        
+        // Use selected season or default to latest
+        const currentSeason = selectedSeasonId 
+          ? targetSeasons.find(s => s.seasonId === selectedSeasonId) || targetSeasons[0]
+          : targetSeasons[0];
+        
+        const seasonId = currentSeason.seasonId;
+        const seasonYear = currentSeason.calculatedYear;
+        
+        console.log('[BestXI] Using season ID:', seasonId, 'Year:', seasonYear, 'Season:', currentSeason);
+        
+        if (!seasonId) {
+          console.error('[BestXI] Invalid season ID');
+          setAllPlayers([]);
+          setLoading(false);
+          return;
+        }
+        
+        // Update selected season state
+        setSelectedSeasonId(seasonId);
+        setSelectedSeasonYear(seasonYear);
         
         // Fetch top scorers from public stats endpoint
-        const topScorers = await StatsService.getTopScorers(seasonId, 100);
+        let topScorers;
+        try {
+          topScorers = await StatsService.getTopScorers(seasonId, 100);
+          console.log('[BestXI] Top scorers fetched:', topScorers?.length || 0, topScorers);
+        } catch (statsError) {
+          console.error('[BestXI] Failed to fetch top scorers:', statsError);
+          setAllPlayers([]);
+          setLoading(false);
+          return;
+        }
         
         // Map to player format expected by BestXI
         const players = (topScorers || []).map(scorer => ({
-          id: scorer.playerId || scorer.seasonPlayerId,
-          name: scorer.playerName || scorer.name,
-          fullName: scorer.playerName || scorer.name,
-          position: scorer.position || 'Midfielder',
+          id: scorer.playerId || scorer.seasonPlayerId || scorer.id,
+          name: scorer.playerName || scorer.name || scorer.fullName || 'Unknown',
+          fullName: scorer.playerName || scorer.name || scorer.fullName || 'Unknown',
+          position: scorer.position || scorer.position_code || scorer.positionCode || 'Midfielder',
           nationality: scorer.nationality || '',
-          teamName: scorer.teamName || scorer.team_name,
+          teamName: scorer.teamName || scorer.team_name || scorer.team || 'Unknown',
           goals: scorer.goals || 0,
           assists: scorer.assists || 0,
-          avatar: scorer.avatar || null
+          avatar: scorer.avatar || scorer.photoUrl || null,
+          teamLogo: scorer.teamLogo || scorer.teamLogoUrl || null,
+          shirtNumber: scorer.shirtNumber || scorer.shirt_number || scorer.number || null
         }));
         
+        console.log('[BestXI] Mapped players:', players.length, players);
         setAllPlayers(players);
+        setError(null);
       } catch (error) {
-        console.error('Failed to fetch players:', error);
+        console.error('[BestXI] Failed to fetch players:', error);
         setAllPlayers([]);
+        setError(error.message || 'Không thể tải dữ liệu');
       } finally {
         setLoading(false);
+        console.log('[BestXI] ========== Loading completed ==========');
       }
     };
 
     fetchPlayers();
-  }, []);
+  }, [selectedSeasonId]); // Re-fetch when season changes
 
   // Position mapping function
   const getPlayerRole = (position) => {
@@ -264,7 +369,12 @@ const BestXI = () => {
 
   // Select Best XI based on formation
   const selectBestXI = useMemo(() => {
-    if (allPlayers.length === 0) return [];
+    if (allPlayers.length === 0) {
+      console.log('[BestXI] No players available for selection');
+      return [];
+    }
+
+    console.log('[BestXI] Selecting Best XI from', allPlayers.length, 'players');
 
     // Group players by role
     const playersByRole = {
@@ -283,11 +393,18 @@ const BestXI = () => {
         ...player,
         role,
         rating,
-        teamLogo: player.teamLogoUrl || null,
+        teamLogo: player.teamLogo || player.teamLogoUrl || null,
         flag: player.nationalityFlag || null,
         team: player.teamName || 'N/A',
-        number: player.shirtNumber || '—'
+        number: player.shirtNumber || player.number || '—'
       });
+    });
+
+    console.log('[BestXI] Players by role:', {
+      GK: playersByRole.GK.length,
+      DEF: playersByRole.DEF.length,
+      MID: playersByRole.MID.length,
+      FWD: playersByRole.FWD.length
     });
 
     // Sort each group by rating
@@ -313,9 +430,12 @@ const BestXI = () => {
     ['GK', 'DEF', 'MID', 'FWD'].forEach(role => {
       const needed = needs[role];
       const available = playersByRole[role];
-      bestXI.push(...available.slice(0, needed));
+      const selected = available.slice(0, needed);
+      console.log(`[BestXI] Selected ${selected.length}/${needed} ${role} players`);
+      bestXI.push(...selected);
     });
 
+    console.log('[BestXI] Final Best XI:', bestXI.length, 'players');
     return bestXI;
   }, [allPlayers, selectedFormation]);
 
@@ -375,6 +495,16 @@ const BestXI = () => {
 
   const currentFormation = FORMATIONS[selectedFormation];
   const currentPlayers = bestPlayers[selectedFormation] || [];
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[BestXI] Component state:', {
+      allPlayers: allPlayers.length,
+      currentPlayers: currentPlayers.length,
+      selectedFormation,
+      loading
+    });
+  }, [allPlayers.length, currentPlayers.length, selectedFormation, loading]);
 
   // Fetch avatars when currentPlayers change - FORCE TRIGGER
   const playerIdsString = currentPlayers.map(p => p.id || p.player_id).filter(Boolean).sort().join(',');
@@ -443,8 +573,12 @@ const BestXI = () => {
 
   // Position players on field
   const positionedPlayers = useMemo(() => {
-    if (!currentPlayersWithAvatars || currentPlayersWithAvatars.length === 0) return [];
+    if (!currentPlayersWithAvatars || currentPlayersWithAvatars.length === 0) {
+      console.log('[BestXI] No players with avatars to position');
+      return [];
+    }
     
+    console.log('[BestXI] Positioning', currentPlayersWithAvatars.length, 'players');
     const result = [];
     let playerIndex = 0;
 
@@ -461,11 +595,13 @@ const BestXI = () => {
       });
     });
 
+    console.log('[BestXI] Positioned', result.length, 'players on field');
     return result;
   }, [currentFormation, currentPlayersWithAvatars]);
 
+  // Always render the section, even if there's no data
   return (
-    <section className="relative rounded-[32px] overflow-hidden backdrop-blur-xl bg-gradient-to-br from-slate-900/95 via-slate-800/90 to-slate-900/95 border border-cyan-400/20 shadow-[0_0_80px_rgba(0,217,255,0.15)]">
+    <section className="relative rounded-[32px] overflow-hidden backdrop-blur-xl bg-gradient-to-br from-slate-900/95 via-slate-800/90 to-slate-900/95 border border-cyan-400/20 shadow-[0_0_80px_rgba(0,217,255,0.15)] min-h-[600px] mt-12">
       {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute w-96 h-96 bg-gradient-to-r from-cyan-500/10 to-blue-600/10 rounded-full -top-48 -right-48 animate-pulse-slow blur-3xl" />
@@ -482,6 +618,14 @@ const BestXI = () => {
       </div>
 
       <div className="relative z-10 p-6 md:p-10 lg:p-12">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-400/30 text-red-300 text-sm">
+            <p className="font-semibold">Lỗi: {error}</p>
+            <p className="text-xs mt-1 text-red-300/70">Vui lòng thử lại sau hoặc kiểm tra kết nối API</p>
+          </div>
+        )}
+        
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-10">
           {/* Title */}
@@ -497,7 +641,7 @@ const BestXI = () => {
                   </span>
                 </h2>
                 <p className="text-sm text-cyan-300/80 font-semibold uppercase tracking-[0.15em]">
-                  Team of The {selectedPeriod === 'week' ? 'Week' : selectedPeriod === 'month' ? 'Month' : 'Season'} · Powered by AI & Match Data
+                  {selectedSeasonYear ? `Mùa giải ${selectedSeasonYear}` : 'Team of The Season'} · Powered by AI & Match Data
                 </p>
               </div>
             </div>
@@ -505,8 +649,43 @@ const BestXI = () => {
 
           {/* Controls */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Period Selector */}
-            <div className="relative">
+            {/* Season Selector */}
+            {availableSeasons.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowSeasonDropdown(!showSeasonDropdown)}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/[0.08] backdrop-blur-md border border-cyan-400/30 text-white hover:bg-white/[0.12] hover:border-cyan-300 transition-all"
+                >
+                  <Trophy size={16} className="text-cyan-400" />
+                  <span className="font-semibold text-sm">
+                    {selectedSeasonYear ? `Mùa ${selectedSeasonYear}` : 'Chọn mùa'}
+                  </span>
+                  <ChevronDown size={16} className={`transition-transform ${showSeasonDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showSeasonDropdown && (
+                  <div className="absolute top-full mt-2 right-0 w-48 rounded-xl bg-slate-800/95 backdrop-blur-xl border border-cyan-400/30 shadow-xl overflow-hidden z-50">
+                    {availableSeasons.map(season => (
+                      <button
+                        key={season.seasonId}
+                        onClick={() => { 
+                          setSelectedSeasonId(season.seasonId); 
+                          setShowSeasonDropdown(false);
+                        }}
+                        className={`w-full px-4 py-3 text-left text-sm font-medium hover:bg-cyan-500/20 transition-colors ${
+                          selectedSeasonId === season.seasonId ? 'bg-cyan-500/30 text-cyan-300' : 'text-white'
+                        }`}
+                      >
+                        🏆 {season.label || `Mùa ${season.calculatedYear || 'N/A'}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Period Selector - Hidden for now, focus on season */}
+            {/* <div className="relative">
               <button
                 onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
                 className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/[0.08] backdrop-blur-md border border-cyan-400/30 text-white hover:bg-white/[0.12] hover:border-cyan-300 transition-all"
@@ -533,7 +712,7 @@ const BestXI = () => {
                   ))}
                 </div>
               )}
-            </div>
+            </div> */}
 
             {/* Formation Selector */}
             <div className="relative">
@@ -604,7 +783,18 @@ const BestXI = () => {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <Trophy size={48} className="text-white/20 mx-auto mb-4" />
-                  <p className="text-white/60 text-sm">Chưa có dữ liệu cầu thủ</p>
+                  <p className="text-white/60 text-sm mb-2">Chưa có dữ liệu cầu thủ</p>
+                  <p className="text-white/40 text-xs">Đang chờ dữ liệu từ API...</p>
+                  <p className="text-white/30 text-xs mt-2">Tổng số cầu thủ: {allPlayers.length}</p>
+                </div>
+              </div>
+            ) : positionedPlayers.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <Trophy size={48} className="text-white/20 mx-auto mb-4" />
+                  <p className="text-white/60 text-sm mb-2">Không đủ cầu thủ cho đội hình {selectedFormation}</p>
+                  <p className="text-white/40 text-xs">Cần ít nhất 11 cầu thủ</p>
+                  <p className="text-white/30 text-xs mt-2">Có {currentPlayersWithAvatars.length} cầu thủ</p>
                 </div>
               </div>
             ) : (

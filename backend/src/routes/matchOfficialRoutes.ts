@@ -227,4 +227,41 @@ router.delete(
   }
 );
 
+/**
+ * POST /api/match-officials/match/:matchId/auto-assign
+ * Auto assign officials to a match (Super Admin only)
+ */
+router.post(
+  "/match/:matchId/auto-assign",
+  requireAuth,
+  requirePermission("manage_match_officials"),
+  async (req: any, res: Response) => {
+    try {
+      const matchId = parseInt(req.params.matchId, 10);
+      const userId = req.user?.sub;
+
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Check if user is super admin
+      const isSuperAdmin = Array.isArray(req.user?.roles) && req.user.roles.includes("super_admin");
+      if (!isSuperAdmin) {
+        return res.status(403).json({ error: "Only super admin can auto assign officials" });
+      }
+
+      const result = await matchOfficialService.autoAssignOfficials(matchId, userId);
+      
+      res.json({
+        success: true,
+        message: `Đã phân công ${result.assigned.length} trọng tài`,
+        data: result
+      });
+    } catch (error: any) {
+      console.error("Auto assign officials error:", error);
+      res.status(500).json({ error: error.message || "Failed to auto assign officials" });
+    }
+  }
+);
+
 export default router;

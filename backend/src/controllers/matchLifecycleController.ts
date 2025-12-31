@@ -349,6 +349,26 @@ export async function reviewSupervisorReport(req: AuthenticatedRequest, res: Res
 }
 
 /**
+ * GET /api/admin/supervisor-reports
+ * Get all supervisor reports (for admin)
+ * Query: ?seasonId=1
+ */
+export async function getAllSupervisorReports(req: AuthenticatedRequest, res: Response): Promise<void> {
+  try {
+    const seasonId = req.query.seasonId ? parseInt(req.query.seasonId as string, 10) : undefined;
+
+    console.log(`[getAllSupervisorReports] Request from user ${req.user?.sub}, seasonId: ${seasonId}`);
+    const reports = await supervisorReportService.getAllSupervisorReports(seasonId);
+    console.log(`[getAllSupervisorReports] Returning ${reports.length} reports`);
+    res.json({ data: reports });
+  } catch (error: any) {
+    console.error("Get all supervisor reports error:", error);
+    console.error("Error stack:", error.stack);
+    res.status(500).json({ error: "Failed to get supervisor reports", details: error.message });
+  }
+}
+
+/**
  * GET /api/seasons/:seasonId/supervisor-reports/statistics
  * Get supervisor report statistics for a season
  */

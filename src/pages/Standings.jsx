@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { safeBtoaUnicode } from '../shared/utils/base64'
 import { ChevronDown, Trophy, Target, Users, TrendingUp, TrendingDown, Minus, Download, Share2, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import StandingsTable from '../components/StandingsTable'
@@ -503,11 +504,11 @@ const Standings = () => {
                 <td className="uefa-table-cell">
                   <div className="flex items-center space-x-3">
                     <img 
-                      src={team.logo || `data:image/svg+xml;base64,${btoa(`<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#003399"/><text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${(team.team || 'TM').substring(0, 3).toUpperCase()}</text></svg>`)}`} 
+                      src={team.logo || `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#003399"/><text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${(team.team || 'TM').substring(0, 3).toUpperCase()}</text></svg>`)}`} 
                       alt={team.team}
                       className="w-8 h-8 object-contain"
                       onError={(e) => {
-                        e.target.src = `data:image/svg+xml;base64,${btoa(`<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#003399"/><text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${(team.team || 'TM').substring(0, 3).toUpperCase()}</text></svg>`)}`
+                        e.target.src = `data:image/svg+xml;base64,${safeBtoaUnicode(`<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#003399"/><text x="16" y="20" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${(team.team || 'TM').substring(0, 3).toUpperCase()}</text></svg>`)}`
                       }}
                     />
                     <div>

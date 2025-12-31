@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { requireAuth, requirePermission } from "../middleware/authMiddleware";
+import { requireAuth, requirePermission, requireAnyPermission } from "../middleware/authMiddleware";
 import * as participationFeeService from "../services/participationFeeService";
 
 const router = Router();
@@ -11,7 +11,7 @@ const router = Router();
 router.get(
   "/my",
   requireAuth,
-  requirePermission("manage_team"),
+  requireAnyPermission("manage_teams", "manage_own_team", "view_own_team"),
   async (req: Request, res: Response) => {
     try {
       if (!req.user || !req.user.teamIds || req.user.teamIds.length === 0) {
@@ -41,7 +41,7 @@ router.get(
 router.post(
   "/:registrationId/submit",
   requireAuth,
-  requirePermission("manage_team"),
+  requireAnyPermission("manage_teams", "manage_own_team", "view_own_team"),
   async (req: Request, res: Response) => {
     try {
       const registrationId = parseInt(req.params.registrationId, 10);

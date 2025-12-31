@@ -2,6 +2,7 @@ import type { Request } from "express";
 
 export interface JwtPayload {
   sub: number;
+  userId?: number; // Optional alias for sub, for backward compatibility
   username: string;
   roles: string[];
   permissions: string[];

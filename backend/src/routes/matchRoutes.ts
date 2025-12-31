@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response, NextFunction } from "express";
 import { z } from "zod";
 import { requireAuth, requirePermission } from "../middleware/authMiddleware";
 import { query } from "../db/sqlServer";
@@ -19,10 +19,10 @@ import {
 } from "../services/matchService";
 import { syncMatchesOnly } from "../services/syncService";
 import { createMatchEvent, deleteMatchEvent, disallowMatchEvent } from "../services/matchEventService";
-import { getMatchLineups, submitLineup } from "../services/matchLineupService";
+import { getMatchLineups, submitLineup, autoGenerateLineup } from "../services/matchLineupService";
 import * as lineupService from "../services/matchLineupService";
 const router = Router();
-const requireMatchManagement = [requireAuth, requirePermission("manage_matches")] as const;
+const requireMatchManagement = [requireAuth, requirePermission("manage_matches")];
 
 const isValidDate = (value: string): boolean => !Number.isNaN(Date.parse(value));
 
@@ -185,11 +185,29 @@ router.get("/external", async (req, res, next) => {
 
 const createEventSchema = z.object({
   teamId: z.number().int().positive(),
+  // Accept type as string; we'll normalize later in the handler
   type: z.string().trim().min(1).max(32),
-  minute: z.number().int().min(0).max(130),
+  // Accept minute as string or number or empty; normalize to number|null
+  minute: z.preprocess((val) => {
+    if (val === undefined || val === null || val === '') return null
+    // If it's a string like "45+1" or "90+3", extract digits
+    const s = String(val)
+    const digits = s.replace(/[^0-9]/g, '')
+    if (digits === '') return null
+    const n = Number(digits)
+    return Number.isNaN(n) ? null : n
+  }, z.number().int().min(0).max(130).nullable().optional()),
   description: z.string().trim().max(255).optional().nullable(),
-  playerId: z.number().int().positive().optional().nullable(),
-  assistPlayerId: z.number().int().positive().optional().nullable(),
+playerId: z.preprocess((v) => {
+    if (v === undefined || v === null || v === '') return null;
+    return Number(v);
+  }, z.number().int().positive().nullable().optional()),
+
+  assistPlayerId: z.preprocess((v) => {
+    if (v === undefined || v === null || v === '') return null;
+    return Number(v);
+  }, z.number().int().positive().nullable().optional()),
+
   playerName: z.string().trim().max(100).optional().nullable(),
 });
 
@@ -350,6 +368,59 @@ router.post("/:id/lineups", requireAuth, async (req: any, res, next) => {
     next(error);
   }
 });
+
+/**
+ * POST /api/matches/:matchId/auto-generate-lineup
+ * Auto generate lineup for a team (Super Admin only)
+ */
+router.post(
+  "/:matchId/auto-generate-lineup",
+  requireAuth,
+  requireMatchManagement,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const matchId = Number(req.params.matchId);
+      const { seasonTeamId } = req.body;
+
+      if (!Number.isInteger(matchId) || matchId <= 0) {
+        return res.status(400).json({ message: "Invalid match id" });
+      }
+
+      if (!seasonTeamId) {
+        return res.status(400).json({ message: "seasonTeamId is required" });
+      }
+
+      // Check if user is super admin
+      const isSuperAdmin = Array.isArray(req.user?.roles) && req.user.roles.includes("super_admin");
+      if (!isSuperAdmin) {
+        return res.status(403).json({ error: "Only super admin can auto generate lineup" });
+      }
+
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const result = await autoGenerateLineup(matchId, seasonTeamId, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          message: result.message,
+          data: result
+        });
+      }
+
+      res.json({
+        success: true,
+        message: result.message,
+        data: result
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.get("/:matchId/team-infos", async (req, res, next) => {
   try {
@@ -645,7 +716,7 @@ router.post("/:id/events", ...requireMatchManagement, async (req: any, res, next
       matchId,
       teamId: payload.teamId,
       type: eventType as any,
-      minute: payload.minute,
+      minute: payload.minute ?? undefined, // Convert null to undefined
       description: payload.description ?? undefined,
       playerId: payload.playerId ?? undefined, // Pass raw player ID
       assistPlayerId: payload.assistPlayerId ?? undefined

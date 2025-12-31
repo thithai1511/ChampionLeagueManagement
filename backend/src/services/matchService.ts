@@ -339,10 +339,12 @@ export const listMatches = async (filters: MatchFilters = {}): Promise<Paginated
         m.season_id AS seasonId,
         m.round_id AS roundId,
         m.matchday_number AS matchdayNumber,
+        m.home_season_team_id AS homeSeasonTeamId,
         hstp.team_id AS homeTeamId,
         ht.name AS homeTeamName,
         ht.short_name AS homeTeamShortName,
         ht.logo_url AS homeTeamLogo,
+        m.away_season_team_id AS awaySeasonTeamId,
         astp.team_id AS awayTeamId,
         at.name AS awayTeamName,
         at.short_name AS awayTeamShortName,
@@ -605,6 +607,7 @@ const validatePreMatchConditions = async (matchId: number, homeSeasonTeamId: num
   }
 
   // 2. Lineup Check
+<<<<<<< HEAD
   const lineups = await query<{ season_team_id: number; is_starting: boolean }>(
     `SELECT season_team_id, is_starting FROM match_lineups WHERE match_id = @matchId`,
     { matchId }
@@ -612,6 +615,18 @@ const validatePreMatchConditions = async (matchId: number, homeSeasonTeamId: num
 
   const checkTeam = (seasonTeamId: number, teamName: string) => {
     const teamLineup = lineups.recordset.filter(l => l.season_team_id === seasonTeamId);
+=======
+  const lineups = await query<{ team_id: number; is_starting: boolean }>(
+    `SELECT stp.team_id, ml.is_starting 
+     FROM match_lineups ml
+     INNER JOIN season_team_participants stp ON ml.season_team_id = stp.season_team_id
+     WHERE ml.match_id = @matchId`,
+    { matchId }
+  );
+
+  const checkTeam = (teamId: number, teamName: string) => {
+    const teamLineup = lineups.recordset.filter(l => l.team_id === teamId);
+>>>>>>> upstream/main
     const starters = teamLineup.filter(l => l.is_starting).length;
     const subs = teamLineup.filter(l => !l.is_starting).length;
 
@@ -787,10 +802,12 @@ export const listLiveMatches = async (): Promise<MatchRecord[]> => {
         m.season_id AS seasonId,
         m.round_id AS roundId,
         m.matchday_number AS matchdayNumber,
+        m.home_season_team_id AS homeSeasonTeamId,
         hstp.team_id AS homeTeamId,
         ht.name AS homeTeamName,
         ht.short_name AS homeTeamShortName,
         ht.logo_url AS homeTeamLogo,
+        m.away_season_team_id AS awaySeasonTeamId,
         astp.team_id AS awayTeamId,
         at.name AS awayTeamName,
         at.short_name AS awayTeamShortName,
